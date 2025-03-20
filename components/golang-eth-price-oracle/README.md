@@ -21,7 +21,7 @@ sudo pacman -Sy tinygo
 
 ```bash docci-os=linux docci-if-not-installed="tinygo"
 # https://tinygo.org/getting-started/install/linux/
-wget https://github.com/tinygo-org/tinygo/releases/download/v0.37.0/tinygo_0.37.0_amd64.deb
+wget --quiet https://github.com/tinygo-org/tinygo/releases/download/v0.37.0/tinygo_0.37.0_amd64.deb
 sudo dpkg -i tinygo_0.37.0_amd64.deb && rm tinygo_0.37.0_amd64.deb
 ```
 
@@ -61,7 +61,8 @@ wkg --version
 Build all wasi components from the root of the repo. You can also run this command within each component directory.
 
 ```bash docci-output-contains="component built"
-make wasi-build
+# Builds only this component, not all.
+WASI_BUILD_DIR=golang-eth-price-oracle make wasi-build
 ```
 
 ## Execute Component

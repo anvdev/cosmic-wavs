@@ -14,6 +14,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  GO_VERSION: 1.23.7
+
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -24,7 +27,6 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    # TODO: change to use the internal CI instead of this?
     - name: Install Ubuntu packages
       run: sudo apt-get update && sudo apt-get install bash make jq
 
@@ -32,6 +34,11 @@ jobs:
       name: Install Node.js
       with:
         node-version: 21
+
+    - name: Set up Go ${{ env.GO_VERSION }}
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
 
     - name: Install Rust
       uses: actions-rs/toolchain@v1
@@ -72,9 +79,16 @@ jobs:
         cargo binstall cargo-component warg-cli wkg --locked --no-confirm --force
         wkg config --default-registry wa.dev
 
-    # -------------------
-    - name: Run docci readme runner
+    - name: Install docci readme runner
       run: |
         sudo wget -O /usr/local/bin/docci https://github.com/Reecepbcups/docci/releases/download/v0.4.1/docci
         sudo chmod a+rx /usr/local/bin/docci
+
+    - name: Run docci (go)
+      run: |
+        docci components/golang-eth-price-oracle/config.json
+
+    - name: Run docci (rust)
+      run: |
         docci .github/workflows/config.json
+

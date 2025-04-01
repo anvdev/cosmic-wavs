@@ -12,7 +12,6 @@ SERVICE_CONFIG_FILE?=.docker/service.json
 
 # Define common variables
 CARGO=cargo
-RECIPE := wasi-build
 # the directory to build, or "" for all
 WASI_BUILD_DIR ?= ""
 WAVS_CMD ?= $(SUDO) docker run --rm --network host $$(test -f .env && echo "--env-file ./.env") -v $$(pwd):/data ghcr.io/lay3rlabs/wavs:latest wavs-cli
@@ -22,7 +21,6 @@ SERVICE_MANAGER_ADDR?=`jq -r '.eigen_service_managers.local | .[-1]' .docker/dep
 SERVICE_TRIGGER_ADDR?=`jq -r '.trigger' "./.docker/script_deploy.json"`
 SERVICE_SUBMISSION_ADDR?=`jq -r '.service_handler' "./.docker/script_deploy.json"`
 COIN_MARKET_CAP_ID?=1
-MAKEFILE_DIRS := $(dir $(shell find components -name "Makefile" -o -name "makefile"))
 
 ## check-requirements: verify system requirements are installed
 check-requirements: check-node check-jq check-cargo
@@ -30,19 +28,9 @@ check-requirements: check-node check-jq check-cargo
 ## build: building the project
 build: _build_forge wasi-build
 
-## wasi-build: building WAVS wasi components
+## wasi-build: building WAVS wasi components | WASI_BUILD_DIR
 wasi-build:
-	@for dir in $(MAKEFILE_DIRS); do \
-		if grep -q "^$(RECIPE):" "$$dir/Makefile" 2>/dev/null || grep -q "^$(RECIPE):" "$$dir/makefile" 2>/dev/null; then \
-			if [ "$(WASI_BUILD_DIR)" != "" ] && [[ "$$dir" != *"$(WASI_BUILD_DIR)"* ]]; then \
-				continue; \
-			fi; \
-			echo "Running '$(RECIPE)' in $$dir"; \
-			$(MAKE) -s -C "$$dir" $(RECIPE); \
-		else \
-			echo "Recipe '$(RECIPE)' not found in $$dir"; \
-		fi; \
-	done
+	@./script/build_components.sh $(WASI_BUILD_DIR)
 
 ## wasi-exec: executing the WAVS wasi component(s) | COMPONENT_FILENAME, COIN_MARKET_CAP_ID
 wasi-exec:

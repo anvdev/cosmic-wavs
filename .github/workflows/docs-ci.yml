@@ -63,8 +63,6 @@ jobs:
 
     - uses: cargo-bins/cargo-binstall@main
       name: Install cargo-binstall
-      with:
-        version: latest
 
     - name: Install Foundry
       uses: foundry-rs/foundry-toolchain@v1
@@ -74,10 +72,22 @@ jobs:
     - name: Install rust wasm32-wasip2
       run: rustup target add wasm32-wasip2
 
-    - name: Install wasi components
+    - name: Check if wkg exists
+      id: check-wkg
       run: |
-        cargo binstall cargo-component warg-cli wkg --locked --no-confirm --force
-        wkg config --default-registry wa.dev
+        if [ ! -f ~/.cargo/bin/wkg ]; then
+          echo "wkg_exists=false" >> $GITHUB_OUTPUT
+        else
+          echo "wkg_exists=true" >> $GITHUB_OUTPUT
+        fi
+
+    # limited due to low rate limits
+    - name: Install wasi components
+      if: steps.check-wkg.outputs.wkg_exists == 'false'
+      run: cargo binstall cargo-component warg-cli wkg --locked --no-confirm --force
+
+    - name: Configure wkg registry
+      run: wkg config --default-registry wa.dev
 
     - name: Install docci readme runner
       run: |
@@ -85,13 +95,15 @@ jobs:
         sudo wget --quiet -O /usr/local/bin/docci ${RELEASE}
         sudo chmod a+rx /usr/local/bin/docci
 
+
+    # installs wasm-tools as well, required for rust & ts
     - name: Run docci (go)
       run: |
         docci components/golang-eth-price-oracle/config.json
 
     - name: Run docci (rust)
       run: |
-        docci .github/workflows/config.json
+        docci components/eth-price-oracle/config.json
 
     - name: Run docci (typescript)
       run: |

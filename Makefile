@@ -17,9 +17,10 @@ WASI_BUILD_DIR ?= ""
 WAVS_CMD ?= $(SUDO) docker run --rm --network host $$(test -f .env && echo "--env-file ./.env") -v $$(pwd):/data ghcr.io/lay3rlabs/wavs:latest wavs-cli
 ANVIL_PRIVATE_KEY?=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 RPC_URL?=http://localhost:8545
+CHAIN?=local
 SERVICE_MANAGER_ADDR?=`jq -r '.eigen_service_managers.local | .[-1]' .docker/deployments.json`
-SERVICE_TRIGGER_ADDR?=`jq -r '.trigger' "./.docker/script_deploy.json"`
-SERVICE_SUBMISSION_ADDR?=`jq -r '.service_handler' "./.docker/script_deploy.json"`
+SERVICE_TRIGGER_ADDR?=`jq -r ".trigger" "./.docker/deploy_${CHAIN}.json"`
+SERVICE_SUBMISSION_ADDR?=`jq -r '.service_handler' "./.docker/deploy_${CHAIN}.json"`
 COIN_MARKET_CAP_ID?=1
 TRIGGER_ID?=1
 
@@ -82,16 +83,16 @@ start-all: clean-docker setup-env
 		bash -ec 'anvil & anvil_pid=$$!; trap "kill -9 $$anvil_pid 2>/dev/null" EXIT; $(SUDO) docker compose up; wait'; \
 	fi
 
-## get-service-handler: getting the service handler address from the script deploy
+## get-service-handler: getting the service handler address from the script deploy | CHAIN
 get-service-handler-from-deploy:
-	@jq -r '.service_handler' "./.docker/script_deploy.json"
+	@jq -r '.service_handler' "./.docker/deploy_${CHAIN}.json"
 
 get-eigen-service-manager-from-deploy:
 	@jq -r '.eigen_service_managers.local | .[-1]' .docker/deployments.json
 
-## get-trigger: getting the trigger address from the script deploy
+## get-trigger: getting the trigger address from the script deploy | CHAIN
 get-trigger-from-deploy:
-	@jq -r '.trigger' "./.docker/script_deploy.json"
+	@jq -r '.trigger' "./.docker/deploy_${CHAIN}.json"
 
 ## wavs-cli: running wavs-cli in docker
 wavs-cli:

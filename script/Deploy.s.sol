@@ -14,8 +14,6 @@ contract Deploy is Common {
 
     string public root = vm.projectRoot();
     string public deployments_path = string.concat(root, "/.docker/deployments.json");
-    string public script_output_path = string.concat(root, "/.docker/script_deploy.json");
-
     /**
      * @dev Deploys the SimpleSubmit and SimpleTrigger contracts and writes the results to a JSON file
      * @param _serviceManagerAddr The address of the service manager
@@ -29,28 +27,14 @@ contract Deploy is Common {
         }
         vm.stopBroadcast();
 
-        // grab json file content from script_output_path if it exists
-        string memory _existingJson = "";
-        if (vm.exists(script_output_path)) {
-            _existingJson = vm.readFile(script_output_path);
-        }
-        if (bytes(_existingJson).length == 0) {
-            _existingJson = "{}";
-        }
-
-        // print out _existingJson
-        console.log("existingJson", _existingJson);
+        string memory _scriptOutputPath = string.concat(root, "/.docker/deploy_", _chainName, ".json");
 
         string memory _json = "json";
         _json.serialize("service_handler", toChecksumAddress(address(_submit)));
         _json.serialize("trigger", toChecksumAddress(address(_trigger)));
         string memory _finalJson = _json.serialize("service_manager", _serviceManagerAddr);
-        string memory _finalJsonWithChain = vm.serializeString(script_output_path, _chainName, _finalJson);
 
-        vm.writeFile(script_output_path, _finalJsonWithChain);
-
-        // if file doe snot exist, just save _finalJson to the key of _chainName
-        // vm.writeJson
+        vm.writeFile(_scriptOutputPath, _finalJson);
     }
 
     /**

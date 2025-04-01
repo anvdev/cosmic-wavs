@@ -205,6 +205,8 @@ export SERVICE_HANDLER=`make get-service-handler-from-deploy`
 
 Deploy the compiled component with the contract information from the previous steps. Review the [makefile](./Makefile) for more details and configuration options.`TRIGGER_EVENT` is the event that the trigger contract emits and WAVS watches for. By altering `SERVICE_TRIGGER_ADDR` you can watch events for contracts others have deployed.
 
+If you are looking for multichain support, reference the [MULTICHAIN.md](./examples/MULTICHAIN.md) example.
+
 ```bash docci-delay-per-cmd=1
 # Build your service JSON with optional overrides in the script
 # Multichain support can be enabled by setting:

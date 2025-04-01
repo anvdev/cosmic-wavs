@@ -7,7 +7,7 @@ import {IWavsServiceManager} from "@wavs/interfaces/IWavsServiceManager.sol";
 import {SimpleSubmit} from "contracts/WavsSubmit.sol";
 import {SimpleTrigger} from "contracts/WavsTrigger.sol";
 import {Common, EigenContracts} from "script/Common.s.sol";
-
+import {console} from "forge-std/console.sol";
 /// @dev Deployment script for SimpleSubmit and SimpleTrigger contracts
 contract Deploy is Common {
     using stdJson for string;
@@ -20,17 +20,37 @@ contract Deploy is Common {
      * @dev Deploys the SimpleSubmit and SimpleTrigger contracts and writes the results to a JSON file
      * @param _serviceManagerAddr The address of the service manager
      */
-    function run(string calldata _serviceManagerAddr) public {
+    function run(string calldata _serviceManagerAddr, string calldata _chainName, bool _deploySubmit) public {
         vm.startBroadcast(_privateKey);
-        SimpleSubmit _submit = new SimpleSubmit(IWavsServiceManager(vm.parseAddress(_serviceManagerAddr)));
+        SimpleSubmit _submit;
         SimpleTrigger _trigger = new SimpleTrigger();
+        if(_deploySubmit) {
+            _submit = new SimpleSubmit(IWavsServiceManager(vm.parseAddress(_serviceManagerAddr)));
+        }
         vm.stopBroadcast();
+
+        // grab json file content from script_output_path if it exists
+        string memory _existingJson = "";
+        if (vm.exists(script_output_path)) {
+            _existingJson = vm.readFile(script_output_path);
+        }
+        if (bytes(_existingJson).length == 0) {
+            _existingJson = "{}";
+        }
+
+        // print out _existingJson
+        console.log("existingJson", _existingJson);
 
         string memory _json = "json";
         _json.serialize("service_handler", toChecksumAddress(address(_submit)));
         _json.serialize("trigger", toChecksumAddress(address(_trigger)));
         string memory _finalJson = _json.serialize("service_manager", _serviceManagerAddr);
-        vm.writeFile(script_output_path, _finalJson);
+        string memory _finalJsonWithChain = vm.serializeString(script_output_path, _chainName, _finalJson);
+
+        vm.writeFile(script_output_path, _finalJsonWithChain);
+
+        // if file doe snot exist, just save _finalJson to the key of _chainName
+        // vm.writeJson
     }
 
     /**

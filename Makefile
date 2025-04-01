@@ -21,6 +21,7 @@ SERVICE_MANAGER_ADDR?=`jq -r '.eigen_service_managers.local | .[-1]' .docker/dep
 SERVICE_TRIGGER_ADDR?=`jq -r '.trigger' "./.docker/script_deploy.json"`
 SERVICE_SUBMISSION_ADDR?=`jq -r '.service_handler' "./.docker/script_deploy.json"`
 COIN_MARKET_CAP_ID?=1
+TRIGGER_ID?=1
 
 ## check-requirements: verify system requirements are installed
 check-requirements: check-node check-jq check-cargo
@@ -104,9 +105,13 @@ upload-component:
 deploy-service:
 	@$(WAVS_CMD) deploy-service-raw --log-level=info --data /data/.docker --home /data --service `jq -c . < $(SERVICE_CONFIG_FILE)`
 
-## show-result: showing the result | SERVICE_TRIGGER_ADDR, SERVICE_SUBMISSION_ADDR, RPC_URL
+## show-trigger-id: showing the trigger id | SERVICE_TRIGGER_ADDR
+show-trigger-id:
+	@forge script ./script/ShowResult.s.sol ${SERVICE_TRIGGER_ADDR} --sig "getNextTriggerId(string)" --rpc-url $(RPC_URL) -v 4
+
+## show-result: showing data result | SERVICE_SUBMISSION_ADDR, TRIGGER_ID, RPC_URL
 show-result:
-	@forge script ./script/ShowResult.s.sol ${SERVICE_TRIGGER_ADDR} ${SERVICE_SUBMISSION_ADDR} --sig "run(string,string)" --rpc-url $(RPC_URL) --broadcast -v 4
+	@forge script ./script/ShowResult.s.sol ${SERVICE_SUBMISSION_ADDR} ${TRIGGER_ID} --sig "getData(string,uint64)" --rpc-url $(RPC_URL) -v 4
 
 _build_forge:
 	@forge build

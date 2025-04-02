@@ -12,7 +12,7 @@ Use the info in this guide to customize the template to create your own custom s
 
 The simple onchain trigger contract in the template is used to emit triggers to the WAVS service. The trigger data is encoded as a bytes object. When a WAVS component receives this trigger, it uses the `decode_event_log_data!` macro from the [`wavs-wasi-chain`](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions) crate to decode the event data for processing.
 
-Each trigger has a unique ID that links it to its data. The component processes the trigger data and returns results. Results are submitted back to the blockchain via the submission contract.
+In the template, each trigger has a unique ID that links it to its data. The component processes the trigger data and returns results. Results are submitted back to the blockchain via the submission contract.
 
 The [trigger contract in the WAVS foundry template](https://github.com/Lay3rLabs/wavs-foundry-template/blob/v0.3.0/src/contracts/WavsTrigger.sol) is a simple example that takes generic bytes and passes them to the component. When developing a custom trigger, you will need to update the template code in a few places:
 
@@ -24,7 +24,7 @@ The [trigger contract in the WAVS foundry template](https://github.com/Lay3rLabs
 
 ## Component
 
-WASI components contain the main logic of a WAVS service. They are responsible for processing the trigger data executing the business logic of a service.
+WASI components contain the main logic of a WAVS service. They are responsible for processing the trigger data and executing the business logic of a service.
 
 A basic component has three main parts:
 
@@ -131,6 +131,22 @@ async fn make_request() -> Result<YourResponseType, String> {
 }
 ```
 
+For making POST requests with JSON data, you can use the [`http_request_post_json` helper function](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/http/fn.http_request_post_json.html), which automatically handles JSON serialization and sets header to `application/json`:
+
+```rust lib.rs
+async fn make_post_request() -> Result<PostResponse, String> {
+    let url = "https://api.example.com/endpoint"; // The URL of the endpoint to make the request to
+    let post_data = ("key1", "value1"); // any serializable data can be passed in
+    
+    // Make POST request and parse JSON response
+    let response: PostResponse = fetch_json(
+        http_request_post_json(&url, &post_data)?
+    ).await.map_err(|e| e.to_string())?;
+    
+    Ok(response)
+}
+```
+
 Other functions are available in the [crate documentation](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions).
 
 ### Logging
@@ -155,36 +171,16 @@ host::log(LogLevel::Info, "Production logging message");
 
 ### Blockchain interactions
 
-Components can query Ethereum using the `wavs-wasi-chain` crate:
-
-```rust lib.rs
-use wavs_wasi_chain::host;  // For blockchain interactions
-use alloy_sol_types::SolValue;  // For ABI encoding/decoding
-
-// Get chain configuration
-let chain_config = host::get_eth_chain_config("ethereum")
-    .ok_or("Chain config not found")?;
-
-// Make an eth_call
-let result = host::eth_call(
-    &chain_config,
-    "0x...", // contract address
-    "0x...", // encoded function call
-    "latest" // block tag
-).await?;
-```
-
 The following dependencies are required in `Cargo.toml` for Ethereum interactions:
 
-```toml Cargo.toml
+```toml
 [dependencies]
 wavs-wasi-chain = { workspace = true }  # Blockchain interactions
 alloy-sol-types = { workspace = true }  # ABI handling
+alloy-sol-macro = { workspace = true }  # For Solidity type generation
 ```
 
-#### Chain configuration
-
-Chain configs are defined in `wavs.toml`. Configs support both HTTP and WebSocket endpoints.Returns encoded ABI data that can be decoded using `alloy-sol-types`.
+Chain configs are defined in the `wavs.toml` file:
 
 ```toml wavs.toml
 [chains.eth.local]
@@ -193,7 +189,51 @@ ws_endpoint = "ws://localhost:8545"
 http_endpoint = "http://localhost:8545"
 ```
 
-For advanced use cases like event decoding and direct blockchain interactions, visit the [wavs-wasi-chain documentation](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions).
+WAVS provides host bindings to get the chain config for a given chain name in the `wavs.toml` file:
+
+```rust lib.rs
+// Get the chain config for an Ethereum chain
+let chain_config = host::get_eth_chain_config(&chain_name)?;
+
+// Get the chain config for a Cosmos chain
+let chain_config = host::get_cosmos_chain_config(&chain_name)?;
+```
+
+The `wavs-wasi-chain` crate provides the [`new_eth_provider` function](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/ethereum/fn.new_eth_provider.html) which creates a new Ethereum provider along with other basic helpers to create an alloy client for interacting with the blockchain that can be used in a component:
+
+```rust lib.rs
+let provider = new_eth_provider::<Ethereum>(
+    chain_config
+        .http_endpoint
+        .context("http_endpoint is missing")?
+)?;
+```
+
+Visit the [wavs-wasi-chain documentation](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions) for more information on the functions available for interacting with the blockchain.
+
+### Sol! macro
+
+The `sol!` macro from `alloy-sol-macro` allows you to generate Rust types from Solidity interface files. This is useful for handling blockchain events and data structures in components.
+
+In the template, the `sol!` macro is used in the `trigger.rs` component file to generate Rust types from the `ITypes.sol` file.
+
+```rust trigger.rs
+mod solidity {
+    use alloy_sol_macro::sol;
+    pub use ITypes::*;
+
+    // The objects here will be generated automatically into Rust types.
+    // If you update the .sol file, you must re-run `cargo build` to see the changes.
+    sol!("../../src/interfaces/ITypes.sol");
+}
+```
+
+The macro reads a Solidity interface file and generates corresponding Rust types and encoding/decoding functions. In the example above, it reads `ITypes.sol` which defines:
+- `NewTrigger` event
+- `TriggerInfo` struct
+- `DataWithId` struct
+
+Documentation for the `sol!` macro can be found at: https://docs.rs/alloy-sol-macro/latest/alloy_sol_macro/macro.sol.html
 
 ### Environment and Configuration Variables
 

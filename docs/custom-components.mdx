@@ -180,6 +180,83 @@ The `sol!` macro from `alloy_sol_types` is used to define Solidity types in Rust
 
 Bindings are automatically generated for any files in the `/components` and `/src` directories when the `make build` command is run.
 
+## Common Solidity-Rust Type Issues
+
+When working with Solidity types in Rust components, there are several common issues you might encounter:
+
+### Type Conversion and Compatibility
+
+Solidity and Rust have different type systems that require careful handling:
+
+```rust
+// WRONG: This will cause compilation errors
+sol! {
+    struct MyResult {
+        uint256 value;
+    }
+}
+// Later in code:
+let result = MyResult {
+    value: my_u32_value, // Error: expected Uint<256, 4>, found u32
+};
+
+// CORRECT: Use proper conversions
+sol! {
+    struct MyResult {
+        uint256 value;
+    }
+}
+// Later in code:
+// Option 1: Parse from string
+let value_str = my_u32_value.to_string();
+let result = MyResult {
+    value: value_str.parse().unwrap(), // Convert to Uint<256, 4>
+};
+
+// Option 2: Use from() when supported
+let result = MyResult {
+    value: my_u32_value.into(), // Works only for types that implement From
+};
+```
+
+### Working with Binary Data
+
+When handling raw binary data from triggers:
+
+```rust
+// WRONG: Accessing data incorrectly
+TriggerData::Raw(data) => Ok(Some((0, data.0.to_vec(), Destination::CliOutput))),
+
+// CORRECT: Access raw data properly
+TriggerData::Raw(data) => Ok(Some((0, data.to_vec(), Destination::CliOutput))),
+```
+
+### String Format in sol! Macro
+
+The `sol!` macro can be picky about string formatting:
+
+```rust
+// WRONG: Using raw string literals with newlines can cause issues
+sol!(r#"
+    event NewTrigger(bytes data);
+"#);
+
+// CORRECT: Use curly braces for multi-line definitions
+sol! {
+    event NewTrigger(bytes data);
+}
+```
+
+### Generic Bytes Handling Pattern
+
+A common pattern for safely handling bytes data:
+
+```rust
+// Extract data from trigger bytes 
+let data_string = String::from_utf8(trigger_data)
+    .map_err(|e| format!("Failed to parse data: {}", e))?;
+```
+
 ## Submission
 
 A service handler or submission contract handles the logic for submitting a component's output to the blockchain. A submission contract must implement the `handleSignedData()` function using the `IWavsServiceHandler` interface. This interface is defined in the `@wavs` package: https://www.npmjs.com/package/@wavs/solidity?activeTab=code
@@ -415,6 +492,33 @@ make get-service-handler-from-deploy
 make get-eigen-service-manager-from-deploy
 ```
 
+#### Custom Component Input Formatting
+
+For different types of components, you may need different input formats:
+
+```bash
+# For string inputs (like zip codes):
+--input $(ZIP_CODE)
+
+# For bytes32 inputs (like IDs):
+--input `cast format-bytes32-string $(COIN_MARKET_CAP_ID)`
+
+# For hex inputs:
+--input 0x$(printf '%x' $NUMERIC_VALUE)
+```
+
+#### Running with Elevated Permissions
+
+In some environments, you may need elevated permissions to run Docker commands:
+
+```bash
+# Define conditional sudo usage in Makefile
+SUDO := $(shell if groups | grep -q docker; then echo ''; else echo 'sudo'; fi)
+
+# Use in commands
+$(SUDO) docker run ...
+```
+
 #### Customizing Makefile variables
 
 Makefile variables can be overridden when running make commands. For example, running the following in your terminal will use a different component when testing:
@@ -565,6 +669,53 @@ For production, you can use a `host::log()` function which takes a `LogLevel` an
 
 ```rust lib.rs
 host::log(LogLevel::Info, "Production logging message");
+```
+
+## Troubleshooting Components
+
+### Common Error Patterns and Solutions
+
+1. **Binding Generation Issues**:
+   - **Symptom**: Errors about missing or incorrect bindings.
+   - **Solution**: Run `make wasi-build` to regenerate bindings before testing components.
+
+2. **Type Conversion Errors**:
+   - **Symptom**: "Expected X, found Y" compiler errors.
+   - **Solution**: Use proper type conversion methods or string-parsing techniques.
+
+3. **Dependency Issues**:
+   - **Symptom**: Missing crates or features.
+   - **Solution**: Ensure your component's Cargo.toml includes all required dependencies.
+
+4. **Permission Issues with Docker**:
+   - **Symptom**: "Permission denied" errors when running commands.
+   - **Solution**: Have the operator run the command manually.
+
+### Debugging Tools
+
+1. **Local Execution Logging**:
+   - Use `println!()` statements liberally during development.
+   - Add context to logged values: `println!("Decoding data: {:?}", data);`
+
+2. **Data Format Verification**:
+   - When working with external APIs, log both request URLs and responses.
+   - For Ethereum data, use explicit hex formatting for clarity.
+
+3. **Step-by-Step Execution**:
+   - Break complex operations into smaller parts with logging between steps.
+   - Verify data format at each transformation point.
+
+```rust
+// Example of debugging with step validation
+println!("Received trigger data: {:?}", trigger_data);
+let zip_code = String::from_utf8(trigger_data).expect("Failed to parse zip code");
+println!("Decoded zip code: {}", zip_code);
+
+// Verify API key access
+match env::var("WAVS_ENV_API_KEY") {
+    Ok(key) => println!("API key available, length: {}", key.len()),
+    Err(e) => println!("API key error: {}", e),
+}
 ```
 
 ## Helpers and utilities

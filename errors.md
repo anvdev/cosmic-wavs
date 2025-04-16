@@ -159,3 +159,64 @@ Below is a comprehensive list of all errors encountered during development of th
 - **Fix**: Suggested testing the component manually instead of using the make command
 - **Testing**: Prepared commands for manual testing
 - **Result**: Provided alternative testing approach
+
+# Weather Component - OpenWeather API Integration - Errors and Solutions
+
+Below is a comprehensive list of errors encountered during development of the weather component that fetches data from OpenWeather API:
+
+## 1. Dependency Version Mismatch
+- **Error**: "failed to select a version for the requirement `wavs-wasi-chain = "^0.1.0"`"
+- **Troubleshooting**: Examined the eth-price-oracle component and workspace Cargo.toml to identify the correct version
+- **Learning**: Components should use workspace-level dependencies to ensure consistency
+- **Fix**: Updated Cargo.toml to use workspace dependencies with `{ workspace = true }` instead of specifying versions directly
+- **Testing**: Ran `make wasi-build` to verify dependency resolution
+- **Result**: Dependencies were properly resolved using workspace versions
+
+## 2. Import Path Errors in HTTP Modules
+- **Error**: "unresolved imports `wavs_wasi_chain::http_request_get`, `wavs_wasi_chain::fetch_json`"
+- **Troubleshooting**: Examined the import statements in the eth-price-oracle component
+- **Learning**: HTTP functions were moved to a submodule in newer versions of wavs-wasi-chain
+- **Fix**: Updated the import path to use `wavs_wasi_chain::http::{fetch_json, http_request_get}`
+- **Testing**: Ran `make wasi-build` to verify import resolution
+- **Result**: Import paths were corrected and component compiled successfully
+
+## 3. Field Access Error on TriggerAction
+- **Error**: "no field `data_input` on type `layer_types::TriggerAction`"
+- **Troubleshooting**: Compared with the eth-price-oracle component to understand the correct structure
+- **Learning**: The TriggerAction struct had a different structure than expected
+- **Fix**: Created a trigger.rs module similar to eth-price-oracle to properly extract data
+- **Testing**: Ran `make wasi-build` to verify the structure access
+- **Result**: Component was able to correctly access trigger data
+
+## 4. Data Ownership Issues in Trigger Processing
+- **Error**: "cannot move out of borrowed content" when working with event log data
+- **Troubleshooting**: Analyzed the code flow to understand ownership transfer
+- **Learning**: Event log data needs to be cloned before processing to avoid ownership issues
+- **Fix**: Added `.clone()` to log data and other variables to ensure proper ownership management
+- **Testing**: Ran `make wasi-build` after adding necessary clones
+- **Result**: Component compiled successfully after fixing ownership issues
+
+## 5. Output Format Handling for CliOutput vs Ethereum
+- **Error**: Not a direct error, but returning data directly for testing vs Ethereum had different requirements
+- **Troubleshooting**: Examined how eth-price-oracle handled different output destinations
+- **Learning**: Output needs different encoding depending on destination (CLI testing vs Ethereum)
+- **Fix**: Implemented a destination-based return value that properly formats output for each case
+- **Testing**: Tested using the `make wasi-exec` command with appropriate SERVICE_CONFIG
+- **Result**: Component correctly returned properly formatted output based on destination
+
+## 6. Weather API Response Format Parsing
+- **Error**: Not a direct error, but understanding the nested JSON structure from OpenWeather was important
+- **Troubleshooting**: Used the API documentation and structured Rust types to match response format
+- **Learning**: API responses have complex nested structures that need careful modeling
+- **Fix**: Created appropriate nested Rust struct types to match OpenWeather API response format
+- **Testing**: Component successfully parsed real response data from the API
+- **Result**: Weather data was correctly extracted, including temperature, humidity, wind speed, and description
+
+All issues were successfully resolved, and the weather component was able to:
+1. Accept a zip code input
+2. Securely access the OpenWeather API using an environment variable for the API key
+3. Make a properly formatted HTTP request
+4. Parse the JSON response
+5. Return properly formatted weather data
+
+The component was tested manually with a real zip code (27106) and successfully returned weather data.

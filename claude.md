@@ -49,33 +49,28 @@ let endpoint = std::env::var("api_endpoint")?;
 let api_key = std::env::var("WAVS_ENV_MY_API_KEY")?;
 ```
 
-### IMPORTANT: Always store API keys in environment variables
+IMPORTANT: NEVER hardcode API keys directly in components. Always store API keys and other sensitive data as environment variables using the method above.
 
-For security reasons, you should NEVER hardcode API keys directly in your component code. Always store API keys and other sensitive credentials as environment variables using the method above. 
-
-Example of correct and secure API key usage:
 ```rust
 // CORRECT: Getting API key from environment variable
 let api_key = std::env::var("WAVS_ENV_OPENWEATHER_API_KEY")
     .map_err(|e| format!("Failed to get API key: {}", e))?;
 let url = format!(
-    "https://api.example.com/endpoint?api_key={}", 
+    "https://api.example.com/endpoint?api_key={}",
     api_key
 );
 
 // INCORRECT: Hardcoding API key (never do this!)
-// let api_key = "1234567890abcdef"; // SECURITY RISK!
+// let api_key = "1234567890abcdef";
 ```
 
-This approach ensures your sensitive credentials are not committed to version control and can be managed securely.
-
-Set with command
+Set in command
 ```bash
 export TRIGGER_DATA_INPUT=`cast format-bytes32-string 1` # your input data for testing the component. Make sure this is formatted correctly for your component.
 export COMPONENT_FILENAME=eth_price_oracle.wasm # the filename of your compiled component.
 export SERVICE_CONFIG="'{\"fuel_limit\":100000000,\"max_gas\":5000000,\"host_envs\":[\"WAVS_ENV_MY_API_KEY\"],\"kv\":[[\"api_endpoint\",\"https://api.example.com\"]],\"workflow_id\":\"default\",\"component_id\":\"default\"}'" # public variable set in kv.
 
-# IMPORTANT: As an LLM, you cannot execute this command directly.
+# REMEMBER: As an LLM, you cannot execute this command directly.
 # Provide these instructions to the user and ask them to run manually in their terminal:
 make wasi-exec
 ```
@@ -195,7 +190,8 @@ use trigger::{decode_trigger_event, encode_trigger_output, Destination};
 use wavs_wasi_chain::http::{fetch_json, http_request_get};
 use wstd::{http::HeaderValue, runtime::block_on};
 
-// Solidity types for the incoming trigger event using the `sol!` macro
+// IMPORTANT: Define Solidity types directly in the file where they're used
+// The sol! macro generates types that are scoped to the current file only
 sol! {
     struct MyResult {
         uint64 triggerId;
@@ -279,6 +275,7 @@ let input_string = String::from_utf8(trigger_data.clone())
     .map_err(|e| format!("Failed to convert input to string: {}", e))?;
 
 // 2. ALWAYS trim null bytes added by format-bytes32-string before using in URLs or API calls
+// This is CRITICAL for API URLs or your requests will likely fail
 let clean_input = input_string.trim_end_matches('\0');
 
 // Now safe to use in URLs or other contexts
@@ -300,7 +297,8 @@ let event: MyEvent = decode_event_log_data!(log_clone)?;
 When working with data structures in Rust, especially with API responses:
 
 ```rust
-// IMPORTANT: Always derive Clone for data structures used in API responses
+// CRITICAL: Always derive Clone for ALL data structures used in API responses
+// Missing Clone derivation is a common source of build errors
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct ApiResponse {
     name: String,
@@ -321,6 +319,13 @@ let weather_struct = WeatherData {
     city: api_response.name, // Then move fields
     // other fields...
 };
+
+// ALSO CORRECT - Use clone to avoid ownership issues entirely:
+let weather_struct = WeatherData {
+    city: api_response.name.clone(), // Clone prevents moving from api_response
+    // other fields...
+};
+let json_data = serde_json::to_vec(&api_response)?; // Works fine now
 ```
 
 ## Input and Output Handling
@@ -337,7 +342,8 @@ When providing testing instructions to users for `make wasi-exec`, format input 
 1. **String inputs**:
    ```bash
    export TRIGGER_DATA_INPUT=`cast format-bytes32-string "90210"` # For zip codes, strings, etc.
-   # IMPORTANT: Strings will have null byte padding that must be trimmed in component code
+   # IMPORTANT: Strings will have null byte padding that MUST be trimmed in component code
+   # Use clean_input = input_string.trim_end_matches('\0') before using in URLs or other contexts
    ```
 
 2. **Numeric inputs**:
@@ -415,6 +421,7 @@ When creating a new component, follow these steps to avoid common errors:
    - ALWAYS trim string input nulls: `trim_end_matches('\0')` on all format-bytes32-string inputs
    - ALWAYS use string parsing for numbers: `value.to_string().parse()` for Solidity numeric types (avoid .into())
    - ALWAYS use correct Bytes import: `use wavs_wasi_chain::ethereum::alloy_primitives::Bytes`
+   - Be careful with Solidity types defined with sol! macro - they can't be directly imported between files with syntax like `trigger::sol::Type` - either define them where needed or create a module to export them
 
 4. **Structure your component for both testing and production**:
    - Implement proper destination-based output handling (CLI vs Ethereum)
@@ -435,7 +442,7 @@ When creating a new component, follow these steps to avoid common errors:
 - Test with actual input formats to verify handling
 - Ensure all sensitive data is in environment variables
 - Validate output format matches expected contract format
-- Verify all data structures used with API responses implement `Clone`
+- CRITICAL: Verify all data structures used with API responses implement `Clone` - missing this will cause build errors
 - Confirm string inputs from format-bytes32-string are trimmed of null bytes
 
 ## Example trigger.rs Module
@@ -500,8 +507,9 @@ pub fn encode_trigger_output(trigger_id: u64, output: impl AsRef<[u8]>) -> Vec<u
 | Ownership Issues | "use of moved value" | Clone data before use: `data.clone()` |
 | Collection Access | "cannot move out of index" | Clone when accessing: `array[0].field.clone()` |
 | TriggerAction Access | "no field data_input on type TriggerAction" | Use trigger.rs module like the example instead of direct access |
-| Environment Variables | API key access issues | Include in SERVICE_CONFIG "host_envs" array |
+| Environment Variables | API key access issues | Include in SERVICE_CONFIG "host_envs" array AND in .env file with WAVS_ENV_ prefix |
 | Serialization Error | "trait `Serialize` not implemented for struct from sol! macro" | Create a separate struct with `#[derive(Serialize)]` for JSON output |
 | Partially Moved Value | "borrow of partially moved value" | Process data in correct order: serialize/use struct *before* moving its fields |
+| Solidity Type Import | "could not find `sol` in module" | Define Solidity types where needed - can't import using `trigger::sol::` syntax |
 
 For more details on specific topics, refer to the [wavs-wasi-chain documentation](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions).

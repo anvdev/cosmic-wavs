@@ -220,3 +220,64 @@ All issues were successfully resolved, and the weather component was able to:
 5. Return properly formatted weather data
 
 The component was tested manually with a real zip code (27106) and successfully returned weather data.
+
+# Weather ZIP Code Component - OpenWeather API - Error Resolution Log
+
+Below is a comprehensive list of errors encountered while developing the weather component that fetches data using ZIP codes from the OpenWeather API:
+
+## 1. Chrono Dependency Missing Error
+- **Error**: "failed to resolve: use of unresolved module or unlinked crate `chrono`" during compilation
+- **Troubleshooting**: After creating the initial component, the build failed because I tried to use the chrono library for timestamp conversion
+- **Learning**: The workspace dependencies don't include chrono, and we should only use the dependencies available in the workspace
+- **Fix**: Replaced the chrono timestamp conversion with a simple string format using `format!("Timestamp: {}", response.dt)`
+- **Testing**: Ran `make wasi-build` to verify the fix
+- **Result**: Component compiled successfully without the chrono dependency
+
+## 2. Environment Variable Setup
+- **Error**: Not an immediate error, but needed proper configuration to securely store the API key
+- **Troubleshooting**: Checked if .env file existed, then created it from .env.example
+- **Learning**: Environment variables for WAVS components must be prefixed with WAVS_ENV_ and added to both the .env file and SERVICE_CONFIG
+- **Fix**: Added the API key to .env file with `WAVS_ENV_OPENWEATHER_API_KEY=d031c89489947a1fdc85577bfe698cd7`
+- **Testing**: Component accesses this environment variable when making API requests
+- **Result**: API key was securely stored and accessed
+
+## 3. Null Byte Handling for ZIP Code Input
+- **Error**: Not an immediate error, but anticipated based on documentation
+- **Troubleshooting**: Documentation warned about format-bytes32-string adding null bytes
+- **Learning**: Inputs formatted with format-bytes32-string need null bytes trimmed to be used in URLs
+- **Fix**: Added `zip_code.trim_end_matches('\0')` to clean the input string
+- **Testing**: Component properly handled the ZIP code input during execution
+- **Result**: ZIP code was correctly extracted and used in API requests
+
+## 4. Data Ownership and Clone Requirements
+- **Error**: Not an immediate error, but anticipated based on documentation
+- **Troubleshooting**: Documentation warned about Rust ownership issues
+- **Learning**: We need to clone data before string conversion and when accessing collection elements
+- **Fix**: Added `.clone()` operations where needed, especially for input data and response fields
+- **Testing**: Component built successfully without ownership errors
+- **Result**: No runtime ownership errors occurred
+
+## 5. Type Conversions for Solidity Output
+- **Error**: Not an immediate error, but anticipated based on documentation
+- **Troubleshooting**: Documentation warned about type conversion issues between Rust and Solidity types
+- **Learning**: Floating point numbers need to be converted to integers for Solidity by multiplication
+- **Fix**: Used conversion like `(weather_data.temperature * 100.0) as i32` for Solidity types
+- **Testing**: Component successfully encoded data for Ethereum submission
+- **Result**: Data was properly formatted for both CLI testing and Ethereum submission
+
+## 6. Component Directory Structure
+- **Error**: Not an error, but needed to follow the correct structure
+- **Troubleshooting**: Examined the existing eth-price-oracle component
+- **Learning**: Components need a specific directory structure with Cargo.toml, src/lib.rs, and src/trigger.rs
+- **Fix**: Created the proper directory structure for weather-oracle component
+- **Testing**: Component was recognized and built by the build system
+- **Result**: Component was correctly integrated into the project
+
+All issues were successfully resolved, and the weather component was able to:
+1. Accept a ZIP code input
+2. Clean and validate the input
+3. Securely access the OpenWeather API using an environment variable
+4. Parse the JSON response and extract relevant weather data
+5. Format the result for both CLI testing and Ethereum submission
+
+The component was tested with a real ZIP code (27106) and successfully returned weather data from the OpenWeather API.

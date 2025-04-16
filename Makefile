@@ -19,7 +19,7 @@ RPC_URL?=http://localhost:8545
 SERVICE_MANAGER_ADDR?=`jq -r '.eigen_service_managers.local | .[-1]' .docker/deployments.json`
 SERVICE_TRIGGER_ADDR?=`jq -r '.trigger' "./.docker/script_deploy.json"`
 SERVICE_SUBMISSION_ADDR?=`jq -r '.service_handler' "./.docker/script_deploy.json"`
-COIN_MARKET_CAP_ID?=1
+TRIGGER_DATA_INPUT?=1
 
 ## check-requirements: verify system requirements are installed
 check-requirements: check-node check-jq check-cargo
@@ -41,7 +41,7 @@ wasi-exec:
 	@$(WAVS_CMD) exec --log-level=info --data /data/.docker --home /data \
 	--component "/data/compiled/${COMPONENT_FILENAME}" \
 	--service-config $(SERVICE_CONFIG) \
-	--input `cast format-bytes32-string $(COIN_MARKET_CAP_ID)`
+	--input $(TRIGGER_DATA_INPUT)
 
 ## update-submodules: update the git submodules
 update-submodules:

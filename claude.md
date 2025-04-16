@@ -48,6 +48,26 @@ let endpoint = std::env::var("api_endpoint")?;
 let api_key = std::env::var("WAVS_ENV_MY_API_KEY")?;
 ```
 
+### IMPORTANT: Always store API keys in environment variables
+
+For security reasons, you should NEVER hardcode API keys directly in your component code. Always store API keys and other sensitive credentials as environment variables using the method above. 
+
+Example of correct and secure API key usage:
+```rust
+// CORRECT: Getting API key from environment variable
+let api_key = std::env::var("WAVS_ENV_OPENWEATHER_API_KEY")
+    .map_err(|e| format!("Failed to get API key: {}", e))?;
+let url = format!(
+    "https://api.example.com/endpoint?api_key={}", 
+    api_key
+);
+
+// INCORRECT: Hardcoding API key (never do this!)
+// let api_key = "1234567890abcdef"; // SECURITY RISK!
+```
+
+This approach ensures your sensitive credentials are not committed to version control and can be managed securely.
+
 Set with command
 ```bash
 export TRIGGER_DATA_INPUT=`cast format-bytes32-string 1` # your input data for testing the component. Make sure this is formatted correctly for your component.

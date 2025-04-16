@@ -458,3 +458,39 @@ Each of these issues was addressed systematically, resulting in a working compon
 4. Returns it in a format suitable for both CLI testing and on-chain use
 
 The component was tested with real zip code inputs and successfully retrieved current weather information.
+
+# Weather Component - OpenWeatherMap API URL Formatting Issues
+
+Below is a comprehensive list of all errors encountered while building the weather-zip-oracle component:
+
+## 1. Invalid URI Character Error
+- **Error**: "Failed to create request: invalid uri character" when trying to call the OpenWeather API
+- **Troubleshooting**: Examined the URL format in the error message and debugging output
+- **Learning**: The comma in the URL format "zip={},us" was causing issues with the HTTP request
+- **Fix**: First attempted to use percent encoding for the comma with "zip={}%2Cus", but still had issues
+- **Testing**: Ran `make wasi-exec` to test the fix, but still encountered errors
+- **Result**: First fix was insufficient
+
+## 2. API Key Format Issues in Environment Variable
+- **Error**: After adding debugging, observed that API key had quotes around it in the URL
+- **Troubleshooting**: Examined how the environment variable was being read and set in the .env file
+- **Learning**: Environment variables in .env had quotes that were being preserved when read by std::env::var()
+- **Fix**: 
+  1. Modified the .env file to remove quotes from the API key value
+  2. Added code to trim quotes from API key with `api_key.trim_matches('"')`
+- **Testing**: Ran `make wasi-exec` to test the fix
+- **Result**: Component successfully connected to the OpenWeather API and returned weather data
+
+## Future Prevention
+The CLAUDE.md file could be improved by:
+1. Warning about URL formatting issues with special characters like commas in HTTP requests
+2. Mentioning that environment variables should be set without quotes in .env files
+3. Including code to trim quotes and special characters from environment variables
+4. Providing a complete example of proper URL formatting for API requests, especially with query parameters
+5. Adding a section about debugging HTTP requests with proper logging of URLs and parameters
+
+This experience shows the importance of:
+1. Proper URL encoding for API parameters
+2. Careful handling of environment variables
+3. Step-by-step troubleshooting with detailed logging
+4. Understanding how values in .env files are processed

@@ -200,8 +200,10 @@ impl Guest for Component {
     fn run(action: TriggerAction) -> Result<Option<Vec<u8>>, String> {
         match action.data {
             TriggerData::EthContractEvent(TriggerDataEthContractEvent { log, .. }) => {
-                // 1. Decode the event
-                let event: MyEvent = decode_event_log_data!(log)
+                // 1. Decode the event (IMPORTANT: If you get ownership errors with log.data,
+                // create a clone first to avoid "cannot move out of `log.data` which is behind a shared reference" errors)
+                let log_clone = log.clone(); // Create a clone to avoid ownership issues
+                let event: MyEvent = decode_event_log_data!(log_clone)
                     .map_err(|e| format!("Failed to decode event: {}", e))?;
                 
                 // 2. Process data (your business logic goes here)
@@ -252,16 +254,27 @@ sol! {
     }
 }
 // Later in code:
-// Option 1: Parse from string
+// Option 1: Parse from string (most reliable method that works for all numeric types)
 let value_str = my_u32_value.to_string();
 let result = MyResult {
     value: value_str.parse().unwrap(), // Convert to Uint<256, 4>
 };
 
-// Option 2: Use from() when supported
+// Option 2: Use from() when supported (NOT ALL TYPES SUPPORT THIS!)
+// IMPORTANT: The .into() method won't work for many Solidity numeric types including
+// converting from u128 to uint256. Always prefer string parsing when in doubt.
 let result = MyResult {
-    value: my_u32_value.into(), // Works only for types that implement From
+    value: my_small_value.into(), // Only works for some types that implement From
 };
+```
+
+IMPORTANT: For complex type conversion involving numeric values like u64, u128 to Uint<256,4> (uint256 in Solidity), 
+the string parsing method is the most reliable approach:
+
+```rust
+// Converting u128 values to uint256
+let temperature: u128 = 29300;  // in Kelvin * 100
+let temperature_uint256: Uint<256, 4> = temperature.to_string().parse().unwrap();
 ```
 
 ### Working with Binary Data
@@ -274,6 +287,23 @@ TriggerData::Raw(data) => Ok(Some((0, data.0.to_vec(), Destination::CliOutput)))
 
 // CORRECT: Access raw data properly
 TriggerData::Raw(data) => Ok(Some((0, data.to_vec(), Destination::CliOutput))),
+```
+
+IMPORTANT: Be very careful with field types in the `DataWithId` struct. The `data` field is of type `Bytes` 
+but `abi_encode()` returns `Vec<u8>`. Always convert explicitly:
+
+```rust
+// WRONG: This will cause compilation errors
+let data_with_id = solidity::DataWithId {
+    triggerId: trigger_id,
+    data: result.abi_encode(), // ERROR: expected Bytes, found Vec<u8>
+};
+
+// CORRECT: Convert Vec<u8> to Bytes explicitly
+let data_with_id = solidity::DataWithId {
+    triggerId: trigger_id,
+    data: Bytes::from(result.abi_encode()), // Use proper conversion
+};
 ```
 
 ### String Format in sol! Macro
@@ -297,12 +327,28 @@ sol! {
 A common pattern for safely handling bytes data:
 
 ```rust
-// Extract data from trigger bytes (and clone to avoid ownership issues)
+// IMPORTANT: ALWAYS clone the data before using String::from_utf8() to avoid ownership errors!
+// Without the clone, you'll get errors when you try to use trigger_data again
 let data_string = String::from_utf8(trigger_data.clone())
     .map_err(|e| format!("Failed to parse data: {}", e))?;
 
-// If data might contain null bytes (e.g., from bytes32 format), trim them
+// CRITICAL: When using format-bytes32-string for input, ALWAYS trim trailing null bytes
+// The cast format-bytes32-string command pads strings with null bytes to 32 bytes
 let clean_string = data_string.trim_end_matches('\0');
+```
+
+IMPORTANT: For components that process bytes32 encoded strings (like zip codes, symbols, etc.), you MUST 
+trim the null bytes before using the string, especially in URLs:
+
+```rust
+// Without trimming, this would likely produce a URL error due to null bytes
+// When using with APIs, this can cause hard-to-debug errors
+let zip_code = String::from_utf8(trigger_data.clone())
+    .map_err(|e| format!("Failed to parse zip code: {}", e))?;
+let clean_zip = zip_code.trim_end_matches('\0');
+
+// Now safe to use in a URL
+let url = format!("https://api.example.com/weather?zip={}", clean_zip);
 ```
 
 ## Submission
@@ -410,7 +456,17 @@ When testing components with `make wasi-exec`, you must format the input data ap
    ```bash
    export TRIGGER_DATA_INPUT=`cast format-bytes32-string "90210"` # For zip codes, short strings, etc.
    ```
-   - Note: this format adds null byte padding, which must be trimmed in your component
+   - CRITICAL: This format adds null byte padding to fill 32 bytes, which MUST be trimmed in your component
+   - You MUST include code like this in your component when using string input:
+   ```rust
+   // Clone before using String::from_utf8 to avoid ownership issues
+   let input_string = String::from_utf8(trigger_data.clone())
+       .map_err(|e| format!("Failed to parse input: {}", e))?;
+   
+   // ALWAYS trim null bytes added by format-bytes32-string 
+   let clean_input = input_string.trim_end_matches('\0'); 
+   ```
+   - Without trimming null bytes, your component may fail when using the string in URLs or other contexts
 
 2. **Numeric inputs (uint256, etc.)**: Use `cast abi-encode` for numeric types:
    ```bash
@@ -506,14 +562,17 @@ host::log(LogLevel::Info, "Production logging message");
 1. **Binding Generation Issues**:
    - **Symptom**: Errors about missing or incorrect bindings.
    - **Solution**: Run `make wasi-build` to regenerate bindings before testing components.
+   - **Prevention**: Always run `make wasi-build` after making changes to your component.
 
 2. **Type Conversion Errors**:
-   - **Symptom**: "Expected X, found Y" compiler errors.
-   - **Solution**: Use proper type conversion methods or string-parsing techniques.
+   - **Symptom**: "Expected X, found Y" compiler errors (e.g., "expected Uint<256, 4>, found u128").
+   - **Solution**: Use string parsing for most numeric conversions: `my_u128.to_string().parse().unwrap()`.
+   - **Prevention**: Avoid using `.into()` for numeric conversions unless you're certain it's supported.
 
-3. **Dependency Issues**:
-   - **Symptom**: Missing crates or features.
-   - **Solution**: Ensure your component's Cargo.toml includes all required dependencies.
+3. **Dependency Import Issues**:
+   - **Symptom**: "Use of unresolved module" or "unlinked crate" errors.
+   - **Solution**: Use full import paths from existing dependencies, like `wavs_wasi_chain::ethereum::alloy_primitives::Bytes`.
+   - **Prevention**: Check if a type already exists in your dependencies before adding new dependencies.
 
 4. **Permission Issues with Docker**:
    - **Symptom**: "Permission denied" errors when running commands.
@@ -522,14 +581,27 @@ host::log(LogLevel::Info, "Production logging message");
 5. **Null Byte Padding**:
    - **Symptom**: String inputs contain unexpected null characters causing URL formatting errors.
    - **Solution**: Always trim null bytes when using `format-bytes32-string` with `trim_end_matches('\0')`.
+   - **Prevention**: Add this trimming step for ALL string inputs that use `format-bytes32-string`.
 
 6. **Rust Ownership Issues**:
-   - **Symptom**: "Use of moved value" errors after passing data to functions like `String::from_utf8()`.
-   - **Solution**: Use `.clone()` when you need to use data multiple times.
+   - **Symptom**: "Use of moved value" or "cannot move out of borrowed content" errors.
+   - **Solution**: Use `.clone()` when converting data or passing to functions that take ownership.
+   - **Prevention**: Clone any data that you'll need to use again after passing to a consuming function.
 
-7. **Field Access Errors**:
+7. **Event Decoding Errors**:
+   - **Symptom**: "Cannot move out of `log.data` which is behind a shared reference".
+   - **Solution**: Clone the log before passing it to the decode_event_log_data! macro.
+   - **Prevention**: Always use `let log_clone = log.clone();` before decoding events.
+
+8. **Field Access Errors**:
    - **Symptom**: Errors about accessing fields that don't exist in event structures.
    - **Solution**: Always check the actual Solidity interface structure before accessing fields.
+   - **Prevention**: Verify your understanding of nested event structures in the Solidity files.
+
+9. **Binary Type Mismatch**:
+   - **Symptom**: "Expected Bytes, found Vec<u8>" errors when working with the DataWithId struct.
+   - **Solution**: Convert Vec<u8> to Bytes explicitly: `Bytes::from(result.abi_encode())`.
+   - **Prevention**: Always check return types of functions and convert as needed.
 
 ### Debugging Tools
 
@@ -895,8 +967,11 @@ To ensure you build components correctly the first time:
 
 - **Start with skeleton implementation**: Begin with a basic component that just logs raw input
 - **Test incrementally**: Build and test after implementing each step of your component logic
-- **Use inspection points**: Add `println!` statements at key transformation points
+- **Use inspection points**: Add `println!` statements at key transformation points 
 - **Validate environment variables early**: Check API keys and endpoints before making requests
+- **Test data handling first**: Verify you can correctly decode and process input data before adding complex logic
+- **Clone data defensively**: Always clone data before passing to String::from_utf8() or other consuming functions
+- **Validate input formats**: For string inputs using format-bytes32-string, always trim null bytes with trim_end_matches('\0')
 
 ### 2. Pre-Implementation Planning
 
@@ -911,6 +986,9 @@ To ensure you build components correctly the first time:
 - **Validate input formats**: Check lengths, formats and values before processing
 - **Add explicit error messages**: Always include context in error strings (e.g., "Failed to parse ZIP code: {}")
 - **Use type-safe conversions**: Avoid direct casting between numeric types
+- **Clone logs before decoding**: Always use `let log_clone = log.clone();` before decoding event logs
+- **Use string parsing for numeric conversions**: For numeric conversions to Solidity types, use the string parsing pattern: `value.to_string().parse().unwrap()`
+- **Check Bytes vs Vec<u8>**: When working with binary data and Solidity types, be aware of Bytes vs Vec<u8> differences and use explicit conversions
 
 ### 4. Security Considerations
 
@@ -928,3 +1006,7 @@ Before finalizing your component:
 - ✅ Check resource usage (memory allocation, computation time)
 - ✅ Ensure all secrets are properly stored in environment variables
 - ✅ Validate component output format matches submission contract expectations
+- ✅ Test with actual format-bytes32-string input to verify null byte handling
+- ✅ Ensure all Solidity-Rust type conversions are handled correctly
+- ✅ Verify cloning of reference values to avoid ownership issues
+- ✅ Confirm dependencies are properly imported using correct paths

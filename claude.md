@@ -38,7 +38,7 @@ You can set public and private variables in components.
      1. Add your private variable:
 ```bash
 sed -i '' '1i\
-WAVS_ENV_MY_API_KEY=your_secret_key_here
+WAVS_ENV_MY_API_KEY="your_secret_key_here"
 ' .env
 ```
 
@@ -372,7 +372,10 @@ use wstd::http::HeaderValue; // For setting headers
 
 // The request function must be async
 async fn make_request() -> Result<ResponseType, String> {
+    // IMPORTANT: When formatting URLs with parameters, be careful with special characters
+    // For debugging URL issues, always print the URL before making the request
     let url = "https://api.example.com/endpoint";
+    println!("Debug - Request URL: {}", url);
     
     // Create request with proper headers
     let mut req = http_request_get(&url)
@@ -503,7 +506,8 @@ pub fn encode_trigger_output(trigger_id: u64, output: impl AsRef<[u8]>) -> Vec<u
 | Type Conversion | "expected Uint<256, 4>, found u128" | Use string parsing: `value.to_string().parse().unwrap()` |
 | Binary Type Mismatch | "expected Bytes, found Vec<u8>" | Use: `Bytes::from(data)` with correct import |
 | Event Decoding | "cannot move out of log.data" | ALWAYS clone: `let log_clone = log.clone()` |
-| String Handling | URL formatting errors | ALWAYS trim nulls: `string.trim_end_matches('\0')` |
+| String Handling | URL formatting errors | ALWAYS trim nulls: `string.trim_end_matches('\0')`, debug with `println!("URL: {}", url)` |
+| HTTP Requests | "invalid uri character" | Check for special characters in URLs, use debug prints to identify issues |
 | Ownership Issues | "use of moved value" | Clone data before use: `data.clone()` |
 | Collection Access | "cannot move out of index" | Clone when accessing: `array[0].field.clone()` |
 | TriggerAction Access | "no field data_input on type TriggerAction" | Use trigger.rs module like the example instead of direct access |

@@ -401,3 +401,60 @@ The weather component was successfully implemented and tested. It correctly:
 6. Returns the weather data in the correct format based on the destination
 
 All errors were systematically identified and fixed, resulting in a fully functional weather oracle component that can be integrated with blockchain applications.
+
+# Weather Oracle Component - ZIP Code to OpenWeather API
+
+Below is a comprehensive list of all errors encountered while building the weather-oracle component:
+
+## 1. Module Resolution Error: "unresolved import `trigger::sol`"
+- **Error**: "could not find `sol` in `trigger`" when trying to import `trigger::sol::WeatherData`
+- **Troubleshooting**: Investigated import paths and discovered the sol module is directly accessible in the trigger.rs file, but not exported for external use
+- **Learning**: The `sol!` macro generates types within the scope it's used, but doesn't create a proper module that can be imported elsewhere
+- **Fix**: Defined the WeatherData struct directly in lib.rs using a separate `sol!` macro invocation
+- **Testing**: Ran `make wasi-build` to verify compilation
+- **Result**: Fixed the import error by having direct access to the WeatherData struct
+- **Future Prevention**: CLAUDE.md should explain that Solidity types defined with `sol!` macro are scoped to the module where they're defined and must be redefined if needed in multiple modules OR provide a pattern for properly sharing these types between modules
+
+## 2. Ownership Error: "cannot move out of index of `Vec<WeatherDescription>`"
+- **Error**: "move occurs because value has type `std::string::String`, which does not implement the `Copy` trait"
+- **Troubleshooting**: The error pointed to accessing a String field from an array element (weather_result.weather[0].description)
+- **Learning**: When using String fields from collection elements, Rust requires explicit cloning
+- **Fix**: Added `.clone()` method to the field: `weather_result.weather[0].description.clone()`
+- **Testing**: Ran `make wasi-build` after the fix
+- **Result**: Component compiled successfully after adding the clone
+- **Future Prevention**: CLAUDE.md should emphasize that ALL string fields accessed from collections (arrays, vectors) must be cloned to prevent ownership errors
+
+## 3. API Key Configuration
+- **Error**: Not a direct error, but a security requirement that needed implementation
+- **Troubleshooting**: Reviewed the CLAUDE.md file for guidance on proper API key handling
+- **Learning**: API keys should be stored as environment variables with WAVS_ENV_ prefix
+- **Fix**: Added the OpenWeather API key to .env file with `WAVS_ENV_OPENWEATHER_API_KEY` and configured the component to read it
+- **Testing**: Confirmed key was accessible in the component
+- **Result**: Successfully accessed the API key in a secure manner
+- **Future Prevention**: CLAUDE.md provides good guidance here, but could benefit from a complete end-to-end example showing both setting and using an API key
+
+## 4. Handling Null-Padded String Input
+- **Error**: Not a direct error, but a potential issue if not handled correctly
+- **Troubleshooting**: Reviewed the CLAUDE.md file guidance on handling string inputs
+- **Learning**: The `cast format-bytes32-string` command pads strings with null bytes to fill 32 bytes
+- **Fix**: Added `trim_end_matches('\0')` to clean the zip code string before using it in the API URL
+- **Testing**: Component successfully processed the zip code input
+- **Result**: The component correctly handled the null-padded input
+- **Future Prevention**: CLAUDE.md correctly warned about this issue, which prevented a runtime error
+
+## 5. Organizing Code with Proper Module Structure
+- **Error**: Initially struggled with the right structure for organizing the component
+- **Troubleshooting**: Examined the example eth-price-oracle component
+- **Learning**: WAVS components should follow a specific structure with separate trigger.rs for event handling
+- **Fix**: Created a similar structure with separate lib.rs and trigger.rs files
+- **Testing**: Component was successfully recognized and built
+- **Result**: Component had a clean, maintainable structure
+- **Future Prevention**: CLAUDE.md provides good guidance on component structure, which helped avoid architectural issues
+
+Each of these issues was addressed systematically, resulting in a working component that successfully:
+1. Takes a ZIP code input (removing null padding)
+2. Securely retrieves weather data from the OpenWeather API
+3. Parses and formats the weather information
+4. Returns it in a format suitable for both CLI testing and on-chain use
+
+The component was tested with real zip code inputs and successfully retrieved current weather information.

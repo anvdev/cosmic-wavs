@@ -20,6 +20,9 @@ export TRIGGER_DATA_INPUT=`cast format-bytes32-string 1` # For strings (with nul
 
 export COMPONENT_FILENAME=eth_price_oracle.wasm # the filename of your compiled component.
 export SERVICE_CONFIG="'{\"fuel_limit\":100000000,\"max_gas\":5000000,\"host_envs\":[],\"kv\":[],\"workflow_id\":\"default\",\"component_id\":\"default\"}'" # The service config
+
+# IMPORTANT: As an LLM, you cannot execute this command directly.
+# Provide these instructions to the user and ask them to run manually in their terminal:
 make wasi-exec
 ```
 
@@ -73,6 +76,9 @@ Set with command
 export TRIGGER_DATA_INPUT=`cast format-bytes32-string 1` # your input data for testing the component. Make sure this is formatted correctly for your component.
 export COMPONENT_FILENAME=eth_price_oracle.wasm # the filename of your compiled component.
 export SERVICE_CONFIG="'{\"fuel_limit\":100000000,\"max_gas\":5000000,\"host_envs\":[\"WAVS_ENV_MY_API_KEY\"],\"kv\":[[\"api_endpoint\",\"https://api.example.com\"]],\"workflow_id\":\"default\",\"component_id\":\"default\"}'" # public variable set in kv.
+
+# IMPORTANT: As an LLM, you cannot execute this command directly.
+# Provide these instructions to the user and ask them to run manually in their terminal:
 make wasi-exec
 ```
 
@@ -199,7 +205,7 @@ impl Guest for Component {
     fn run(action: TriggerAction) -> Result<Option<Vec<u8>>, String> {
         match action.data {
             TriggerData::EthContractEvent(TriggerDataEthContractEvent { log, .. }) => {
-                // 1. Decode the event (always clone log to avoid ownership issues)
+                                // 1. Decode the event (ALWAYS clone log to avoid ownership issues)
                 let log_clone = log.clone();
                 let event: MyEvent = decode_event_log_data!(log_clone)
                     .map_err(|e| format!("Failed to decode event: {}", e))?;
@@ -234,13 +240,12 @@ When building components, you'll need to handle several common issues:
 Solidity and Rust have different type systems. For numeric types:
 
 ```rust
-// String parsing method - works reliably for all numeric types 
+// String parsing method - works reliably for all numeric types including Uint<256,4>
 let temperature: u128 = 29300;
 let temperature_uint256 = temperature.to_string().parse().unwrap();
 
-// Only use .into() for simple types where supported
-let small_value: u8 = 42;
-let small_value_uint = small_value.into(); // Works for some cases
+// AVOID .into() for numeric conversions to Solidity types - it often fails
+// let temp_uint = temperature.into(); // DON'T DO THIS - will often fail
 ```
 
 ### 2. Binary Data Handling
@@ -248,7 +253,8 @@ let small_value_uint = small_value.into(); // Works for some cases
 When working with Solidity structs that contain binary data:
 
 ```rust
-// Always convert Vec<u8> to Bytes explicitly for Solidity data fields
+// IMPORTANT: Always convert Vec<u8> to Bytes explicitly for Solidity data fields
+// Use the correct import path: use wavs_wasi_chain::ethereum::alloy_primitives::Bytes;
 let data_with_id = solidity::DataWithId {
     triggerId: trigger_id,
     data: Bytes::from(result.abi_encode()), // Convert Vec<u8> to Bytes
@@ -260,10 +266,11 @@ let data_with_id = solidity::DataWithId {
 When using string inputs via format-bytes32-string:
 
 ```rust
-// 1. Always clone before using String::from_utf8 to avoid ownership errors
-let input_string = String::from_utf8(trigger_data.clone())?;
+// 1. ALWAYS clone before using String::from_utf8 to avoid ownership errors
+let input_string = String::from_utf8(trigger_data.clone())
+    .map_err(|e| format!("Failed to convert input to string: {}", e))?;
 
-// 2. Always trim null bytes added by format-bytes32-string
+// 2. ALWAYS trim null bytes added by format-bytes32-string before using in URLs
 let clean_input = input_string.trim_end_matches('\0');
 
 // Now safe to use in URLs or other contexts
@@ -289,11 +296,12 @@ Components can receive trigger data in two ways:
 
 ### Input Data Formatting for Testing
 
-When testing with `make wasi-exec`, format input data appropriately:
+When providing testing instructions to users for `make wasi-exec`, format input data appropriately:
 
 1. **String inputs**:
    ```bash
    export TRIGGER_DATA_INPUT=`cast format-bytes32-string "90210"` # For zip codes, strings, etc.
+   # IMPORTANT: Strings will have null byte padding that must be trimmed in component code
    ```
 
 2. **Numeric inputs**:
@@ -340,11 +348,12 @@ To build reliable components:
 
 ### Key Development Tips
 
-1. **Clone data when needed**: Always clone data before passing to consuming functions like String::from_utf8()
-2. **Handle string input**: Always trim null bytes from format-bytes32-string inputs with trim_end_matches('\0')
-3. **Use reliable type conversions**: Prefer string parsing method for numeric conversions to Solidity types
-4. **Clone logs before decoding**: Always use log.clone() before passing to decode_event_log_data!
-5. **Proper error handling**: Use detailed error messages and proper error propagation
+1. **ALWAYS clone data before consuming**: Use `data.clone()` before passing to String::from_utf8() or other consuming functions
+2. **ALWAYS trim string input nulls**: Use `trim_end_matches('\0')` on all format-bytes32-string inputs 
+3. **ALWAYS use string parsing for numbers**: Convert with `value.to_string().parse()` for Solidity numeric types - avoid .into()
+4. **ALWAYS clone logs and collection elements**: Use `log.clone()` and `array[0].field.clone()` to avoid ownership errors
+5. **ALWAYS use correct Bytes import**: Use `use wavs_wasi_chain::ethereum::alloy_primitives::Bytes` for binary data
+6. **ALWAYS use proper error messages**: Propagate errors with detailed context
 
 ### Development Process
 
@@ -367,10 +376,12 @@ To build reliable components:
 | Error Type | Symptom | Solution |
 |------------|---------|----------|
 | Type Conversion | "expected Uint<256, 4>, found u128" | Use string parsing: `value.to_string().parse().unwrap()` |
-| Binary Type Mismatch | "expected Bytes, found Vec<u8>" | Explicitly convert: `Bytes::from(data)` |
-| Event Decoding | "cannot move out of log.data" | Clone before decoding: `let log_clone = log.clone()` |
-| String Handling | URL formatting errors | Trim null bytes: `string.trim_end_matches('\0')` |
-| Ownership Issues | "use of moved value" | Clone data: `data.clone()` before moving |
-| Dependency Issues | "unresolved module" | Use correct import path from wavs_wasi_chain |
+| Binary Type Mismatch | "expected Bytes, found Vec<u8>" | Use: `Bytes::from(data)` with correct import |
+| Event Decoding | "cannot move out of log.data" | ALWAYS clone: `let log_clone = log.clone()` |
+| String Handling | URL formatting errors | ALWAYS trim nulls: `string.trim_end_matches('\0')` |
+| Ownership Issues | "use of moved value" | Clone data before use: `data.clone()` |
+| Collection Access | "cannot move out of index" | Clone when accessing: `array[0].field.clone()` |
+| Dependency Issues | "unresolved module" | Use: `use wavs_wasi_chain::ethereum::alloy_primitives::Bytes` |
+| Environment Variables | API key access issues | Include in SERVICE_CONFIG "host_envs" array |
 
 For more details on specific topics, refer to the [wavs-wasi-chain documentation](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions).

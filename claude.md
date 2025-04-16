@@ -47,10 +47,7 @@ Use in component:
 
 ```rust
 let endpoint = std::env::var("api_endpoint")?;
-// IMPORTANT: Always trim quotes from environment variables to avoid URL formatting errors
-let api_key = std::env::var("WAVS_ENV_MY_API_KEY")
-    .map_err(|e| format!("Failed to get API key: {}", e))?
-    .trim_matches('"'); // Remove any quotes that might be present
+let api_key = std::env::var("WAVS_ENV_MY_API_KEY")?;
 ```
 
 IMPORTANT: NEVER hardcode API keys directly in components. Always store API keys and other sensitive data as environment variables using the method above. Do not use quotes in the .env file values as they may cause URL formatting errors.
@@ -219,10 +216,6 @@ let input_string = String::from_utf8(trigger_data.clone())
 // This is CRITICAL for API URLs or your requests will DEFINITELY fail
 let clean_input = input_string.trim_end_matches('\0');
 
-// Print debug info to troubleshoot string processing
-println!("Original input: {:?}", input_string);
-println!("Cleaned input: {:?}", clean_input);
-
 // Now safe to use in URLs or other contexts
 let url = format!("https://api.example.com/endpoint?param={}", clean_input);
 
@@ -329,16 +322,10 @@ struct ResponseType {
 
 // The request function must be async
 async fn make_request() -> Result<ResponseType, String> {
-    // Get API key from environment and trim quotes to prevent URL errors
-    let api_key = std::env::var("WAVS_ENV_API_KEY")?.trim_matches('"');
-    
-    // Clean input parameter of null bytes
-    let param = input_string.trim_end_matches('\0');
-    
-    // Build URL with cleaned inputs
-    let url = format!("https://api.example.com/endpoint?param={}&key={}", param, api_key);
-    println!("Debug - Request URL: {}", url); // ALWAYS print URL for debugging
-    
+    // IMPORTANT: When formatting URLs with parameters, be careful with special characters
+    // For debugging URL issues, always print the URL before making the request
+    let url = "https://api.example.com/endpoint";
+    println!("Debug - Request URL: {}", url);
     // Create request with proper headers
     let mut req = http_request_get(&url)
         .map_err(|e| format!("Failed to create request: {}", e))?;

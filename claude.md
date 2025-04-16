@@ -224,6 +224,8 @@ impl Guest for Component {
         let output = match dest {
             Destination::Ethereum => Some(encode_trigger_output(trigger_id, &encoded)),
             Destination::CliOutput => Some(encoded),
+            // Note: For complex types, you may need a separate serializable struct for CLI output
+            // as Solidity types from sol! macro don't implement serde::Serialize
         };
         
         Ok(output)
@@ -276,7 +278,7 @@ When using string inputs via format-bytes32-string:
 let input_string = String::from_utf8(trigger_data.clone())
     .map_err(|e| format!("Failed to convert input to string: {}", e))?;
 
-// 2. ALWAYS trim null bytes added by format-bytes32-string before using in URLs
+// 2. ALWAYS trim null bytes added by format-bytes32-string before using in URLs or API calls
 let clean_input = input_string.trim_end_matches('\0');
 
 // Now safe to use in URLs or other contexts
@@ -469,5 +471,6 @@ pub fn encode_trigger_output(trigger_id: u64, output: impl AsRef<[u8]>) -> Vec<u
 | Collection Access | "cannot move out of index" | Clone when accessing: `array[0].field.clone()` |
 | TriggerAction Access | "no field data_input on type TriggerAction" | Use trigger.rs module like the example instead of direct access |
 | Environment Variables | API key access issues | Include in SERVICE_CONFIG "host_envs" array |
+| Serialization Error | "trait `Serialize` not implemented for struct from sol! macro" | Create a separate struct with `#[derive(Serialize)]` for JSON output |
 
 For more details on specific topics, refer to the [wavs-wasi-chain documentation](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions).

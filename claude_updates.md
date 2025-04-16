@@ -4,11 +4,47 @@ Based on our experience building a weather API component, here are proposed upda
 
 ## 1. Input Data Handling
 
-### Convert Bytes to String
+### Input Data Formatting and Handling
 
-When reading string inputs that were passed via `cast format-bytes32-string`, the bytes will include null byte padding. Add this section to the documentation:
+When testing components with `make wasi-exec`, you must format the input data appropriately for your component:
 
 ```markdown
+### Input Data Formatting and Handling
+
+When testing components with `make wasi-exec`, you must format the input data appropriately for your component:
+
+1. **String inputs (bytes32)**: Use `cast format-bytes32-string` for string inputs up to 31 characters:
+   ```bash
+   export TRIGGER_DATA_INPUT=`cast format-bytes32-string "90210"` # For zip codes, short strings, etc.
+   ```
+
+2. **Numeric inputs (uint256, etc.)**: Use `cast abi-encode` for numeric types:
+   ```bash
+   export TRIGGER_DATA_INPUT=`cast abi-encode "f(uint256)" 123456` # For numeric inputs
+   ```
+
+3. **Custom struct inputs**: Use `cast abi-encode` with appropriate type definition:
+   ```bash
+   export TRIGGER_DATA_INPUT=`cast abi-encode "f((uint256,string))" 123 "example"` # For struct (uint256,string)
+   ```
+
+4. **Raw hex data**: Provide hex-encoded data directly:
+   ```bash
+   export TRIGGER_DATA_INPUT="0x1234abcd" # For custom binary formats
+   ```
+
+Always ensure your component correctly decodes the input format you've chosen:
+
+```rust
+// For bytes32 string inputs (with null byte padding)
+let raw_string = String::from_utf8(trigger_data.clone())
+    .map_err(|e| format!("Failed to parse data: {}", e))?;
+let clean_string = raw_string.trim_end_matches('\0');
+
+// For numeric/complex inputs via ABI encoding
+let decoded_value = YourType::abi_decode(&trigger_data, false)?;
+```
+
 ### Working with Bytes32 Input Data
 
 When testing components with `make wasi-exec` and `cast format-bytes32-string`, your input will include null bytes (0x00) as padding to 32 bytes. Always trim these when converting to strings:
@@ -84,6 +120,29 @@ event._triggerInfo.triggerId // May fail if structure doesn't match
 // Example: If NewTrigger event emits bytes, you'll need to decode those bytes first
 event._triggerInfo.to_vec() // Access raw bytes for further processing
 ```
+
+### Event Structure and Field Access
+
+Always check the actual structure in Solidity interface files before accessing fields. For example, in ITypes.sol:
+
+```solidity
+event NewTrigger(bytes _triggerInfo);
+```
+
+This event doesn't directly provide `triggerId` and `data` fields. You must first decode the bytes:
+
+```rust
+// CORRECT approach:
+// 1. Decode the event to get the bytes parameter
+let event: solidity::NewTrigger = decode_event_log_data!(log)?;
+// 2. Decode the bytes into the actual struct
+let trigger_info = solidity::TriggerInfo::abi_decode(&event._triggerInfo, false)?;
+// 3. Now you can access the fields
+let trigger_id = trigger_info.triggerId;
+let data = trigger_info.data;
+```
+
+Assuming the structure without checking will cause compilation errors.
 ```
 
 ## 4. Example Pattern for Raw Data Handling
@@ -173,6 +232,54 @@ Before running `make wasi-exec`, verify:
 - ✅ URLs in HTTP requests are properly formatted and encoded
 - ✅ Your input data format (TRIGGER_DATA_INPUT) matches what your component expects
 - ✅ Component's Cargo.toml includes all required dependencies
+```
+
+## 7. Best Practices for Component Development
+
+Add comprehensive best practices:
+
+```markdown
+## Best Practices for Component Development
+
+To ensure you build components correctly the first time:
+
+### 1. Progressive Development and Testing
+
+- **Start with skeleton implementation**: Begin with a basic component that just logs raw input
+- **Test incrementally**: Build and test after implementing each step of your component logic
+- **Use inspection points**: Add `println!` statements at key transformation points
+- **Validate environment variables early**: Check API keys and endpoints before making requests
+
+### 2. Pre-Implementation Planning
+
+- **Document data flow**: Map out exactly how data transforms from trigger input to final output
+- **Identify type conversions**: Note every point where data types change
+- **List error cases**: Document all possible failure points and how they'll be handled
+- **Mock API responses**: Create sample JSON responses to test parsing before integration
+
+### 3. Defensive Coding Patterns
+
+- **Handle all Result/Option types**: Never use `.unwrap()` or `.expect()` in production code
+- **Validate input formats**: Check lengths, formats and values before processing
+- **Add explicit error messages**: Always include context in error strings (e.g., "Failed to parse ZIP code: {}")
+- **Use type-safe conversions**: Avoid direct casting between numeric types
+
+### 4. Security Considerations
+
+- **Never log API keys or sensitive data**: Redact secrets in all log statements
+- **Validate all external inputs**: Sanitize any user-provided data
+- **Handle large inputs safely**: Set size limits for inputs to prevent resource exhaustion
+- **Use timeouts for external services**: Prevent hanging on network requests
+
+### 5. Pre-Deployment Checklist
+
+Before finalizing your component:
+- ✅ Remove debug `println!` statements
+- ✅ Verify error handling for all external API calls
+- ✅ Test with edge cases (empty input, malformed input, etc.)
+- ✅ Check resource usage (memory allocation, computation time)
+- ✅ Ensure all secrets are properly stored in environment variables
+- ✅ Validate component output format matches submission contract expectations
 ```
 
 These updates will help developers avoid common issues when building WAVS components.

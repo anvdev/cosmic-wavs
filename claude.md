@@ -179,18 +179,26 @@ A basic component has three main parts:
 - Processing the data (this is the custom logic of your component).
 - Encoding and returning the result for submission (if applicable).
 
+When creating a new component, it's strongly recommended to:
+1. Copy the Cargo.toml from the eth-price-oracle example and modify only the name
+2. Use workspace dependencies with `{ workspace = true }` instead of specific versions
+3. Create both lib.rs and trigger.rs files similar to the example component
+
 After being passed the `TriggerAction`, the component decodes it using the `decode_event_log_data!` macro from the [`wavs-wasi-chain`](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions) crate.
 
 ```rust
 #[allow(warnings)]
 mod bindings;
+mod trigger;
+
 use alloy_sol_types::{sol, SolValue};
-use bindings::{export, wavs::worker::layer_types::{TriggerData, TriggerDataEthContractEvent}, Guest, TriggerAction};
-use wavs_wasi_chain::decode_event_log_data;
+use bindings::{export, Guest, TriggerAction};
+use trigger::{decode_trigger_event, encode_trigger_output, Destination};
+use wavs_wasi_chain::http::{fetch_json, http_request_get};
+use wstd::{http::HeaderValue, runtime::block_on};
 
 // Solidity types for the incoming trigger event using the `sol!` macro
 sol! {
-    event MyEvent(uint64 indexed triggerId, bytes data);
     struct MyResult {
         uint64 triggerId;
         bool success;
@@ -203,24 +211,24 @@ export!(Component with_types_in bindings);
 
 impl Guest for Component {
     fn run(action: TriggerAction) -> Result<Option<Vec<u8>>, String> {
-        match action.data {
-            TriggerData::EthContractEvent(TriggerDataEthContractEvent { log, .. }) => {
-                                // 1. Decode the event (ALWAYS clone log to avoid ownership issues)
-                let log_clone = log.clone();
-                let event: MyEvent = decode_event_log_data!(log_clone)
-                    .map_err(|e| format!("Failed to decode event: {}", e))?;
-                
-                // 2. Process data (your business logic goes here)
-                let result = MyResult {
-                    triggerId: event.triggerId, // Use the triggerId from the decoded event
-                    success: true
-                };
-                
-                // 3. Return encoded result
-                Ok(Some(result.abi_encode()))
-            }
-            _ => Err("Unsupported trigger type".to_string())
-        }
+        // Get trigger data - proper error handling with context
+        let (trigger_id, input_data, dest) = decode_trigger_event(action.data)
+            .map_err(|e| format!("Failed to decode trigger: {}", e))?;
+        
+        // Process data (your business logic goes here)
+        let result = MyResult {
+            triggerId: trigger_id,
+            success: true
+        };
+        
+        // Encode the result based on destination
+        let encoded = result.abi_encode();
+        let output = match dest {
+            Destination::Ethereum => Some(encode_trigger_output(trigger_id, &encoded)),
+            Destination::CliOutput => Some(encoded),
+        };
+        
+        Ok(output)
     }
 }
 ```
@@ -325,14 +333,24 @@ Components can make HTTP requests using the `wavs-wasi-chain` crate and `block_o
 
 ```rust
 use wstd::runtime::block_on;  // Required for running async code
+use wavs_wasi_chain::http::{fetch_json, http_request_get}; // Correct import path
+use wstd::http::HeaderValue; // For setting headers
 
 // The request function must be async
 async fn make_request() -> Result<ResponseType, String> {
     let url = "https://api.example.com/endpoint";
-    let req = http_request_get(&url)?;
+    
+    // Create request with proper headers
+    let mut req = http_request_get(&url)
+        .map_err(|e| format!("Failed to create request: {}", e))?;
+    
+    // Add appropriate headers 
+    req.headers_mut().insert("Accept", HeaderValue::from_static("application/json"));
+    req.headers_mut().insert("Content-Type", HeaderValue::from_static("application/json"));
     
     // Parse JSON response
-    let response: ResponseType = fetch_json(req).await?;
+    let response: ResponseType = fetch_json(req).await
+        .map_err(|e| format!("Failed to fetch data: {}", e))?;
     Ok(response)
 }
 
@@ -346,14 +364,31 @@ fn process_data() -> Result<ResponseType, String> {
 
 To build reliable components:
 
-### Key Development Tips
+### Creating New Components
 
-1. **ALWAYS clone data before consuming**: Use `data.clone()` before passing to String::from_utf8() or other consuming functions
-2. **ALWAYS trim string input nulls**: Use `trim_end_matches('\0')` on all format-bytes32-string inputs 
-3. **ALWAYS use string parsing for numbers**: Convert with `value.to_string().parse()` for Solidity numeric types - avoid .into()
-4. **ALWAYS clone logs and collection elements**: Use `log.clone()` and `array[0].field.clone()` to avoid ownership errors
-5. **ALWAYS use correct Bytes import**: Use `use wavs_wasi_chain::ethereum::alloy_primitives::Bytes` for binary data
-6. **ALWAYS use proper error messages**: Propagate errors with detailed context
+When creating a new component, follow these steps to avoid common errors:
+
+1. **Start by copying the example component**:
+   - Copy the `eth-price-oracle` component's Cargo.toml and modify only the name
+   - Create a trigger.rs module similar to the example for proper data handling
+   - Use the existing component structure as a template
+
+2. **Configure dependencies correctly**:
+   - Use workspace dependencies with `{ workspace = true }` syntax
+   - NEVER specify direct version numbers in component Cargo.toml
+   - Import HTTP functions from the correct submodule: `wavs_wasi_chain::http::{fetch_json, http_request_get}`
+
+3. **Handle data ownership properly**:
+   - ALWAYS clone data before consuming: `data.clone()` before passing to String::from_utf8()
+   - ALWAYS clone logs for decoding: `let log_clone = log.clone()`
+   - ALWAYS clone collection elements: `array[0].field.clone()` to avoid "move out of index" errors
+   - ALWAYS trim string input nulls: `trim_end_matches('\0')` on all format-bytes32-string inputs
+   - ALWAYS use string parsing for numbers: `value.to_string().parse()` for Solidity numeric types (avoid .into())
+   - ALWAYS use correct Bytes import: `use wavs_wasi_chain::ethereum::alloy_primitives::Bytes`
+
+4. **Structure your component for both testing and production**:
+   - Implement proper destination-based output handling (CLI vs Ethereum)
+   - Include detailed error messages with context in all error cases
 
 ### Development Process
 
@@ -371,17 +406,67 @@ To build reliable components:
 - Ensure all sensitive data is in environment variables
 - Validate output format matches expected contract format
 
+## Example trigger.rs Module
+
+Here's a template for the trigger.rs module that handles data extraction properly:
+
+```rust
+use crate::bindings::wavs::worker::layer_types::{TriggerData, TriggerDataEthContractEvent};
+use alloy_sol_types::{sol, SolValue};
+use anyhow::Result;
+use wavs_wasi_chain::{decode_event_log_data, ethereum::alloy_primitives::Bytes};
+
+pub enum Destination {
+    Ethereum,  // Return data for on-chain submission
+    CliOutput, // Return data for CLI testing
+}
+
+// Define your event and struct types
+sol! {
+    event MyEvent(uint64 indexed requestId, string dataString);
+    
+    struct DataWithId {
+        uint64 triggerId;
+        bytes data;
+    }
+}
+
+pub fn decode_trigger_event(trigger_data: TriggerData) -> Result<(u64, Vec<u8>, Destination)> {
+    match trigger_data {
+        TriggerData::EthContractEvent(TriggerDataEthContractEvent { log, .. }) => {
+            // ALWAYS clone before using decode_event_log_data!
+            let log_clone = log.clone();
+            let event: MyEvent = decode_event_log_data!(log_clone)?;
+            Ok((event.requestId, event.dataString.as_bytes().to_vec(), Destination::Ethereum))
+        }
+        TriggerData::Raw(data) => Ok((0, data.clone(), Destination::CliOutput)),
+        _ => Err(anyhow::anyhow!("Unsupported trigger data type")),
+    }
+}
+
+pub fn encode_trigger_output(trigger_id: u64, output: impl AsRef<[u8]>) -> Vec<u8> {
+    // Convert Vec<u8> to Bytes for Solidity compatibility
+    DataWithId {
+        triggerId: trigger_id,
+        data: Bytes::from(output.as_ref().to_vec()),
+    }
+    .abi_encode()
+}
+```
+
 ## Troubleshooting Common Errors
 
 | Error Type | Symptom | Solution |
 |------------|---------|----------|
+| Dependency Version | "failed to select a version for..." | Copy Cargo.toml from eth-price-oracle and only change the name |
+| Import Path | "unresolved imports http_request_get" | Use: `use wavs_wasi_chain::http::{fetch_json, http_request_get}` |
 | Type Conversion | "expected Uint<256, 4>, found u128" | Use string parsing: `value.to_string().parse().unwrap()` |
 | Binary Type Mismatch | "expected Bytes, found Vec<u8>" | Use: `Bytes::from(data)` with correct import |
 | Event Decoding | "cannot move out of log.data" | ALWAYS clone: `let log_clone = log.clone()` |
 | String Handling | URL formatting errors | ALWAYS trim nulls: `string.trim_end_matches('\0')` |
 | Ownership Issues | "use of moved value" | Clone data before use: `data.clone()` |
 | Collection Access | "cannot move out of index" | Clone when accessing: `array[0].field.clone()` |
-| Dependency Issues | "unresolved module" | Use: `use wavs_wasi_chain::ethereum::alloy_primitives::Bytes` |
+| TriggerAction Access | "no field data_input on type TriggerAction" | Use trigger.rs module like the example instead of direct access |
 | Environment Variables | API key access issues | Include in SERVICE_CONFIG "host_envs" array |
 
 For more details on specific topics, refer to the [wavs-wasi-chain documentation](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions).

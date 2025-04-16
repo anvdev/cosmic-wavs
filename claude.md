@@ -51,20 +51,8 @@ let api_key = std::env::var("WAVS_ENV_MY_API_KEY")?;
 
 IMPORTANT: NEVER hardcode API keys directly in components. Always store API keys and other sensitive data as environment variables using the method above.
 
-```rust
-// CORRECT: Getting API key from environment variable
-let api_key = std::env::var("WAVS_ENV_OPENWEATHER_API_KEY")
-    .map_err(|e| format!("Failed to get API key: {}", e))?;
-let url = format!(
-    "https://api.example.com/endpoint?api_key={}",
-    api_key
-);
+Set in command:
 
-// INCORRECT: Hardcoding API key (never do this!)
-// let api_key = "1234567890abcdef";
-```
-
-Set in command
 ```bash
 export TRIGGER_DATA_INPUT=`cast format-bytes32-string 1` # your input data for testing the component. Make sure this is formatted correctly for your component.
 export COMPONENT_FILENAME=eth_price_oracle.wasm # the filename of your compiled component.
@@ -178,6 +166,8 @@ When creating a new component, it's strongly recommended to:
 3. Create both lib.rs and trigger.rs files similar to the example component
 
 After being passed the `TriggerAction`, the component decodes it using the `decode_event_log_data!` macro from the [`wavs-wasi-chain`](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions) crate.
+
+The following is just an example. Please base your component off of the component in /eth-price-oracle.
 
 ```rust
 #[allow(warnings)]
@@ -407,7 +397,7 @@ When creating a new component, follow these steps to avoid common errors:
 
 1. **Start by copying the example component**:
    - Copy the `eth-price-oracle` component's Cargo.toml and modify only the name
-   - Create a trigger.rs module similar to the example for proper data handling
+   - Create a lib.rs module similar to the `eth-price-oracle`
    - Use the existing component structure as a template
 
 2. **Configure dependencies correctly**:

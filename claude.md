@@ -372,8 +372,10 @@ When creating a new component, follow these steps to avoid common errors:
    - Use the existing component structure as a template
 
 2. **Configure dependencies correctly**:
-   - Use workspace dependencies with `{ workspace = true }` syntax
+   - Use `workspace dependencies with `{ workspace = true }` syntax
    - NEVER specify direct version numbers in component Cargo.toml
+   - For new functionality, add dependencies to workspace Cargo.toml first, then reference with `{ workspace = true }`
+   - Consider standard library alternatives before adding new dependencies
    - Import HTTP functions from the correct submodule: `wavs_wasi_chain::http::{fetch_json, http_request_get}`
 
 3. **Handle data ownership properly**:
@@ -457,6 +459,7 @@ pub fn encode_trigger_output(trigger_id: u64, output: impl AsRef<[u8]>) -> Vec<u
 | Error Type | Symptom | Solution |
 |------------|---------|----------|
 | Dependency Version | "failed to select a version for..." | Copy Cargo.toml from eth-price-oracle and only change the name |
+| Missing Dependency | "unresolved module or crate" | Add the dependency to workspace Cargo.toml first, then reference with `{ workspace = true }` |
 | Import Path | "unresolved imports http_request_get" | Use: `use wavs_wasi_chain::http::{fetch_json, http_request_get}` |
 | Type Conversion | "expected Uint<256, 4>, found u128" | Use string parsing: `value.to_string().parse().unwrap()` |
 | Binary Type Mismatch | "expected Bytes, found Vec<u8>" | Use: `Bytes::from(data)` with correct import |

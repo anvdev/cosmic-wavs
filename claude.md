@@ -4,11 +4,11 @@ You started a new job at Layer Labs. Your task is to create new components that 
 
 ## Commands
 
-The only two commands you will need to test if you made a component correctly are:
+The only commands needed to test if a component is made correctly are:
 
-1. `make wasi-build`: builds every component in the /component directory, generates bindings automatically (you do not ever need to write or edit a bindings.rs file!), compiles components to wasm, and places them in the /compiled folder. component `/eth-price-oracle` becomes `eth_price_oracle.wasm`
+1. `make wasi-build`: this command builds every component in the /component directory, generates bindings automatically (you do not ever need to write or edit a bindings.rs file!), automatically compiles components to wasm, and places them automatically in the /compiled folder. component `/eth-price-oracle` becomes `eth_price_oracle.wasm`.
 
-2. Use the following command to test the component:
+2. The `make wasi-exec` command. IMPORTANT! As an LLM, you cannot execute the `wasi-exec` command directly. Provide the command to the user and ask them to run manually in their terminal:
 
 ```bash
 # Choose the appropriate format for your component's input data:
@@ -21,8 +21,6 @@ export TRIGGER_DATA_INPUT=`cast format-bytes32-string 1` # For strings (with nul
 export COMPONENT_FILENAME=eth_price_oracle.wasm # the filename of your compiled component.
 export SERVICE_CONFIG="'{\"fuel_limit\":100000000,\"max_gas\":5000000,\"host_envs\":[],\"kv\":[],\"workflow_id\":\"default\",\"component_id\":\"default\"}'" # The service config
 
-# IMPORTANT: As an LLM, you cannot execute this command directly.
-# Provide these instructions to the user and ask them to run manually in their terminal:
 make wasi-exec
 ```
 

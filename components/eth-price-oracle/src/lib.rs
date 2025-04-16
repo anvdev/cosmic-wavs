@@ -32,8 +32,6 @@ mod solidity {
     sol!("../../src/interfaces/ITypes.sol");
 }
 
-// --- End trigger.rs logic ---
-
 use wavs_wasi_chain::http::{fetch_json, http_request_get};
 pub mod bindings;
 use crate::bindings::{export, Guest, TriggerAction};

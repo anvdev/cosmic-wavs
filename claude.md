@@ -397,9 +397,9 @@ When creating a new component, follow these steps to avoid common errors:
 - CRITICAL: Verify all data structures used with API responses implement `Clone` - missing this will cause build errors
 - Confirm string inputs from format-bytes32-string are trimmed of null bytes
 
-## Example trigger.rs Module
+## Example trigger logic
 
-Here's a template for the trigger.rs module that handles data extraction properly:
+Here's an example of trigger logic that handles data extraction properly:
 
 ```rust
 use crate::bindings::wavs::worker::layer_types::{TriggerData, TriggerDataEthContractEvent};

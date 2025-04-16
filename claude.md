@@ -176,7 +176,6 @@ A basic component has three main parts:
 After being passed the `TriggerAction`, the component decodes it using the `decode_event_log_data!` macro from the [`wavs-wasi-chain`](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions) crate.
 
 ```rust
-
 #[allow(warnings)]
 mod bindings;
 use alloy_sol_types::{sol, SolValue};
@@ -200,9 +199,8 @@ impl Guest for Component {
     fn run(action: TriggerAction) -> Result<Option<Vec<u8>>, String> {
         match action.data {
             TriggerData::EthContractEvent(TriggerDataEthContractEvent { log, .. }) => {
-                // 1. Decode the event (IMPORTANT: If you get ownership errors with log.data,
-                // create a clone first to avoid "cannot move out of `log.data` which is behind a shared reference" errors)
-                let log_clone = log.clone(); // Create a clone to avoid ownership issues
+                // 1. Decode the event (always clone log to avoid ownership issues)
+                let log_clone = log.clone();
                 let event: MyEvent = decode_event_log_data!(log_clone)
                     .map_err(|e| format!("Failed to decode event: {}", e))?;
                 
@@ -227,786 +225,152 @@ The `sol!` macro from `alloy_sol_types` is used to define Solidity types in Rust
 
 Bindings are automatically generated for any files in the `/components` and `/src` directories when the `make build` command is run.
 
-## Common Solidity-Rust Type Issues
+## Common Type and Data Handling Issues
 
-When working with Solidity types in Rust components, there are several common issues you might encounter:
+When building components, you'll need to handle several common issues:
 
-### Type Conversion and Compatibility
+### 1. Rust-Solidity Type Conversions
 
-Solidity and Rust have different type systems that require careful handling:
+Solidity and Rust have different type systems. For numeric types:
 
 ```rust
-// WRONG: This will cause compilation errors
-sol! {
-    struct MyResult {
-        uint256 value;
-    }
-}
-// Later in code:
-let result = MyResult {
-    value: my_u32_value, // Error: expected Uint<256, 4>, found u32
-};
+// String parsing method - works reliably for all numeric types 
+let temperature: u128 = 29300;
+let temperature_uint256 = temperature.to_string().parse().unwrap();
 
-// CORRECT: Use proper conversions
-sol! {
-    struct MyResult {
-        uint256 value;
-    }
-}
-// Later in code:
-// Option 1: Parse from string (most reliable method that works for all numeric types)
-let value_str = my_u32_value.to_string();
-let result = MyResult {
-    value: value_str.parse().unwrap(), // Convert to Uint<256, 4>
-};
-
-// Option 2: Use from() when supported (NOT ALL TYPES SUPPORT THIS!)
-// IMPORTANT: The .into() method won't work for many Solidity numeric types including
-// converting from u128 to uint256. Always prefer string parsing when in doubt.
-let result = MyResult {
-    value: my_small_value.into(), // Only works for some types that implement From
-};
+// Only use .into() for simple types where supported
+let small_value: u8 = 42;
+let small_value_uint = small_value.into(); // Works for some cases
 ```
 
-IMPORTANT: For complex type conversion involving numeric values like u64, u128 to Uint<256,4> (uint256 in Solidity), 
-the string parsing method is the most reliable approach:
+### 2. Binary Data Handling
+
+When working with Solidity structs that contain binary data:
 
 ```rust
-// Converting u128 values to uint256
-let temperature: u128 = 29300;  // in Kelvin * 100
-let temperature_uint256: Uint<256, 4> = temperature.to_string().parse().unwrap();
-```
-
-### Working with Binary Data
-
-When handling raw binary data from triggers:
-
-```rust
-// WRONG: Accessing data incorrectly
-TriggerData::Raw(data) => Ok(Some((0, data.0.to_vec(), Destination::CliOutput))),
-
-// CORRECT: Access raw data properly
-TriggerData::Raw(data) => Ok(Some((0, data.to_vec(), Destination::CliOutput))),
-```
-
-IMPORTANT: Be very careful with field types in the `DataWithId` struct. The `data` field is of type `Bytes` 
-but `abi_encode()` returns `Vec<u8>`. Always convert explicitly:
-
-```rust
-// WRONG: This will cause compilation errors
+// Always convert Vec<u8> to Bytes explicitly for Solidity data fields
 let data_with_id = solidity::DataWithId {
     triggerId: trigger_id,
-    data: result.abi_encode(), // ERROR: expected Bytes, found Vec<u8>
-};
-
-// CORRECT: Convert Vec<u8> to Bytes explicitly
-let data_with_id = solidity::DataWithId {
-    triggerId: trigger_id,
-    data: Bytes::from(result.abi_encode()), // Use proper conversion
+    data: Bytes::from(result.abi_encode()), // Convert Vec<u8> to Bytes
 };
 ```
 
-### String Format in sol! Macro
+### 3. String Input Processing
 
-The `sol!` macro can be picky about string formatting:
-
-```rust
-// WRONG: Using raw string literals with newlines can cause issues
-sol!(r#"
-    event NewTrigger(bytes data);
-"#);
-
-// CORRECT: Use curly braces for multi-line definitions
-sol! {
-    event NewTrigger(bytes data);
-}
-```
-
-### Generic Bytes Handling Pattern
-
-A common pattern for safely handling bytes data:
+When using string inputs via format-bytes32-string:
 
 ```rust
-// IMPORTANT: ALWAYS clone the data before using String::from_utf8() to avoid ownership errors!
-// Without the clone, you'll get errors when you try to use trigger_data again
-let data_string = String::from_utf8(trigger_data.clone())
-    .map_err(|e| format!("Failed to parse data: {}", e))?;
+// 1. Always clone before using String::from_utf8 to avoid ownership errors
+let input_string = String::from_utf8(trigger_data.clone())?;
 
-// CRITICAL: When using format-bytes32-string for input, ALWAYS trim trailing null bytes
-// The cast format-bytes32-string command pads strings with null bytes to 32 bytes
-let clean_string = data_string.trim_end_matches('\0');
+// 2. Always trim null bytes added by format-bytes32-string
+let clean_input = input_string.trim_end_matches('\0');
+
+// Now safe to use in URLs or other contexts
+let url = format!("https://api.example.com/endpoint?param={}", clean_input);
 ```
 
-IMPORTANT: For components that process bytes32 encoded strings (like zip codes, symbols, etc.), you MUST 
-trim the null bytes before using the string, especially in URLs:
+### 4. Event Log Decoding
+
+When using the decode_event_log_data! macro:
 
 ```rust
-// Without trimming, this would likely produce a URL error due to null bytes
-// When using with APIs, this can cause hard-to-debug errors
-let zip_code = String::from_utf8(trigger_data.clone())
-    .map_err(|e| format!("Failed to parse zip code: {}", e))?;
-let clean_zip = zip_code.trim_end_matches('\0');
-
-// Now safe to use in a URL
-let url = format!("https://api.example.com/weather?zip={}", clean_zip);
+// Always clone the log before decoding to avoid ownership errors
+let log_clone = log.clone();
+let event: MyEvent = decode_event_log_data!(log_clone)?;
 ```
 
-## Submission
+## Input and Output Handling
 
-A service handler or submission contract handles the logic for submitting a component's output to the blockchain. A submission contract must implement the `handleSignedData()` function using the `IWavsServiceHandler` interface. This interface is defined in the `@wavs` package: https://www.npmjs.com/package/@wavs/solidity?activeTab=code
+Components can receive trigger data in two ways:
 
-In the template, the [submission contract](https://github.com/Lay3rLabs/wavs-foundry-template/tree/v0.3.0/src/contracts/WavsSubmit.sol) uses the `handleSignedData()` function to validate the operator's signature and store the processed data from the component. The `DataWithId` struct must match the output format from the component. Each trigger has a unique ID that links the data to its source.
+1. Via an onchain event (after deployment)
+2. Via the `wasi-exec` command (for testing)
 
-Template submission example:
+### Input Data Formatting for Testing
 
-```solidity
-function handleSignedData(bytes calldata _data, bytes calldata _signature) external {
-    // 1. Validate the operator's signature by calling the `validate` function on the `_serviceManager` contract
-    _serviceManager.validate(_data, _signature);
+When testing with `make wasi-exec`, format input data appropriately:
 
-    // 2. Decode the data into a DataWithId struct defined in the `ITypes` interface
-    DataWithId memory dataWithId = abi.decode(_data, (DataWithId));
-
-    // 3. Store the result in state
-    _signatures[dataWithId.triggerId] = _signature;      // 1. Store operator signature
-    _datas[dataWithId.triggerId] = dataWithId.data;      // 2. Store the data
-    _validTriggers[dataWithId.triggerId] = true;         // 3. Mark trigger as valid
-}
-```
-
-Note: submission contracts are not required for a WAVS service. If you don't need to submit data back to the blockchain, you can modify the makefile `deploy-service` command to use the `--submit none` flag when deploying the service:
-
-```bash
-deploy-service:
-	@$(WAVS_CMD) deploy-service --log-level=info --data /data/.docker --home /data \
-	--component "/data/compiled/${COMPONENT_FILENAME}" \
-	--trigger-event-name "${TRIGGER_EVENT}" \
-	--trigger-address "${SERVICE_TRIGGER_ADDR}" \
-	--service-config ${SERVICE_CONFIG} \
-  --submit none
-```
-
-## Toml files
-
-There are several toml files in the template that are used to configure the service:
-
-- `wavs.toml` is used to configure the WAVS service itself, including chain configurations (local, testnets, mainnet) and maximum WASM fuel limits.
-- `cli.toml` is used to configure the WAVS CLI tool, and also includes chain configurations (local, testnets, mainnet), maximum WASM fuel limits, and log levels.
-- `Cargo.toml` in the root directory is used to configure the workspace and includes dependencies, build settings, and component metadata.
-- `/components/*/Cargo.toml` in each component directory is used to configure the Rust component and includes dependencies, build settings, and component metadata. It can inherit dependencies from the root `Cargo.toml` file using `workspace = true`.
-
-These files can be customized to suit your specific needs, and many settings can be overridden using environment variables.
-
-The following is an example of a component's `Cargo.toml` file structure:
-
-```toml
-# Package metadata - inherits most values from workspace configuration
-[package]
-name = "eth-price-oracle"        # Name of the component
-edition.workspace = true         # Rust edition (inherited from workspace)
-version.workspace = true         # Version (inherited from workspace)
-authors.workspace = true         # Authors (inherited from workspace)
-rust-version.workspace = true    # Minimum Rust version (inherited from workspace)
-repository.workspace = true      # Repository URL (inherited from workspace)
-
-# Component dependencies
-[dependencies]
-# Core dependencies
-wit-bindgen-rt = {workspace = true}    # Required for WASI bindings and Guest trait
-wavs-wasi-chain = { workspace = true }  # Required for core WAVS functionality
-# Helpful dependencies
-serde = { workspace = true }            # For serialization (if working with JSON)
-serde_json = { workspace = true }       # For JSON handling
-alloy-sol-macro = { workspace = true }  # For Ethereum contract interactions
-wstd = { workspace = true }             # For WASI standard library features
-alloy-sol-types = { workspace = true }  # For Ethereum ABI handling
-anyhow = { workspace = true }           # For enhanced error handling
-
-# Library configuration
-[lib]
-crate-type = ["cdylib"]  # Specifies this is a dynamic library crate
-
-# Release build optimization settings
-[profile.release]
-codegen-units = 1        # Single codegen unit for better optimization
-opt-level = "s"          # Optimize for size
-debug = false            # Disable debug information
-strip = true            # Strip symbols from binary
-lto = true              # Enable link-time optimization
-
-# WAVS component metadata
-[package.metadata.component]
-package = "component:eth-price-oracle"  # Component package name
-target = "wavs:worker/layer-trigger-world@0.3.0"  # Target WAVS world and version
-```
-
-## Input and Output
-
-When building WASI components, keep in mind that the component can receive the trigger data in two ways:
-
-1. Triggered by an onchain event from a contract after service deployment. Components receive a `TriggerAction` containing event data which is then decoded.
-
-2. Manually via the `wasi-exec` command. The wasi-exec command simulates an onchain event and passes the trigger data directly to the component as `trigger::raw`. No abi decoding is required, and the output is returned as raw bytes.
-
-### Input Data Formatting
-
-When testing components with `make wasi-exec`, you must format the input data appropriately for your component:
-
-1. **String inputs (bytes32)**: Use `cast format-bytes32-string` for string inputs up to 31 characters:
+1. **String inputs**:
    ```bash
-   export TRIGGER_DATA_INPUT=`cast format-bytes32-string "90210"` # For zip codes, short strings, etc.
+   export TRIGGER_DATA_INPUT=`cast format-bytes32-string "90210"` # For zip codes, strings, etc.
    ```
-   - CRITICAL: This format adds null byte padding to fill 32 bytes, which MUST be trimmed in your component
-   - You MUST include code like this in your component when using string input:
-   ```rust
-   // Clone before using String::from_utf8 to avoid ownership issues
-   let input_string = String::from_utf8(trigger_data.clone())
-       .map_err(|e| format!("Failed to parse input: {}", e))?;
-   
-   // ALWAYS trim null bytes added by format-bytes32-string 
-   let clean_input = input_string.trim_end_matches('\0'); 
-   ```
-   - Without trimming null bytes, your component may fail when using the string in URLs or other contexts
 
-2. **Numeric inputs (uint256, etc.)**: Use `cast abi-encode` for numeric types:
+2. **Numeric inputs**:
    ```bash
-   export TRIGGER_DATA_INPUT=`cast abi-encode "f(uint256)" 123456` # For numeric inputs
+   export TRIGGER_DATA_INPUT=`cast abi-encode "f(uint256)" 123456` # For uint256 values
    ```
 
-3. **Custom struct inputs**: Use `cast abi-encode` with appropriate type definition:
+3. **Custom struct inputs**:
    ```bash
-   export TRIGGER_DATA_INPUT=`cast abi-encode "f((uint256,string))" 123 "example"` # For struct (uint256,string)
+   export TRIGGER_DATA_INPUT=`cast abi-encode "f((uint256,string))" 123 "example"` # For structs
    ```
 
-4. **Raw hex data**: Provide hex-encoded data directly:
+4. **Raw hex data**:
    ```bash
    export TRIGGER_DATA_INPUT="0x1234abcd" # For custom binary formats
    ```
 
-### Data Processing Pattern
+## Network Requests
 
-The example below shows a basic generic pattern for processing input data and returning output. In the example, the `sol!` macro generates Rust types from Solidity definitions, adds ABI encoding/decoding methods, and handles type conversions (e.g., `uint64` → `u64`). ABI encoding/decoding converts Rust structs to bytes and vice versa. The `decode_event_log_data!` macro decodes the raw event log data and returns a Rust struct matching your Solidity event. This is used for on-chain events.
-
-
-```rust
-// 1. Define your Solidity types using the `sol!` macro
-sol! {
-    event MyEvent(uint64 indexed triggerId, bytes data);
-    struct MyResult {
-        uint64 triggerId;
-        bytes processedData;
-    }
-}
-
-// 2. Handle on-chain event trigger and raw trigger types
-impl Guest for Component {
-    fn run(action: TriggerAction) -> Result<Option<Vec<u8>>, String> {
-        match action.data {
-            // On-chain event handling
-            TriggerData::EthContractEvent(TriggerDataEthContractEvent { log, .. }) => {
-                // Decode the event
-                let event: MyEvent = decode_event_log_data!(log)?;
-                
-                // Process the data
-                let result = MyResult {
-                    triggerId: event.triggerId,
-                    processedData: process_data(&event.data)?,
-                };
-                
-                // Encode for submission
-                Ok(Some(result.abi_encode()))
-            }
-            // Manual trigger handling for testing
-            TriggerData::Raw(data) => {
-                // Process raw data directly
-                let result = process_data(&data)?;
-                Ok(Some(result))
-            }
-            _ => Err("Unsupported trigger type".to_string())
-        }
-    }
-}
-```
-
-In the template, encoding and decoding is handled in the `trigger.rs` file using a `Destination` enum to determine how to process and return data based on the trigger source. The `decode_trigger_event` function in `trigger.rs` determines the destination:
-
-- For `TriggerData::EthContractEvent`, it returns `Destination::Ethereum`
-- For `TriggerData::Raw` (used in testing), it returns `Destination::CliOutput`
-
-This allows the component to handle both production and testing scenarios appropriately.
-
-## Logging
-
-Components can use logging to debug and track the execution of the component.
-
-**Logging in development**:
-
-Use `println!()` to write to stdout/stderr. This is visible when running `wasi-exec` locally.
-
-```rust lib.rs
-println!("Debug message: {:?}", data);
-```
-
-**Logging in production**
-
-For production, you can use a `host::log()` function which takes a `LogLevel` and writes its output via the tracing mechanism. Along with the string that the developer provides, it attaches additional context such as the `ServiceID`, `WorkflowID`, and component `Digest`.
-
-```rust lib.rs
-host::log(LogLevel::Info, "Production logging message");
-```
-
-## Troubleshooting Components
-
-### Common Error Patterns and Solutions
-
-1. **Binding Generation Issues**:
-   - **Symptom**: Errors about missing or incorrect bindings.
-   - **Solution**: Run `make wasi-build` to regenerate bindings before testing components.
-   - **Prevention**: Always run `make wasi-build` after making changes to your component.
-
-2. **Type Conversion Errors**:
-   - **Symptom**: "Expected X, found Y" compiler errors (e.g., "expected Uint<256, 4>, found u128").
-   - **Solution**: Use string parsing for most numeric conversions: `my_u128.to_string().parse().unwrap()`.
-   - **Prevention**: Avoid using `.into()` for numeric conversions unless you're certain it's supported.
-
-3. **Dependency Import Issues**:
-   - **Symptom**: "Use of unresolved module" or "unlinked crate" errors.
-   - **Solution**: Use full import paths from existing dependencies, like `wavs_wasi_chain::ethereum::alloy_primitives::Bytes`.
-   - **Prevention**: Check if a type already exists in your dependencies before adding new dependencies.
-
-4. **Permission Issues with Docker**:
-   - **Symptom**: "Permission denied" errors when running commands.
-   - **Solution**: Have the operator run the command manually.
-
-5. **Null Byte Padding**:
-   - **Symptom**: String inputs contain unexpected null characters causing URL formatting errors.
-   - **Solution**: Always trim null bytes when using `format-bytes32-string` with `trim_end_matches('\0')`.
-   - **Prevention**: Add this trimming step for ALL string inputs that use `format-bytes32-string`.
-
-6. **Rust Ownership Issues**:
-   - **Symptom**: "Use of moved value" or "cannot move out of borrowed content" errors.
-   - **Solution**: Use `.clone()` when converting data or passing to functions that take ownership.
-   - **Prevention**: Clone any data that you'll need to use again after passing to a consuming function.
-
-7. **Event Decoding Errors**:
-   - **Symptom**: "Cannot move out of `log.data` which is behind a shared reference".
-   - **Solution**: Clone the log before passing it to the decode_event_log_data! macro.
-   - **Prevention**: Always use `let log_clone = log.clone();` before decoding events.
-
-8. **Field Access Errors**:
-   - **Symptom**: Errors about accessing fields that don't exist in event structures.
-   - **Solution**: Always check the actual Solidity interface structure before accessing fields.
-   - **Prevention**: Verify your understanding of nested event structures in the Solidity files.
-
-9. **Binary Type Mismatch**:
-   - **Symptom**: "Expected Bytes, found Vec<u8>" errors when working with the DataWithId struct.
-   - **Solution**: Convert Vec<u8> to Bytes explicitly: `Bytes::from(result.abi_encode())`.
-   - **Prevention**: Always check return types of functions and convert as needed.
-
-### Debugging Tools
-
-1. **Local Execution Logging**:
-   - Use `println!()` statements liberally during development.
-   - Add context to logged values: `println!("Decoding data: {:?}", data);`
-
-2. **Data Format Verification**:
-   - When working with external APIs, log both request URLs and responses.
-   - For Ethereum data, use explicit hex formatting for clarity.
-
-3. **Step-by-Step Execution**:
-   - Break complex operations into smaller parts with logging between steps.
-   - Verify data format at each transformation point.
+Components can make HTTP requests using the `wavs-wasi-chain` crate and `block_on` for async handling:
 
 ```rust
-// Example of debugging with step validation
-println!("Received trigger data: {:?}", trigger_data);
-// BETTER: Use proper error handling instead of .expect() which panics
-let zip_code = String::from_utf8(trigger_data.clone())
-    .map_err(|e| format!("Failed to parse zip code: {}", e))?;
-let clean_zip = zip_code.trim_end_matches('\0'); // Trim null bytes if using bytes32 format
-println!("Decoded zip code: '{}'", clean_zip);
-
-// Verify API key access
-match env::var("WAVS_ENV_API_KEY") {
-    Ok(key) => println!("API key available, length: {}", key.len()),
-    Err(e) => println!("API key error: {}", e),
-}
-```
-
-## Helpers and utilities
-
-### `wavs-wasi-chain` crate
-
-The `wavs-wasi-chain` crate provides a set of helpful functions for making HTTP requests and interacting with the blockchain. It also provides a macro for decoding trigger data for use in the component.
-
-Learn more in the [crate documentation](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions).
-
-### Sol! macro
-
-The `sol!` macro from `alloy-sol-macro` allows you to generate Rust types from Solidity interface files. This is useful for handling blockchain events and data structures in components.
-
-
-You can write Solidity definitions (interfaces, structs, enums, custom errors, events, and function signatures) directly inside the `sol! { ... }` macro invocation in your Rust code.
-
-At compile time, the `sol!` macro parses that Solidity syntax and automatically generates the equivalent Rust types, structs, enums, and associated functions (like `abi_encode()` for calls or `abi_decode()` for return data/events) needed to interact with smart contracts based on those definitions.
-
-Required Dependencies:
-
-```toml
-[dependencies]
-alloy-sol-macro = { workspace = true }  # For Solidity type generation
-alloy-sol-types = { workspace = true }  # For ABI handling
-```
-
-Basic Pattern:
-
-```rust
-mod solidity {
-    use alloy_sol_macro::sol;
-    
-    // Generate types from Solidity file
-    sol!("../../src/interfaces/ITypes.sol");
-    
-    // Or define types inline
-    sol! {
-        struct TriggerInfo {
-            uint64 triggerId;
-            bytes data;
-        }
-        
-        event NewTrigger(TriggerInfo _triggerInfo);
-    }
-}
-```
-
-In the template, the `sol!` macro is used in the `trigger.rs` component file to generate Rust types from the `ITypes.sol` file.
-
-```rust trigger.rs
-mod solidity {
-    use alloy_sol_macro::sol;
-    pub use ITypes::*;
-
-    // The objects here will be generated automatically into Rust types.
-    // If you update the .sol file, you must re-run `cargo build` to see the changes.
-    sol!("../../src/interfaces/ITypes.sol");
-}
-```
-
-The macro reads a Solidity interface file and generates corresponding Rust types and encoding/decoding functions. In the example above, it reads `ITypes.sol` which defines:
-- `NewTrigger` event
-- `TriggerInfo` struct
-- `DataWithId` struct
-
-### Event Structure and Field Access
-
-Always check the actual structure in Solidity interface files before accessing fields. For example, in ITypes.sol:
-
-```solidity
-event NewTrigger(bytes _triggerInfo);
-```
-
-This event doesn't directly provide `triggerId` and `data` fields. You must first decode the bytes:
-
-```rust
-// CORRECT approach:
-// 1. Decode the event to get the bytes parameter
-let event: solidity::NewTrigger = decode_event_log_data!(log)?;
-// 2. Decode the bytes into the actual struct
-let trigger_info = solidity::TriggerInfo::abi_decode(&event._triggerInfo, false)?;
-// 3. Now you can access the fields
-let trigger_id = trigger_info.triggerId;
-let data = trigger_info.data;
-```
-
-Assuming the structure without checking will cause compilation errors.
-
-More documentation on the `sol!` macro can be found at: https://docs.rs/alloy-sol-macro/latest/alloy_sol_macro/macro.sol.html
-
-## Network requests
-
-Components can make network requests to external APIs using the `wavs-wasi-chain` crate. Since WASI components run in a synchronous environment but network requests are asynchronous, you can use `block_on` from the `wstd` crate to bridge this gap. The `block_on` function allows you to run async code within a synchronous context, which is essential for making HTTP requests in WAVS components.
-
-To learn how to use private environment variables like API keys in a component, see the [Private Variables](#private-variables-host_envs) section.
-
-The following dependencies are useful for making HTTP requests from a component. These are added to a component's `Cargo.toml` file:
-
-```toml Cargo.toml
-[dependencies]
-wavs-wasi-chain = { workspace = true }  # HTTP utilities
-wstd = { workspace = true }             # Runtime utilities (includes block_on)
-serde = { workspace = true }            # Serialization
-serde_json = { workspace = true }       # JSON handling
-```
-
-The following example shows how to make a basic HTTP GET request from a component:
-
-```rust lib.rs
 use wstd::runtime::block_on;  // Required for running async code
 
-// Async function for the HTTP request
-async fn make_request() -> Result<YourResponseType, String> {
-    // Create the request
+// The request function must be async
+async fn make_request() -> Result<ResponseType, String> {
     let url = "https://api.example.com/endpoint";
-    let mut req = http_request_get(&url).map_err(|e| e.to_string())?;
+    let req = http_request_get(&url)?;
     
-    // Add headers
-    req.headers_mut().insert(
-        "Accept",
-        HeaderValue::from_static("application/json")
-    );
-    
-    // Make the request and parse JSON response
-    let json: YourResponseType = fetch_json(req)
-        .await
-        .map_err(|e| e.to_string())?;
-        
-    Ok(json)
-}
-
-// Main component logic that uses block_on
-fn process_data() -> Result<YourResponseType, String> {
-    // Use block_on to run the async function
-    block_on(async move {
-        make_request().await
-    })?
-}
-```
-
-For making POST requests with JSON data, you can use the [`http_request_post_json` helper function](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/http/fn.http_request_post_json.html), which automatically handles JSON serialization and sets header to `application/json`:
-
-```rust lib.rs
-async fn make_post_request() -> Result<PostResponse, String> {
-    let url = "https://api.example.com/endpoint"; // The URL of the endpoint to make the request to
-    let post_data = ("key1", "value1"); // any serializable data can be passed in
-    
-    // Make POST request and parse JSON response
-    let response: PostResponse = fetch_json(
-        http_request_post_json(&url, &post_data)?
-    ).await.map_err(|e| e.to_string())?;
-    
+    // Parse JSON response
+    let response: ResponseType = fetch_json(req).await?;
     Ok(response)
 }
 
-// Main component logic that uses block_on
-fn process_data() -> Result<PostResponse, String> {
-    // Use block_on to run the async function
-    block_on(async move {
-        make_post_request().await
-    })?
+// Use block_on in the main component logic
+fn process_data() -> Result<ResponseType, String> {
+    block_on(async { make_request().await })
 }
 ```
 
-Other functions are available in the [crate documentation](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions).
+## Best Practices
 
-## Blockchain interactions
+To build reliable components:
 
-Interacting with blockchains like Ethereum requires specific dependencies and setup within your component.
+### Key Development Tips
 
-### Dependencies
+1. **Clone data when needed**: Always clone data before passing to consuming functions like String::from_utf8()
+2. **Handle string input**: Always trim null bytes from format-bytes32-string inputs with trim_end_matches('\0')
+3. **Use reliable type conversions**: Prefer string parsing method for numeric conversions to Solidity types
+4. **Clone logs before decoding**: Always use log.clone() before passing to decode_event_log_data!
+5. **Proper error handling**: Use detailed error messages and proper error propagation
 
-The following dependencies are commonly required in your component's `Cargo.toml` for Ethereum interactions:
+### Development Process
 
-```toml
-[dependencies]
-# Core WAVS blockchain functionality
-wit-bindgen-rt = {workspace = true}    # Required for WASI bindings and Guest trait
-wavs-wasi-chain = { workspace = true }  # HTTP utilities
+1. Build and test incrementally
+2. Validate each step with println!() statements during development
+3. Always run `make wasi-build` after making changes to regenerate bindings
+4. Test with expected formatting (string inputs, numeric inputs, etc.)
+5. Remove debug statements before production
 
-# Alloy crates for Ethereum interaction
-alloy-sol-types = { workspace = true }  # ABI handling & type generation
-alloy-sol-macro = { workspace = true }  # sol! macro for interfaces
-alloy-primitives = { workspace = true } # Core primitive types (Address, U256, etc.)
-alloy-network = "0.11.1"                 # Network trait and Ethereum network type
-alloy-provider = { version = "0.11.1", default-features = false, features = ["rpc-api"] } # RPC provider
-alloy-rpc-types = "0.11.1"                # RPC type definitions (TransactionRequest, etc.)
+### Pre-Deployment Checklist
 
-# Other useful crates
-anyhow = { workspace = true }          # Error handling
-serde = { workspace = true }           # Serialization/deserialization
-serde_json = { workspace = true }      # JSON handling
-```
+- Verify all type conversions are handled correctly
+- Confirm proper error handling throughout
+- Test with actual input formats to verify handling
+- Ensure all sensitive data is in environment variables
+- Validate output format matches expected contract format
 
-### Chain Configuration
+## Troubleshooting Common Errors
 
-Chain configurations are defined in the root `wavs.toml` file. This allows components to access RPC endpoints and chain IDs without hardcoding them.
+| Error Type | Symptom | Solution |
+|------------|---------|----------|
+| Type Conversion | "expected Uint<256, 4>, found u128" | Use string parsing: `value.to_string().parse().unwrap()` |
+| Binary Type Mismatch | "expected Bytes, found Vec<u8>" | Explicitly convert: `Bytes::from(data)` |
+| Event Decoding | "cannot move out of log.data" | Clone before decoding: `let log_clone = log.clone()` |
+| String Handling | URL formatting errors | Trim null bytes: `string.trim_end_matches('\0')` |
+| Ownership Issues | "use of moved value" | Clone data: `data.clone()` before moving |
+| Dependency Issues | "unresolved module" | Use correct import path from wavs_wasi_chain |
 
-```toml wavs.toml
-[chains.eth.local]
-chain_id = "31337"
-ws_endpoint = "ws://localhost:8545"
-http_endpoint = "http://localhost:8545"
-
-[chains.eth.mainnet]
-chain_id = "1"
-ws_endpoint = "wss://mainnet.infura.io/ws/v3/YOUR_INFURA_ID"
-http_endpoint = "https://mainnet.infura.io/v3/YOUR_INFURA_ID"
-```
-
-### Accessing Configuration and Provider
-
-WAVS provides host bindings to get the chain config for a given chain name in the wavs.toml file:
-
-```rust lib.rs
-// Get the chain config for an Ethereum chain
-let chain_config = host::get_eth_chain_config(&chain_name)?;
-
-// Get the chain config for a Cosmos chain
-let chain_config = host::get_cosmos_chain_config(&chain_name)?;
-```
-
-You can then use `wavs-wasi-chain` to create an RPC provider using the [`new_eth_provider` function](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/ethereum/fn.new_eth_provider.html):
-
-```rust lib.rs
-use crate::bindings::host::{get_eth_chain_config, get_cosmos_chain_config}; // Import host functions
-use wavs_wasi_chain::ethereum::new_eth_provider;
-use alloy_provider::{Provider, RootProvider};
-use alloy_network::Ethereum;
-use anyhow::Context; // For context() error handling
-
-// Get the chain config for a specific chain defined in wavs.toml
-let chain_config = get_eth_chain_config("eth.local") // Use the key from wavs.toml (e.g., "eth.local" or "eth.mainnet")
-    .map_err(|e| format!("Failed to get chain config: {}", e))?;
-
-// Create an Alloy provider instance using the HTTP endpoint
-let provider: RootProvider<Ethereum> = new_eth_provider::<Ethereum>(
-    chain_config.http_endpoint
-        .context("http_endpoint is missing in chain config")? // Ensure endpoint exists
-)?;
-```
-
-### Example: Querying NFT Balance
-
-Here's an example demonstrating how to query the balance of an ERC721 NFT contract for a given owner address.
-
-```rust lib.rs
-use crate::bindings::host::get_eth_chain_config;
-use alloy_network::{Ethereum, Network};
-use alloy_primitives::{Address, Bytes, TxKind, U256};
-use alloy_provider::{Provider, RootProvider};
-use alloy_rpc_types::{TransactionInput, eth::TransactionRequest}; // Note: use eth::TransactionRequest
-use alloy_sol_types::{sol, SolCall}; // Removed unused SolType, SolValue
-use wavs_wasi_chain::ethereum::new_eth_provider;
-use anyhow::Context;
-use wstd::runtime::block_on; // Required to run async code
-
-// Define the ERC721 interface subset needed
-sol! {
-    interface IERC721 {
-        function balanceOf(address owner) external view returns (uint256);
-    }
-}
-
-// Function to query NFT ownership (must be async)
-pub async fn query_nft_ownership(owner_address: Address, nft_contract: Address) -> Result<bool, String> {
-    // 1. Get chain configuration (using "eth.local" as an example)
-    let chain_config = get_eth_chain_config("eth.local")
-        .map_err(|e| format!("Failed to get eth.local chain config: {}", e))?;
-
-    // 2. Create Ethereum provider
-    let provider: RootProvider<Ethereum> = new_eth_provider::<Ethereum>(
-        chain_config.http_endpoint
-            .context("http_endpoint missing for eth.local")?
-    ).map_err(|e| format!("Failed to create provider: {}", e))?; // Handle provider creation error
-
-    // 3. Prepare the contract call using the generated interface
-    let balance_call = IERC721::balanceOfCall { owner: owner_address };
-
-    // 4. Construct the transaction request for a read-only call
-    let tx = TransactionRequest {
-        to: Some(TxKind::Call(nft_contract)), // Specify the contract to call
-        input: TransactionInput {
-            input: Some(balance_call.abi_encode().into()), // ABI-encoded call data
-            data: None // `data` is deprecated, use `input`
-        },
-        // Other fields like nonce, gas, value are not needed for eth_call
-        ..Default::default()
-    };
-
-    // 5. Execute the read-only call using the provider
-    // Note: provider.call() returns the raw bytes result
-    let result_bytes = provider.call(&tx)
-        .await
-        .map_err(|e| format!("Provider call failed: {}", e))?;
-
-    // 6. Decode the result (balanceOf returns uint256)
-    // Ensure the result is exactly 32 bytes for U256::from_be_slice
-    if result_bytes.len() != 32 {
-        return Err(format!("Unexpected result length: {}", result_bytes.len()));
-    }
-    let balance = U256::from_be_slice(&result_bytes);
-
-    // 7. Determine ownership based on balance
-    Ok(balance > U256::ZERO)
-}
-
-// Example of how to call the async function from the main sync component logic
-fn main_logic(owner: Address, contract: Address) -> Result<bool, String> {
-    let is_owner = block_on(async move {
-        query_nft_ownership(owner, contract).await
-    })?; // Use block_on to run the async function
-    Ok(is_owner)
-}
-```
-
-This example covers:
-1.  **Defining the Interface**: Using `sol!` to create Rust bindings for the `balanceOf` function.
-2.  **Provider Setup**: Getting configuration and creating an `alloy` provider.
-3.  **Call Preparation**: Encoding the function call data using generated types.
-4.  **Transaction Request**: Building the request for an `eth_call`.
-5.  **Execution**: Using `provider.call()` to interact with the node.
-6.  **Decoding**: Parsing the returned bytes into the expected `U256` type.
-7.  **Async Handling**: Using `async fn` and `block_on` for asynchronous network operations within the synchronous component environment.
-
-Visit the [wavs-wasi-chain documentation](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/index.html) and the [Alloy documentation](https://docs.rs/alloy/latest/alloy/) for more detailed information.
-
-## Best Practices for Component Development
-
-To ensure you build components correctly the first time:
-
-### 1. Progressive Development and Testing
-
-- **Start with skeleton implementation**: Begin with a basic component that just logs raw input
-- **Test incrementally**: Build and test after implementing each step of your component logic
-- **Use inspection points**: Add `println!` statements at key transformation points 
-- **Validate environment variables early**: Check API keys and endpoints before making requests
-- **Test data handling first**: Verify you can correctly decode and process input data before adding complex logic
-- **Clone data defensively**: Always clone data before passing to String::from_utf8() or other consuming functions
-- **Validate input formats**: For string inputs using format-bytes32-string, always trim null bytes with trim_end_matches('\0')
-
-### 2. Pre-Implementation Planning
-
-- **Document data flow**: Map out exactly how data transforms from trigger input to final output
-- **Identify type conversions**: Note every point where data types change
-- **List error cases**: Document all possible failure points and how they'll be handled
-- **Mock API responses**: Create sample JSON responses to test parsing before integration
-
-### 3. Defensive Coding Patterns
-
-- **Handle all Result/Option types**: Never use `.unwrap()` or `.expect()` in production code
-- **Validate input formats**: Check lengths, formats and values before processing
-- **Add explicit error messages**: Always include context in error strings (e.g., "Failed to parse ZIP code: {}")
-- **Use type-safe conversions**: Avoid direct casting between numeric types
-- **Clone logs before decoding**: Always use `let log_clone = log.clone();` before decoding event logs
-- **Use string parsing for numeric conversions**: For numeric conversions to Solidity types, use the string parsing pattern: `value.to_string().parse().unwrap()`
-- **Check Bytes vs Vec<u8>**: When working with binary data and Solidity types, be aware of Bytes vs Vec<u8> differences and use explicit conversions
-
-### 4. Security Considerations
-
-- **Never log API keys or sensitive data**: Redact secrets in all log statements
-- **Validate all external inputs**: Sanitize any user-provided data
-- **Handle large inputs safely**: Set size limits for inputs to prevent resource exhaustion
-- **Use timeouts for external services**: Prevent hanging on network requests
-
-### 5. Pre-Deployment Checklist
-
-Before finalizing your component:
-- ✅ Remove debug `println!` statements
-- ✅ Verify error handling for all external API calls
-- ✅ Test with edge cases (empty input, malformed input, etc.)
-- ✅ Check resource usage (memory allocation, computation time)
-- ✅ Ensure all secrets are properly stored in environment variables
-- ✅ Validate component output format matches submission contract expectations
-- ✅ Test with actual format-bytes32-string input to verify null byte handling
-- ✅ Ensure all Solidity-Rust type conversions are handled correctly
-- ✅ Verify cloning of reference values to avoid ownership issues
-- ✅ Confirm dependencies are properly imported using correct paths
+For more details on specific topics, refer to the [wavs-wasi-chain documentation](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions).

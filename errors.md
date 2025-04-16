@@ -565,3 +565,61 @@ These issues highlight the importance of:
 2. Careful URL formatting for HTTP requests in WASI components
 3. Having a testing strategy that doesn't depend on external API calls
 4. Secure handling of API keys using environment variables
+
+# Weather Oracle Component - OpenWeatherMap ZIP Code API
+
+Below is a comprehensive list of errors encountered while creating the weather-oracle component that fetches data from OpenWeatherMap API using ZIP codes:
+
+## 1. Invalid URI Character Error in API Request
+- **Error**: "Failed to create request: invalid uri character" during HTTP request to OpenWeatherMap API
+- **Troubleshooting**: Added debug printing to see the full URL being constructed and found quotes in the API key
+- **Learning**: The environment variable was being set with quotes in the .env file which were preserved when reading with std::env::var()
+- **Fix**: 
+  1. Modified the .env file to remove quotes from the API key value
+  2. Added code to trim quotes from the API key with `api_key.trim_matches('"')`
+- **Testing**: Ran `make wasi-exec` after implementing the fix
+- **Result**: Component successfully connected to the OpenWeatherMap API and returned weather data
+- **Future Prevention**: CLAUDE.md should mention that environment variables should be set without quotes in .env files, or include code to trim quotes from values read from environment variables
+
+## 2. Environment Variable Duplication
+- **Error**: Found duplicate entries in .env file after running the sed command to add the API key
+- **Troubleshooting**: Examined the .env file and found multiple entries for the same environment variable
+- **Learning**: The sed command for adding variables to .env can create duplicate entries if not checked first
+- **Fix**: Manually edited the .env file to remove duplicate entries
+- **Testing**: Component successfully accessed the single environment variable entry
+- **Result**: Environment variable configuration was correct
+- **Future Prevention**: CLAUDE.md should include a check for existing environment variables before adding new ones
+
+## 3. Data Structure Clone Requirements
+- **Error**: Not an immediate error, but potential runtime issues with data structure ownership
+- **Troubleshooting**: Reviewed documentation on Rust ownership and struct handling
+- **Learning**: All data structures used with API responses should implement the Clone trait
+- **Fix**: Added `#[derive(Clone)]` to all data structures in the component
+- **Testing**: Component successfully processed the API response without ownership errors
+- **Result**: No runtime ownership issues occurred
+- **Future Prevention**: CLAUDE.md should emphasize the importance of deriving Clone for all data structures, especially those used with API responses
+
+## 4. API Error Handling
+- **Error**: Not an immediate error, but needed robust error handling for API failures
+- **Troubleshooting**: Reviewed best practices for handling API errors in WASI components
+- **Learning**: API calls can fail for many reasons (network, authentication, invalid parameters)
+- **Fix**: Added proper error handling with descriptive error messages:
+  ```rust
+  fetch_json(req).await.map_err(|e| format!("Failed to fetch weather data: {}", e))?
+  ```
+- **Testing**: Component correctly handled and reported API errors
+- **Result**: Improved error reporting for troubleshooting
+- **Future Prevention**: CLAUDE.md should include more examples of proper error handling for API calls
+
+The component was successfully implemented and tested. It:
+1. Takes a ZIP code input (formatted as a bytes32 string)
+2. Properly trims null bytes from the input
+3. Securely accesses the OpenWeatherMap API key from environment variables
+4. Makes a properly formatted HTTP request to fetch weather data
+5. Parses the JSON response and returns the weather information
+
+What I wish CLAUDE.md had included:
+1. Specific guidance on environment variable formatting (avoiding quotes)
+2. More detailed examples of HTTP request error handling
+3. Explicit instructions to implement Clone for all API data structures
+4. Examples of common API integration patterns for WASI components

@@ -305,7 +305,7 @@ Below is a comprehensive list of all errors encountered while building the weath
 ## 3. Unused Variable Warning for trigger_id
 - **Error**: "unused variable: `trigger_id`" warning in encode_trigger_output function
 - **Troubleshooting**: Compiler pointed out that we declared the parameter but didn't use it
-- **Learning**: Rust warns about unused variables as they may indicate logic errors
+- **Learning**: Rust warns about unused variables as they may indicate logic **errors**
 - **Fix**: Prefixed the variable with an underscore (`_trigger_id`) to indicate it's intentionally unused
 - **Testing**: Ran `make wasi-build` to verify the warning was resolved
 - **Result**: Component compiled without the unused variable warning
@@ -342,3 +342,62 @@ The component was successfully built, compiled, and tested. It correctly:
 5. Returns the data in the appropriate format based on the destination (Ethereum or CLI)
 
 All errors were systematically identified, understood, and fixed, resulting in a fully functional weather oracle component.
+
+# Weather API Component - OpenWeatherMap ZIP Code Integration
+
+Below is a comprehensive list of errors encountered while building the weather component that queries OpenWeatherMap API by ZIP code:
+
+## 1. Ownership Error with Partially Moved Value
+- **Error**: "borrow of partially moved value: `weather_data`" - Rust compiler error during build
+- **Troubleshooting**: The error message pointed to `data: Bytes::from(serde_json::to_vec(&weather_data).unwrap_or_default())` trying to use weather_data after some fields were moved
+- **Learning**: When using a struct's string fields (like `name` and `country`) in another struct in Rust, those strings are moved rather than copied. After moving these fields, I couldn't use the original struct again.
+- **Fix**: Added `Clone` trait to all data structures and cloned string values before use, restructured the code to serialize weather_data before starting to move its fields
+- **Testing**: Ran `make wasi-build` to verify compilation
+- **Result**: Component compiled successfully after implementing the fix
+- **Future Prevention**: The CLAUDE.md file should explicitly mention that all data structures need to implement the `Clone` trait when working with nested data structures in WAVS components
+
+## 2. Unused Import Warning
+- **Error**: "unused import: `ethereum::alloy_primitives::Bytes`" in trigger.rs
+- **Troubleshooting**: The compiler detected that this import was not used in the trigger.rs file
+- **Learning**: Rust warns about unused imports to keep code clean
+- **Fix**: Prefixed the unused variable in the function signature with an underscore: `_trigger_id`
+- **Testing**: Ran `make wasi-build` to check compilation
+- **Result**: Component still compiled with warnings, but they were informational rather than errors
+- **Future Prevention**: CLAUDE.md should recommend using `#[allow(unused_imports)]` for components under development
+
+## 3. Unused Variable Warning
+- **Error**: "unused variable: `trigger_id`" in the encode_trigger_output function
+- **Troubleshooting**: The compiler detected that trigger_id parameter was declared but never used
+- **Learning**: Rust warns about unused variables as they might indicate logical errors
+- **Fix**: Prefixed the parameter with an underscore to indicate intentional non-use: `_trigger_id`
+- **Testing**: Ran `make wasi-build` to check compilation
+- **Result**: Warning was resolved for this specific variable
+- **Future Prevention**: CLAUDE.md should mention common Rust idioms for unused parameters
+
+## 4. Data Structure Design for API Responses
+- **Error**: Not an immediate error, but a design consideration for handling complex JSON responses
+- **Troubleshooting**: The OpenWeatherMap API returns nested JSON with arrays and optional fields
+- **Learning**: Need to carefully model the JSON structure in Rust types with all appropriate field types
+- **Fix**: Created properly typed structs for the OpenWeatherMap API response with optional fields marked using Option<T>
+- **Testing**: Component successfully parsed real weather data during execution
+- **Result**: All fields were correctly extracted from the API response
+- **Future Prevention**: CLAUDE.md should include an example of handling complex JSON responses with nested structures
+
+## 5. Environment Variable Configuration
+- **Error**: Not an immediate error, but needed to properly set up the API key
+- **Troubleshooting**: Needed to follow the guidelines for environment variable handling
+- **Learning**: Environment variables must be prefixed with WAVS_ENV_ and included in SERVICE_CONFIG
+- **Fix**: Added the API key to .env file with WAVS_ENV_ prefix and included it in the SERVICE_CONFIG host_envs array
+- **Testing**: Component successfully accessed the environment variable during execution
+- **Result**: API key was securely stored and accessed at runtime
+- **Future Prevention**: CLAUDE.md already covers this well, but could benefit from a complete example of both setting and using environment variables
+
+The weather component was successfully implemented and tested. It correctly:
+1. Takes a ZIP code input from the trigger data
+2. Properly handles the null byte padding from format-bytes32-string
+3. Securely accesses the OpenWeatherMap API key from environment variables
+4. Makes a properly formatted HTTP request to the OpenWeatherMap API
+5. Parses the JSON response into appropriate Rust data structures
+6. Returns the weather data in the correct format based on the destination
+
+All errors were systematically identified and fixed, resulting in a fully functional weather oracle component that can be integrated with blockchain applications.

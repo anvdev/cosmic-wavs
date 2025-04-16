@@ -623,3 +623,91 @@ What I wish CLAUDE.md had included:
 2. More detailed examples of HTTP request error handling
 3. Explicit instructions to implement Clone for all API data structures
 4. Examples of common API integration patterns for WASI components
+
+# Weather Service - OpenWeatherMap ZIP Code API Integration
+
+Below is a comprehensive list of all errors encountered while building a new weather service component that fetches data from OpenWeatherMap API using zip codes:
+
+## 1. Temporary Value Dropped While Borrowed Error
+- **Error**: "temporary value dropped while borrowed" in the environment variable access code
+- **Troubleshooting**: The compiler pointed to the line where we were chaining method calls on a temporary value from std::env::var()
+- **Learning**: In Rust, when you chain methods that return a temporary value, that value is dropped at the end of the statement, but borrowing it extends its lifetime
+- **Fix**: Split the chained method calls into separate statements, assigning the environment variable to an intermediate variable:
+  ```rust
+  // WRONG:
+  let api_key = std::env::var("WAVS_ENV_OPENWEATHER_API_KEY")
+      .map_err(|e| format\!("Failed to get API key: {}", e))?
+      .trim_matches('"');
+      
+  // CORRECT:
+  let api_key_raw = std::env::var("WAVS_ENV_OPENWEATHER_API_KEY")
+      .map_err(|e| format\!("Failed to get API key: {}", e))?;
+  let api_key = api_key_raw.trim_matches('"');
+  ```
+- **Testing**: Ran `make wasi-build` to verify compilation
+- **Result**: The component compiled successfully after the fix
+- **Future Prevention**: CLAUDE.md should include examples of proper error handling for environment variables, showing the correct way to chain method calls with intermediate variables
+
+## 2. Clone Implementation for API Response Structures
+- **Error**: Although not an immediate compilation error, a potential runtime issue with data structures
+- **Troubleshooting**: Preventive measure based on documentation warnings about ownership
+- **Learning**: All data structures used with API responses should implement the Clone trait to avoid ownership issues
+- **Fix**: Added `#[derive(Clone)]` to all data structures in the component, especially those for the API response:
+  ```rust
+  #[derive(Debug, Serialize, Deserialize, Clone)]
+  pub struct WeatherData {
+      city: String,
+      temp: f64,
+      description: String,
+      humidity: u32,
+      wind_speed: f64,
+      timestamp: u64,
+  }
+  ```
+- **Testing**: Component processed API responses without ownership errors
+- **Result**: No runtime ownership issues occurred during component execution
+- **Future Prevention**: CLAUDE.md should more prominently highlight the importance of implementing Clone for all data structures used with API responses
+
+## 3. Null Byte Handling for ZIP Code Input
+- **Error**: Not an immediate error, but a potential issue with URL formation if not handled
+- **Troubleshooting**: Followed documentation guidance about format-bytes32-string padded output
+- **Learning**: Input strings formatted with cast format-bytes32-string are padded with null bytes that must be trimmed
+- **Fix**: Added explicit null byte trimming for the zip code input:
+  ```rust
+  let zip_code = input_string.trim_end_matches('\0');
+  ```
+- **Testing**: Component successfully processed zip code input with null bytes
+- **Result**: Correctly formed URL parameters without null byte characters
+- **Future Prevention**: CLAUDE.md provided good guidance on this issue, which helped prevent runtime errors
+
+## 4. Environment Variable Configuration
+- **Error**: Not an immediate error, but needed secure handling of the API key
+- **Troubleshooting**: Checked for existing environment variable in .env file
+- **Learning**: API keys should be stored as environment variables with WAVS_ENV_ prefix
+- **Fix**: Found that the API key was already set in the .env file, but added code to trim quotes when accessing it
+- **Testing**: Component successfully accessed the API key from the environment
+- **Result**: Secure handling of the API key without hardcoding
+- **Future Prevention**: CLAUDE.md provided good guidance on environment variables, which helped avoid security issues
+
+## 5. Component Directory Structure
+- **Error**: Not an error, but needed to follow the correct structure for components
+- **Troubleshooting**: Examined the existing eth-price-oracle component
+- **Learning**: Components need src/ directory with lib.rs file and proper Cargo.toml structure
+- **Fix**: Created the correct directory structure for the weather-service component
+- **Testing**: Build system correctly recognized and built the component
+- **Result**: Component was properly integrated into the project
+- **Future Prevention**: CLAUDE.md provided good guidance on component structure
+
+The component was successfully built and tested. It correctly:
+1. Takes a zip code input via format-bytes32-string
+2. Properly trims null bytes from the input
+3. Securely accesses the OpenWeatherMap API key from environment variables
+4. Makes a properly formatted HTTP request to the OpenWeatherMap API
+5. Parses the JSON response and returns structured weather data
+
+What I wish CLAUDE.md had included more clearly:
+1. Examples of proper Rust variable lifetime handling, especially for chained method calls
+2. More explicit warnings about temporary value lifetime issues in Rust
+3. Code examples showing how to split complex operations into multiple statements
+4. More emphasis on deriving Clone for all API-related data structures
+EOF < /dev/null

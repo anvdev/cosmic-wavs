@@ -35,10 +35,11 @@ You can set public and private variables in components.
    - This variable is set in the .env file in the root of this repo. Use the following steps:
      1. see if `.env` exists: `ls -la .env`
      - If there is no .env file, use `cp .env.example .env`.
-     1. Add your private variable:
+     1. Before adding, check if the variable already exists to avoid duplicates
+     1. Add your private variable WITHOUT quotes:
 ```bash
 sed -i '' '1i\
-WAVS_ENV_MY_API_KEY="your_secret_key_here"
+WAVS_ENV_MY_API_KEY=your_secret_key_here
 ' .env
 ```
 
@@ -46,10 +47,13 @@ Use in component:
 
 ```rust
 let endpoint = std::env::var("api_endpoint")?;
-let api_key = std::env::var("WAVS_ENV_MY_API_KEY")?;
+// IMPORTANT: Always trim quotes from environment variables to avoid URL formatting errors
+let api_key = std::env::var("WAVS_ENV_MY_API_KEY")
+    .map_err(|e| format!("Failed to get API key: {}", e))?
+    .trim_matches('"'); // Remove any quotes that might be present
 ```
 
-IMPORTANT: NEVER hardcode API keys directly in components. Always store API keys and other sensitive data as environment variables using the method above.
+IMPORTANT: NEVER hardcode API keys directly in components. Always store API keys and other sensitive data as environment variables using the method above. Do not use quotes in the .env file values as they may cause URL formatting errors.
 
 Set in command:
 
@@ -167,58 +171,6 @@ When creating a new component, it's strongly recommended to:
 
 After being passed the `TriggerAction`, the component decodes it using the `decode_event_log_data!` macro from the [`wavs-wasi-chain`](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions) crate.
 
-The following is just an example. Please base your component off of the component in /eth-price-oracle.
-
-```rust
-#[allow(warnings)]
-mod bindings;
-mod trigger;
-
-use alloy_sol_types::{sol, SolValue};
-use bindings::{export, Guest, TriggerAction};
-use trigger::{decode_trigger_event, encode_trigger_output, Destination};
-use wavs_wasi_chain::http::{fetch_json, http_request_get};
-use wstd::{http::HeaderValue, runtime::block_on};
-
-// IMPORTANT: Define Solidity types directly in the file where they're used
-// The sol! macro generates types that are scoped to the current file only
-sol! {
-    struct MyResult {
-        uint64 triggerId;
-        bool success;
-    }
-}
-
-// Define the component
-struct Component;
-export!(Component with_types_in bindings);
-
-impl Guest for Component {
-    fn run(action: TriggerAction) -> Result<Option<Vec<u8>>, String> {
-        // Get trigger data - proper error handling with context
-        let (trigger_id, input_data, dest) = decode_trigger_event(action.data)
-            .map_err(|e| format!("Failed to decode trigger: {}", e))?;
-        
-        // Process data (your business logic goes here)
-        let result = MyResult {
-            triggerId: trigger_id,
-            success: true
-        };
-        
-        // Encode the result based on destination
-        let encoded = result.abi_encode();
-        let output = match dest {
-            Destination::Ethereum => Some(encode_trigger_output(trigger_id, &encoded)),
-            Destination::CliOutput => Some(encoded),
-            // Note: For complex types, you may need a separate serializable struct for CLI output
-            // as Solidity types from sol! macro don't implement serde::Serialize
-        };
-        
-        Ok(output)
-    }
-}
-```
-
 Components must implement the `Guest` trait, which is the main interface between your component and the WAVS runtime. The `run` function is the entry point for processing triggers: it should receive the trigger data, decode it, process it according to your component's logic, and return the results. If you need to submit results to the blockchain, results need to be encoded using `abi_encode()`.
 
 The `sol!` macro from `alloy_sol_types` is used to define Solidity types in Rust. It generates Rust structs and implementations that match your Solidity types, including ABI encoding/decoding methods.
@@ -265,12 +217,21 @@ let input_string = String::from_utf8(trigger_data.clone())
     .map_err(|e| format!("Failed to convert input to string: {}", e))?;
 
 // 2. ALWAYS trim null bytes added by format-bytes32-string before using in URLs or API calls
-// This is CRITICAL for API URLs or your requests will likely fail
+// This is CRITICAL for API URLs or your requests will DEFINITELY fail
 let clean_input = input_string.trim_end_matches('\0');
+
+// Print debug info to troubleshoot string processing
+println!("Original input: {:?}", input_string);
+println!("Cleaned input: {:?}", clean_input);
 
 // Now safe to use in URLs or other contexts
 let url = format!("https://api.example.com/endpoint?param={}", clean_input);
+
+// ALWAYS print the URL before sending requests to debug formatting issues
+println!("Debug - Request URL: {}", url);
 ```
+
+CRITICAL: String inputs via format-bytes32-string MUST be trimmed of null bytes before using in URLs or API calls. This is the most common cause of "invalid URI character" errors.
 
 ### 4. Event Log Decoding
 
@@ -360,12 +321,24 @@ use wstd::runtime::block_on;  // Required for running async code
 use wavs_wasi_chain::http::{fetch_json, http_request_get}; // Correct import path
 use wstd::http::HeaderValue; // For setting headers
 
+// IMPORTANT: All API response structs MUST derive Clone
+#[derive(Serialize, Deserialize, Debug, Clone)] // Clone prevents ownership errors
+struct ResponseType {
+    field1: String,
+    field2: u64,
+}
+
 // The request function must be async
 async fn make_request() -> Result<ResponseType, String> {
-    // IMPORTANT: When formatting URLs with parameters, be careful with special characters
-    // For debugging URL issues, always print the URL before making the request
-    let url = "https://api.example.com/endpoint";
-    println!("Debug - Request URL: {}", url);
+    // Get API key from environment and trim quotes to prevent URL errors
+    let api_key = std::env::var("WAVS_ENV_API_KEY")?.trim_matches('"');
+    
+    // Clean input parameter of null bytes
+    let param = input_string.trim_end_matches('\0');
+    
+    // Build URL with cleaned inputs
+    let url = format!("https://api.example.com/endpoint?param={}&key={}", param, api_key);
+    println!("Debug - Request URL: {}", url); // ALWAYS print URL for debugging
     
     // Create request with proper headers
     let mut req = http_request_get(&url)

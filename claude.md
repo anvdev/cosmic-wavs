@@ -295,6 +295,34 @@ let log_clone = log.clone();
 let event: MyEvent = decode_event_log_data!(log_clone)?;
 ```
 
+### 5. Data Structure Ownership
+
+When working with data structures in Rust, especially with API responses:
+
+```rust
+// IMPORTANT: Always derive Clone for data structures used in API responses
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct ApiResponse {
+    name: String,
+    description: String,
+    // other fields...
+}
+
+// WRONG - Will cause "borrow of partially moved value" errors:
+let weather_struct = WeatherData {
+    city: api_response.name, // This moves the string from api_response
+    // other fields...
+};
+let json_data = serde_json::to_vec(&api_response)?; // ERROR: api_response partially moved
+
+// CORRECT - Process in the right order:
+let json_data = serde_json::to_vec(&api_response)?; // Use the complete struct first
+let weather_struct = WeatherData {
+    city: api_response.name, // Then move fields
+    // other fields...
+};
+```
+
 ## Input and Output Handling
 
 Components can receive trigger data in two ways:
@@ -407,6 +435,8 @@ When creating a new component, follow these steps to avoid common errors:
 - Test with actual input formats to verify handling
 - Ensure all sensitive data is in environment variables
 - Validate output format matches expected contract format
+- Verify all data structures used with API responses implement `Clone`
+- Confirm string inputs from format-bytes32-string are trimmed of null bytes
 
 ## Example trigger.rs Module
 
@@ -472,5 +502,6 @@ pub fn encode_trigger_output(trigger_id: u64, output: impl AsRef<[u8]>) -> Vec<u
 | TriggerAction Access | "no field data_input on type TriggerAction" | Use trigger.rs module like the example instead of direct access |
 | Environment Variables | API key access issues | Include in SERVICE_CONFIG "host_envs" array |
 | Serialization Error | "trait `Serialize` not implemented for struct from sol! macro" | Create a separate struct with `#[derive(Serialize)]` for JSON output |
+| Partially Moved Value | "borrow of partially moved value" | Process data in correct order: serialize/use struct *before* moving its fields |
 
 For more details on specific topics, refer to the [wavs-wasi-chain documentation](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions).

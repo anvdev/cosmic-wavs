@@ -11,7 +11,13 @@ The only two commands you will need to test if you made a component correctly ar
 2. Use the following command to test the component:
 
 ```bash
-export TRIGGER_DATA_INPUT=`cast format-bytes32-string 1` # your input data for testing the component. Make sure this is formatted correctly for your component.
+# Choose the appropriate format for your component's input data:
+export TRIGGER_DATA_INPUT=`cast format-bytes32-string 1` # For strings (with null byte padding up to 32 bytes)
+# Or use other formats based on your needs:
+# export TRIGGER_DATA_INPUT=`cast abi-encode "f(uint256)" 123456` # For numeric inputs
+# export TRIGGER_DATA_INPUT=`cast abi-encode "f((uint256,string))" 123 "example"` # For struct inputs
+# export TRIGGER_DATA_INPUT="0x1234abcd" # For raw hex data
+
 export COMPONENT_FILENAME=eth_price_oracle.wasm # the filename of your compiled component.
 export SERVICE_CONFIG="'{\"fuel_limit\":100000000,\"max_gas\":5000000,\"host_envs\":[],\"kv\":[],\"workflow_id\":\"default\",\"component_id\":\"default\"}'" # The service config
 make wasi-exec
@@ -180,7 +186,7 @@ impl Guest for Component {
                 
                 // 2. Process data (your business logic goes here)
                 let result = MyResult {
-                    triggerId,
+                    triggerId: event.triggerId, // Use the triggerId from the decoded event
                     success: true
                 };
                 
@@ -271,9 +277,12 @@ sol! {
 A common pattern for safely handling bytes data:
 
 ```rust
-// Extract data from trigger bytes 
-let data_string = String::from_utf8(trigger_data)
+// Extract data from trigger bytes (and clone to avoid ownership issues)
+let data_string = String::from_utf8(trigger_data.clone())
     .map_err(|e| format!("Failed to parse data: {}", e))?;
+
+// If data might contain null bytes (e.g., from bytes32 format), trim them
+let clean_string = data_string.trim_end_matches('\0');
 ```
 
 ## Submission
@@ -372,7 +381,31 @@ When building WASI components, keep in mind that the component can receive the t
 1. Triggered by an onchain event from a contract after service deployment. Components receive a `TriggerAction` containing event data which is then decoded.
 
 2. Manually via the `wasi-exec` command. The wasi-exec command simulates an onchain event and passes the trigger data directly to the component as `trigger::raw`. No abi decoding is required, and the output is returned as raw bytes.
-    - In the `ETH_PRICE_ORACLE` component, the input data needs to be formatted into a `bytes32` string using the `cast format-bytes32-string` when using the `make wasi-exec` command. When creating your own components, use an appropriate format for your use case to use the `wasi-exec` command.
+
+### Input Data Formatting
+
+When testing components with `make wasi-exec`, you must format the input data appropriately for your component:
+
+1. **String inputs (bytes32)**: Use `cast format-bytes32-string` for string inputs up to 31 characters:
+   ```bash
+   export TRIGGER_DATA_INPUT=`cast format-bytes32-string "90210"` # For zip codes, short strings, etc.
+   ```
+   - Note: this format adds null byte padding, which must be trimmed in your component
+
+2. **Numeric inputs (uint256, etc.)**: Use `cast abi-encode` for numeric types:
+   ```bash
+   export TRIGGER_DATA_INPUT=`cast abi-encode "f(uint256)" 123456` # For numeric inputs
+   ```
+
+3. **Custom struct inputs**: Use `cast abi-encode` with appropriate type definition:
+   ```bash
+   export TRIGGER_DATA_INPUT=`cast abi-encode "f((uint256,string))" 123 "example"` # For struct (uint256,string)
+   ```
+
+4. **Raw hex data**: Provide hex-encoded data directly:
+   ```bash
+   export TRIGGER_DATA_INPUT="0x1234abcd" # For custom binary formats
+   ```
 
 ### Data Processing Pattern
 
@@ -466,6 +499,18 @@ host::log(LogLevel::Info, "Production logging message");
    - **Symptom**: "Permission denied" errors when running commands.
    - **Solution**: Have the operator run the command manually.
 
+5. **Null Byte Padding**:
+   - **Symptom**: String inputs contain unexpected null characters causing URL formatting errors.
+   - **Solution**: Always trim null bytes when using `format-bytes32-string` with `trim_end_matches('\0')`.
+
+6. **Rust Ownership Issues**:
+   - **Symptom**: "Use of moved value" errors after passing data to functions like `String::from_utf8()`.
+   - **Solution**: Use `.clone()` when you need to use data multiple times.
+
+7. **Field Access Errors**:
+   - **Symptom**: Errors about accessing fields that don't exist in event structures.
+   - **Solution**: Always check the actual Solidity interface structure before accessing fields.
+
 ### Debugging Tools
 
 1. **Local Execution Logging**:
@@ -483,8 +528,11 @@ host::log(LogLevel::Info, "Production logging message");
 ```rust
 // Example of debugging with step validation
 println!("Received trigger data: {:?}", trigger_data);
-let zip_code = String::from_utf8(trigger_data).expect("Failed to parse zip code");
-println!("Decoded zip code: {}", zip_code);
+// BETTER: Use proper error handling instead of .expect() which panics
+let zip_code = String::from_utf8(trigger_data.clone())
+    .map_err(|e| format!("Failed to parse zip code: {}", e))?;
+let clean_zip = zip_code.trim_end_matches('\0'); // Trim null bytes if using bytes32 format
+println!("Decoded zip code: '{}'", clean_zip);
 
 // Verify API key access
 match env::var("WAVS_ENV_API_KEY") {
@@ -556,6 +604,29 @@ The macro reads a Solidity interface file and generates corresponding Rust types
 - `NewTrigger` event
 - `TriggerInfo` struct
 - `DataWithId` struct
+
+### Event Structure and Field Access
+
+Always check the actual structure in Solidity interface files before accessing fields. For example, in ITypes.sol:
+
+```solidity
+event NewTrigger(bytes _triggerInfo);
+```
+
+This event doesn't directly provide `triggerId` and `data` fields. You must first decode the bytes:
+
+```rust
+// CORRECT approach:
+// 1. Decode the event to get the bytes parameter
+let event: solidity::NewTrigger = decode_event_log_data!(log)?;
+// 2. Decode the bytes into the actual struct
+let trigger_info = solidity::TriggerInfo::abi_decode(&event._triggerInfo, false)?;
+// 3. Now you can access the fields
+let trigger_id = trigger_info.triggerId;
+let data = trigger_info.data;
+```
+
+Assuming the structure without checking will cause compilation errors.
 
 More documentation on the `sol!` macro can be found at: https://docs.rs/alloy-sol-macro/latest/alloy_sol_macro/macro.sol.html
 
@@ -795,3 +866,45 @@ This example covers:
 7.  **Async Handling**: Using `async fn` and `block_on` for asynchronous network operations within the synchronous component environment.
 
 Visit the [wavs-wasi-chain documentation](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/index.html) and the [Alloy documentation](https://docs.rs/alloy/latest/alloy/) for more detailed information.
+
+## Best Practices for Component Development
+
+To ensure you build components correctly the first time:
+
+### 1. Progressive Development and Testing
+
+- **Start with skeleton implementation**: Begin with a basic component that just logs raw input
+- **Test incrementally**: Build and test after implementing each step of your component logic
+- **Use inspection points**: Add `println!` statements at key transformation points
+- **Validate environment variables early**: Check API keys and endpoints before making requests
+
+### 2. Pre-Implementation Planning
+
+- **Document data flow**: Map out exactly how data transforms from trigger input to final output
+- **Identify type conversions**: Note every point where data types change
+- **List error cases**: Document all possible failure points and how they'll be handled
+- **Mock API responses**: Create sample JSON responses to test parsing before integration
+
+### 3. Defensive Coding Patterns
+
+- **Handle all Result/Option types**: Never use `.unwrap()` or `.expect()` in production code
+- **Validate input formats**: Check lengths, formats and values before processing
+- **Add explicit error messages**: Always include context in error strings (e.g., "Failed to parse ZIP code: {}")
+- **Use type-safe conversions**: Avoid direct casting between numeric types
+
+### 4. Security Considerations
+
+- **Never log API keys or sensitive data**: Redact secrets in all log statements
+- **Validate all external inputs**: Sanitize any user-provided data
+- **Handle large inputs safely**: Set size limits for inputs to prevent resource exhaustion
+- **Use timeouts for external services**: Prevent hanging on network requests
+
+### 5. Pre-Deployment Checklist
+
+Before finalizing your component:
+- ✅ Remove debug `println!` statements
+- ✅ Verify error handling for all external API calls
+- ✅ Test with edge cases (empty input, malformed input, etc.)
+- ✅ Check resource usage (memory allocation, computation time)
+- ✅ Ensure all secrets are properly stored in environment variables
+- ✅ Validate component output format matches submission contract expectations

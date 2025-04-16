@@ -123,3 +123,39 @@ Below is a comprehensive list of all errors encountered during development of th
 - **Result**: Successfully extracted all required weather data fields
 
 Each error provided valuable insights into Rust type systems, memory management, and blockchain data handling. The process demonstrated the importance of understanding both the Ethereum type system (via alloy) and Rust's ownership model when building WAVS components.
+
+# Weather ZIP Code Component - Errors and Solutions
+
+Below is a comprehensive list of all errors encountered during development of the weather zip code component:
+
+## 1. Move Error in Rust String
+- **Error**: "cannot move out of index of `Vec<Weather>`" for `response.weather[0].main`
+- **Troubleshooting**: Rust compiler pointed to the line where we were trying to move a String out of an array
+- **Learning**: When accessing elements from a collection in Rust, we need to clone String values to avoid ownership issues
+- **Fix**: Added `.clone()` to the field: `condition: response.weather[0].main.clone()`
+- **Testing**: Ran `make wasi-build` after the fix
+- **Result**: The component compiled successfully after adding the clone
+
+## 2. Environment Variable Setup
+- **Error**: Not an immediate error, but needed to properly configure the API key as an environment variable
+- **Troubleshooting**: Followed the documentation for environment variable setup
+- **Learning**: API keys should be stored in environment variables with the WAVS_ENV_ prefix
+- **Fix**: Added the OpenWeather API key to the .env file with the WAVS_ENV_ prefix and added code to retrieve it
+- **Testing**: Modified the SERVICE_CONFIG to include the host_envs parameter with the API key variable
+- **Result**: The component was configured to securely access the API key
+
+## 3. Null Byte Handling in ZIP Code Input
+- **Error**: Not an immediate error, but a potential issue with the input format
+- **Troubleshooting**: Reviewed the documentation regarding format-bytes32-string
+- **Learning**: The cast format-bytes32-string adds null byte padding to fill the 32 bytes
+- **Fix**: Added code to trim null bytes using `trim_end_matches('\0')` when processing the input string
+- **Testing**: Component design included this fix from the beginning based on documentation warnings
+- **Result**: Component was designed to handle null-padded input correctly
+
+## 4. Command Execution Permission
+- **Error**: When trying to test with `make wasi-exec`, encountered "sudo: a terminal is required to read the password" error
+- **Troubleshooting**: This indicates the make command is trying to use sudo but can't get a password prompt
+- **Learning**: The makefile relies on sudo for some operations, which may not work in all environments
+- **Fix**: Suggested testing the component manually instead of using the make command
+- **Testing**: Prepared commands for manual testing
+- **Result**: Provided alternative testing approach

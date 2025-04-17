@@ -12,11 +12,30 @@ The only commands needed to test if a component is made correctly are:
 
 ```bash
 # Choose the appropriate format for your component's input data:
-export TRIGGER_DATA_INPUT=`cast format-bytes32-string 1` # For strings (with null byte padding up to 32 bytes)
-# Or use other formats based on your needs:
-# export TRIGGER_DATA_INPUT=`cast abi-encode "f(uint256)" 123456` # For numeric inputs
-# export TRIGGER_DATA_INPUT=`cast abi-encode "f((uint256,string))" 123 "example"` # For struct inputs
-# export TRIGGER_DATA_INPUT="0x1234abcd" # For raw hex data
+# For short strings (NOT Ethereum addresses)(< 32 bytes):
+export TRIGGER_DATA_INPUT=`cast format-bytes32-string 1`
+# IMPORTANT: This adds null byte padding that MUST be trimmed in component code:
+# clean_input = input_string.trim_end_matches('\0')
+
+# For longer strings or when exact format matters:
+# export TRIGGER_DATA_INPUT=`cast abi-encode "f(string)" "your long string here"`
+
+# For Ethereum addresses (ALWAYS use abi-encode, NEVER format-bytes32-string):
+# export TRIGGER_DATA_INPUT=`cast abi-encode "f(address)" 0xf3d583d521cC7A9BE84a5E4e300aaBE9C0757229`
+
+# For numeric values:
+# export TRIGGER_DATA_INPUT=`cast abi-encode "f(uint256)" 123456`
+
+# For custom structs:
+# export TRIGGER_DATA_INPUT=`cast abi-encode "f((uint256,string))" 123 "example"`
+
+# CRITICAL: When handling ABI-encoded inputs:
+# - NEVER use String::from_utf8 directly on binary data
+# - For addresses, extract the 20-byte address from its correct position: `&data[4+12..4+32]` (after 4-byte selector and 12-byte padding)
+# - For format-bytes32-string inputs, ALWAYS trim null bytes: `trim_end_matches('\0')`
+
+# For raw hex data:
+# export TRIGGER_DATA_INPUT="0x1234abcd"
 
 export COMPONENT_FILENAME=eth_price_oracle.wasm # the filename of your compiled component.
 export SERVICE_CONFIG="'{\"fuel_limit\":100000000,\"max_gas\":5000000,\"host_envs\":[],\"kv\":[],\"workflow_id\":\"default\",\"component_id\":\"default\"}'" # The service config
@@ -84,6 +103,7 @@ wavs-foundry-template/
 ├── script/               # Scripts used in makefile commands
 ├── cli.toml              # CLI configuration
 ├── wavs.toml             # WAVS service configuration
+├── Cargo.toml            # Workspace dependencies
 ├── docs/                 # Documentation
 └── .env                  # Private environment variables
 ```
@@ -176,6 +196,12 @@ IMPORTANT: Always import the required traits if using these methods:
 use alloy_sol_types::{sol, SolCall, SolValue}; // SolCall needed for abi_encode() on call structs
 ```
 
+When using methods like `abi_decode` that are implemented by multiple traits, use fully qualified syntax to avoid ambiguity errors:
+```rust
+// Explicitly specify which trait implementation to use
+let trigger_info = <TriggerInfo as SolValue>::abi_decode(&event._triggerInfo, false)?;
+```
+
 Bindings are automatically generated for any files in the `/components` and `/src` directories when the `make build` command is run.
 
 ## Common Type and Data Handling Issues
@@ -193,6 +219,10 @@ let temperature_uint256 = temperature.to_string().parse().unwrap();
 
 // AVOID .into() for numeric conversions to Solidity types - it often fails
 // let temp_uint = temperature.into(); // DON'T DO THIS - will often fail
+
+// ALWAYS use explicit type conversions for struct fields with specific types
+let decimals = 6; // inferred as i32/usize
+struct_field: decimals as u32, // explicit cast required between integer types
 ```
 
 ### 2. Binary Data Handling
@@ -210,10 +240,10 @@ let data_with_id = solidity::DataWithId {
 
 ### 3. String Input Processing
 
-When using string inputs via format-bytes32-string:
+Only when processing format-bytes32-string (not ABI-encoded data):
 
 ```rust
-// 1. ALWAYS clone before using String::from_utf8 to avoid ownership errors
+// 1. ALWAYS clone before using String::from_utf8 to avoid ownership errors. IMPORTANT!! NEVER use String::from_utf8 on ABI-encoded data
 let input_string = String::from_utf8(trigger_data.clone())
     .map_err(|e| format!("Failed to convert input to string: {}", e))?;
 
@@ -283,43 +313,38 @@ Components can receive trigger data in two ways:
 1. Via an onchain event (after deployment)
 2. Via the `wasi-exec` command (for testing)
 
-### Input Data Formatting for Testing
+## Input Data Formatting
 
-When providing testing instructions for `make wasi-exec`, choose the appropriate data format based on your component's input processing:
+When testing components with `make wasi-exec`, choose the appropriate data format based on your input type:
 
-1. **String inputs**:
-   ```bash
-   # For short strings (< 32 bytes):
-   export TRIGGER_DATA_INPUT=`cast format-bytes32-string "90210"`
-   # IMPORTANT: This adds null byte padding that MUST be trimmed in component code:
-   # clean_input = input_string.trim_end_matches('\0')
+```bash
+# For short strings (< 32 bytes)(NOT Ethereum addresses):
+export TRIGGER_DATA_INPUT=`cast format-bytes32-string "90210"`
+# IMPORTANT: This adds null byte padding that MUST be trimmed in component code:
+# clean_input = input_string.trim_end_matches('\0')
 
-   # For longer strings or when exact format matters:
-   export TRIGGER_DATA_INPUT=`cast abi-encode "f(string)" "your long string here"`
-   ```
+# For longer strings or when exact format matters:
+export TRIGGER_DATA_INPUT=`cast abi-encode "f(string)" "your long string here"`
 
-2. **Ethereum addresses**:
-   ```bash
-   # ALWAYS use abi-encode for addresses to ensure proper encoding:
-   export TRIGGER_DATA_INPUT=`cast abi-encode "f(address)" 0xf3d583d521cC7A9BE84a5E4e300aaBE9C0757229`
-   ```
+# For Ethereum addresses (ALWAYS use abi-encode, NEVER format-bytes32-string):
+export TRIGGER_DATA_INPUT=`cast abi-encode "f(address)" 0xf3d583d521cC7A9BE84a5E4e300aaBE9C0757229`
 
-3. **Numeric inputs**:
-   ```bash
-   export TRIGGER_DATA_INPUT=`cast abi-encode "f(uint256)" 123456` # For uint256 values
-   ```
+# For numeric values:
+export TRIGGER_DATA_INPUT=`cast abi-encode "f(uint256)" 123456`
 
-4. **Custom struct inputs**:
-   ```bash
-   export TRIGGER_DATA_INPUT=`cast abi-encode "f((uint256,string))" 123 "example"` # For structs
-   ```
+# For custom structs:
+export TRIGGER_DATA_INPUT=`cast abi-encode "f((uint256,string))" 123 "example"`
 
-5. **Raw hex data**:
-   ```bash
-   export TRIGGER_DATA_INPUT="0x1234abcd" # For simple binary formats
-   ```
+# For raw hex data:
+export TRIGGER_DATA_INPUT="0x1234abcd"
+```
 
-Your component must handle these input formats appropriately. Build flexible input handlers that can detect and process different encoding formats based on data length and structure.
+CRITICAL: When handling ABI-encoded inputs:
+- NEVER use String::from_utf8 directly on binary data - this causes "invalid utf-8" panics
+- For ABI-encoded addresses, extract correctly: `Address::from_slice(&data[4+12..4+32])`
+- Add defensive format detection: `if data.len() >= 36 { /* handle as ABI */ } else { /* try string */ }`
+- Debug with logging: `println!("Raw data length: {} bytes", data.len())`
+- For format-bytes32-string inputs, ALWAYS trim null bytes: `trim_end_matches('\0')`
 
 ## Network Requests
 
@@ -382,6 +407,7 @@ When creating a new component, follow these steps to avoid common errors:
    - For new functionality, add dependencies to workspace Cargo.toml first, then reference with `{ workspace = true }`
    - Consider standard library alternatives before adding new dependencies
    - Import HTTP functions from the correct submodule: `wavs_wasi_chain::http::{fetch_json, http_request_get}`
+   - Include essential standard library imports when necessary: `use std::cmp::min;`, `use std::str::FromStr;`
 
 3. **Handle data ownership properly**:
    - ALWAYS clone data before consuming: `data.clone()` before passing to String::from_utf8()
@@ -414,53 +440,6 @@ When creating a new component, follow these steps to avoid common errors:
 - CRITICAL: Verify all data structures used with API responses implement `Clone` - missing this will cause build errors
 - Confirm string inputs from format-bytes32-string are trimmed of null bytes
 
-## Example trigger logic
-
-Here's an example of trigger logic that handles data extraction properly:
-
-```rust
-use crate::bindings::wavs::worker::layer_types::{TriggerData, TriggerDataEthContractEvent};
-use alloy_sol_types::{sol, SolCall, SolValue}; // SolCall trait is required for abi_encode methods
-use anyhow::Result;
-use wavs_wasi_chain::{decode_event_log_data, ethereum::alloy_primitives::Bytes};
-
-pub enum Destination {
-    Ethereum,  // Return data for on-chain submission
-    CliOutput, // Return data for CLI testing
-}
-
-// Define your event and struct types
-sol! {
-    event MyEvent(uint64 indexed requestId, string dataString);
-    
-    struct DataWithId {
-        uint64 triggerId;
-        bytes data;
-    }
-}
-
-pub fn decode_trigger_event(trigger_data: TriggerData) -> Result<(u64, Vec<u8>, Destination)> {
-    match trigger_data {
-        TriggerData::EthContractEvent(TriggerDataEthContractEvent { log, .. }) => {
-            // ALWAYS clone before using decode_event_log_data!
-            let log_clone = log.clone();
-            let event: MyEvent = decode_event_log_data!(log_clone)?;
-            Ok((event.requestId, event.dataString.as_bytes().to_vec(), Destination::Ethereum))
-        }
-        TriggerData::Raw(data) => Ok((0, data.clone(), Destination::CliOutput)),
-        _ => Err(anyhow::anyhow!("Unsupported trigger data type")),
-    }
-}
-
-pub fn encode_trigger_output(trigger_id: u64, output: impl AsRef<[u8]>) -> Vec<u8> {
-    // Convert Vec<u8> to Bytes for Solidity compatibility
-    DataWithId {
-        triggerId: trigger_id,
-        data: Bytes::from(output.as_ref().to_vec()),
-    }
-    .abi_encode()
-}
-```
 
 ## Troubleshooting Common Errors
 
@@ -483,6 +462,7 @@ pub fn encode_trigger_output(trigger_id: u64, output: impl AsRef<[u8]>) -> Vec<u
 | Serialization Error | "trait `Serialize` not implemented for struct from sol! macro" | Create a separate struct with `#[derive(Serialize)]` for JSON output |
 | Partially Moved Value | "borrow of partially moved value" | Process data in correct order: serialize/use struct *before* moving its fields |
 | Solidity Type Import | "could not find `sol` in module" | Define Solidity types where needed - can't import using `trigger::sol::` syntax |
+| ABI Method Ambiguity | "multiple applicable items in scope" | Use qualified syntax: `<Type as SolValue>::abi_decode(...)` |
 
 For more details on specific topics, refer to `/docs/custom-components.mdx` or https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions.
 
@@ -514,7 +494,7 @@ Use host bindings to get chain config from wavs.toml:
 use std::io::Read;
 
 use crate::bindings::host::get_eth_chain_config;
-use alloy_network::{AnyNetwork, Ethereum, Network};
+use alloy_network::{Ethereum};
 use alloy_primitives::{Address, Bytes, TxKind, U256};
 use alloy_provider::{Provider, RootProvider};
 use alloy_rpc_types::TransactionInput;

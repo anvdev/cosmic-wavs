@@ -171,6 +171,11 @@ Components must implement the `Guest` trait, which is the main interface between
 
 The `sol!` macro from `alloy_sol_types` is used to define Solidity types in Rust. It generates Rust structs and implementations that match your Solidity types, including ABI encoding/decoding methods.
 
+IMPORTANT: Always import the required traits if using these methods:
+```rust
+use alloy_sol_types::{sol, SolCall, SolValue}; // SolCall needed for abi_encode() on call structs
+```
+
 Bindings are automatically generated for any files in the `/components` and `/src` directories when the `make build` command is run.
 
 ## Common Type and Data Handling Issues
@@ -280,29 +285,41 @@ Components can receive trigger data in two ways:
 
 ### Input Data Formatting for Testing
 
-When providing testing instructions to users for `make wasi-exec`, format input data appropriately:
+When providing testing instructions for `make wasi-exec`, choose the appropriate data format based on your component's input processing:
 
 1. **String inputs**:
    ```bash
-   export TRIGGER_DATA_INPUT=`cast format-bytes32-string "90210"` # For zip codes, strings, etc.
-   # IMPORTANT: Strings will have null byte padding that MUST be trimmed in component code
-   # Use clean_input = input_string.trim_end_matches('\0') before using in URLs or other contexts
+   # For short strings (< 32 bytes):
+   export TRIGGER_DATA_INPUT=`cast format-bytes32-string "90210"`
+   # IMPORTANT: This adds null byte padding that MUST be trimmed in component code:
+   # clean_input = input_string.trim_end_matches('\0')
+
+   # For longer strings or when exact format matters:
+   export TRIGGER_DATA_INPUT=`cast abi-encode "f(string)" "your long string here"`
    ```
 
-2. **Numeric inputs**:
+2. **Ethereum addresses**:
+   ```bash
+   # ALWAYS use abi-encode for addresses to ensure proper encoding:
+   export TRIGGER_DATA_INPUT=`cast abi-encode "f(address)" 0xf3d583d521cC7A9BE84a5E4e300aaBE9C0757229`
+   ```
+
+3. **Numeric inputs**:
    ```bash
    export TRIGGER_DATA_INPUT=`cast abi-encode "f(uint256)" 123456` # For uint256 values
    ```
 
-3. **Custom struct inputs**:
+4. **Custom struct inputs**:
    ```bash
    export TRIGGER_DATA_INPUT=`cast abi-encode "f((uint256,string))" 123 "example"` # For structs
    ```
 
-4. **Raw hex data**:
+5. **Raw hex data**:
    ```bash
-   export TRIGGER_DATA_INPUT="0x1234abcd" # For custom binary formats
+   export TRIGGER_DATA_INPUT="0x1234abcd" # For simple binary formats
    ```
+
+Your component must handle these input formats appropriately. Build flexible input handlers that can detect and process different encoding formats based on data length and structure.
 
 ## Network Requests
 
@@ -360,7 +377,7 @@ When creating a new component, follow these steps to avoid common errors:
    - Use the existing component structure as a template
 
 2. **Configure dependencies correctly**:
-   - Use `workspace dependencies with `{ workspace = true }` syntax
+   - Use workspace dependencies with `{ workspace = true }` syntax
    - NEVER specify direct version numbers in component Cargo.toml
    - For new functionality, add dependencies to workspace Cargo.toml first, then reference with `{ workspace = true }`
    - Consider standard library alternatives before adding new dependencies
@@ -403,7 +420,7 @@ Here's an example of trigger logic that handles data extraction properly:
 
 ```rust
 use crate::bindings::wavs::worker::layer_types::{TriggerData, TriggerDataEthContractEvent};
-use alloy_sol_types::{sol, SolValue};
+use alloy_sol_types::{sol, SolCall, SolValue}; // SolCall trait is required for abi_encode methods
 use anyhow::Result;
 use wavs_wasi_chain::{decode_event_log_data, ethereum::alloy_primitives::Bytes};
 
@@ -456,13 +473,79 @@ pub fn encode_trigger_output(trigger_id: u64, output: impl AsRef<[u8]>) -> Vec<u
 | Binary Type Mismatch | "expected Bytes, found Vec<u8>" | Use: `Bytes::from(data)` with correct import |
 | Event Decoding | "cannot move out of log.data" | ALWAYS clone: `let log_clone = log.clone()` |
 | String Handling | URL formatting errors | ALWAYS trim nulls: `string.trim_end_matches('\0')`, debug with `println!("URL: {}", url)` |
+| Input Format | "bytes32 strings must not exceed 32 bytes" | For addresses, use `cast abi-encode "f(address)" 0xAddress`; for long strings use `cast abi-encode "f(string)" "text"` |
 | HTTP Requests | "invalid uri character" | Check for special characters in URLs, use debug prints to identify issues |
 | Ownership Issues | "use of moved value" | Clone data before use: `data.clone()` |
 | Collection Access | "cannot move out of index" | Clone when accessing: `array[0].field.clone()` |
 | TriggerAction Access | "no field data_input on type TriggerAction" | Use trigger.rs module like the example instead of direct access |
 | Environment Variables | API key access issues | Include in SERVICE_CONFIG "host_envs" array AND in .env file with WAVS_ENV_ prefix |
+| Option Handling | "no method named `map_err` found for enum `Option`" | Use `.ok_or_else(|| "error message".to_string())?` for Option types, not `.map_err()` |
 | Serialization Error | "trait `Serialize` not implemented for struct from sol! macro" | Create a separate struct with `#[derive(Serialize)]` for JSON output |
 | Partially Moved Value | "borrow of partially moved value" | Process data in correct order: serialize/use struct *before* moving its fields |
 | Solidity Type Import | "could not find `sol` in module" | Define Solidity types where needed - can't import using `trigger::sol::` syntax |
 
-For more details on specific topics, refer to the [wavs-wasi-chain documentation](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions).
+For more details on specific topics, refer to `/docs/custom-components.mdx` or https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions.
+
+## Blockchain Interactions
+
+For components that interact directly with blockchains you MUST add the following dependencies:
+
+In workspace Cargo.toml, add:
+```toml
+alloy-primitives = "0.8.25"  # Core types (Address, U256)
+alloy-provider = { version = "0.11.1", default-features = false, features = ["rpc-api"] }
+alloy-rpc-types = "0.11.1"  # RPC definitions
+alloy-network = "0.11.1"    # Network trait
+```
+
+Then in component Cargo.toml, use:
+```toml
+alloy-primitives = { workspace = true }
+alloy-provider = { workspace = true }
+alloy-rpc-types = { workspace = true }
+alloy-network = { workspace = true }
+```
+
+### Example
+
+Use host bindings to get chain config from wavs.toml:
+
+```rust
+use std::io::Read;
+
+use crate::bindings::host::get_eth_chain_config;
+use alloy_network::{AnyNetwork, Ethereum, Network};
+use alloy_primitives::{Address, Bytes, TxKind, U256};
+use alloy_provider::{Provider, RootProvider};
+use alloy_rpc_types::TransactionInput;
+use alloy_sol_types::{sol, SolCall, SolType, SolValue};
+use wavs_wasi_chain::ethereum::new_eth_provider;
+
+sol! {
+    interface IERC721 {
+        function balanceOf(address owner) external view returns (uint256);
+    }
+}
+
+pub async fn query_nft_ownership(address: Address, nft_contract: Address) -> Result<bool, String> {
+    let chain_config = get_eth_chain_config("mainnet")
+    .ok_or_else(|| "Failed to get Ethereum chain config".to_string())?;
+    let provider: RootProvider<Ethereum> =
+        new_eth_provider::<Ethereum>(chain_config.http_endpoint
+            .clone()
+            .ok_or("No HTTP endpoint in chain config")?);
+
+    let balance_call = IERC721::balanceOfCall { owner: address };
+    let tx = alloy_rpc_types::eth::TransactionRequest {
+        to: Some(TxKind::Call(nft_contract)),
+        input: TransactionInput { input: Some(balance_call.abi_encode().into()), data: None },
+        ..Default::default()
+    };
+
+    let result = provider.call(&tx).await.map_err(|e| e.to_string())?;
+    let balance: U256 = U256::from_be_slice(&result);
+    Ok(balance > U256::ZERO)
+}
+```
+
+CRITICAL: All blockchain interactions must use async functions with `block_on`. Never hardcode RPC endpoints - always use chain configuration from wavs.toml.

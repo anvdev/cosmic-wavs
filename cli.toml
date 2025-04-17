@@ -51,6 +51,11 @@ grpc_endpoint = "http://grpc-falcron.pion-1.ntrn.tech:80"
 gas_price = 0.0053
 gas_denom = "untrn"
 
+[chains.eth.mainnet]
+chain_id = "1"
+ws_endpoint = "wss://ethereum-rpc.publicnode.com"
+http_endpoint = "https://ethereum-rpc.publicnode.com"
+
 [chains.eth.local]
 chain_id = "31337"
 ws_endpoint = "ws://localhost:8545"

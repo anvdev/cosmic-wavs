@@ -238,12 +238,31 @@ let data_with_id = solidity::DataWithId {
 };
 ```
 
-### 3. String Input Processing
+### 3. Input and Output Handling
 
-Only when processing format-bytes32-string (not ABI-encoded data):
+Components can receive trigger data in two ways:
+
+1. Via an onchain event (after deployment)
+2. Via the `wasi-exec` command (for testing)
+
+When testing components with `make wasi-exec`, choose the appropriate data format based on your input type: bytes32, abi-encode, or raw hex.
+
+#### `format-bytes32-string`
+
+```bash
+# For short strings (< 32 bytes)(NOT Ethereum addresses):
+export TRIGGER_DATA_INPUT=`cast format-bytes32-string "90210"`
+# IMPORTANT: This adds null byte padding that MUST be trimmed in component code:
+# clean_input = input_string.trim_end_matches('\0')
+
+```
+
+For format-bytes32-string inputs, ALWAYS trim null bytes: `trim_end_matches('\0')`
 
 ```rust
-// 1. ALWAYS clone before using String::from_utf8 to avoid ownership errors. IMPORTANT!! NEVER use String::from_utf8 on ABI-encoded data
+
+// 1. ALWAYS clone before using String::from_utf8 to avoid ownership errors.
+// CRITICAL!! NEVER use String::from_utf8 on ABI-encoded data. Only to be used with format-bytes32
 let input_string = String::from_utf8(trigger_data.clone())
     .map_err(|e| format!("Failed to convert input to string: {}", e))?;
 
@@ -258,95 +277,39 @@ let url = format!("https://api.example.com/endpoint?param={}", clean_input);
 println!("Debug - Request URL: {}", url);
 ```
 
-CRITICAL: String inputs via format-bytes32-string MUST be trimmed of null bytes before using in URLs or API calls. This is the most common cause of "invalid URI character" errors.
-
-### 4. Event Log Decoding
-
-When using the decode_event_log_data! macro:
-
-```rust
-// Always clone the log before decoding to avoid ownership errors
-let log_clone = log.clone();
-let event: MyEvent = decode_event_log_data!(log_clone)?;
-```
-
-### 5. Data Structure Ownership
-
-When working with data structures in Rust, especially with API responses:
-
-```rust
-// CRITICAL: Always derive Clone for ALL data structures used in API responses
-// Missing Clone derivation is a common source of build errors
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct ApiResponse {
-    name: String,
-    description: String,
-    // other fields...
-}
-
-// WRONG - Will cause "borrow of partially moved value" errors:
-let weather_struct = WeatherData {
-    city: api_response.name, // This moves the string from api_response
-    // other fields...
-};
-let json_data = serde_json::to_vec(&api_response)?; // ERROR: api_response partially moved
-
-// CORRECT - Process in the right order:
-let json_data = serde_json::to_vec(&api_response)?; // Use the complete struct first
-let weather_struct = WeatherData {
-    city: api_response.name, // Then move fields
-    // other fields...
-};
-
-// ALSO CORRECT - Use clone to avoid ownership issues entirely:
-let weather_struct = WeatherData {
-    city: api_response.name.clone(), // Clone prevents moving from api_response
-    // other fields...
-};
-let json_data = serde_json::to_vec(&api_response)?; // Works fine now
-```
-
-## Input and Output Handling
-
-Components can receive trigger data in two ways:
-
-1. Via an onchain event (after deployment)
-2. Via the `wasi-exec` command (for testing)
-
-## Input Data Formatting
-
-When testing components with `make wasi-exec`, choose the appropriate data format based on your input type:
+#### abi-encoded input
 
 ```bash
-# For short strings (< 32 bytes)(NOT Ethereum addresses):
-export TRIGGER_DATA_INPUT=`cast format-bytes32-string "90210"`
-# IMPORTANT: This adds null byte padding that MUST be trimmed in component code:
-# clean_input = input_string.trim_end_matches('\0')
 
-# For longer strings or when exact format matters:
-export TRIGGER_DATA_INPUT=`cast abi-encode "f(string)" "your long string here"`
+# CRITICAL!! NEVER use String::from_utf8 on ABI-encoded data. Only to be used with format-bytes32
 
 # For Ethereum addresses (ALWAYS use abi-encode, NEVER format-bytes32-string):
 export TRIGGER_DATA_INPUT=`cast abi-encode "f(address)" 0xf3d583d521cC7A9BE84a5E4e300aaBE9C0757229`
+
+# For longer strings or when exact format matters:
+export TRIGGER_DATA_INPUT=`cast abi-encode "f(string)" "your long string here"`
 
 # For numeric values:
 export TRIGGER_DATA_INPUT=`cast abi-encode "f(uint256)" 123456`
 
 # For custom structs:
 export TRIGGER_DATA_INPUT=`cast abi-encode "f((uint256,string))" 123 "example"`
+```
 
+IMPORTANT: When handling ABI-encoded inputs:
+- CRITICAL!! NEVER use String::from_utf8 on ABI-encoded data. Only to be used with format-bytes32
+- For ABI-encoded addresses, extract correctly: `Address::from_slice(&data[4+12..4+32])`
+- Add defensive format detection: `if data.len() >= 36 { /* handle as ABI */ } else { /* try string */ }`
+- Debug with logging: `println!("Raw data length: {} bytes", data.len())`
+
+#### hex input
+
+```bash
 # For raw hex data:
 export TRIGGER_DATA_INPUT="0x1234abcd"
 ```
 
-CRITICAL: When handling ABI-encoded inputs:
-- NEVER use String::from_utf8 directly on binary data - this causes "invalid utf-8" panics
-- For ABI-encoded addresses, extract correctly: `Address::from_slice(&data[4+12..4+32])`
-- Add defensive format detection: `if data.len() >= 36 { /* handle as ABI */ } else { /* try string */ }`
-- Debug with logging: `println!("Raw data length: {} bytes", data.len())`
-- For format-bytes32-string inputs, ALWAYS trim null bytes: `trim_end_matches('\0')`
-
-## Network Requests
+### 4. Network Requests
 
 Components can make HTTP requests using the `wavs-wasi-chain` crate and `block_on` for async handling:
 
@@ -388,6 +351,54 @@ fn process_data() -> Result<ResponseType, String> {
 }
 ```
 
+CRITICAL: String inputs via format-bytes32-string MUST be trimmed of null bytes before using in URLs or API calls. This is the most common cause of "invalid URI character" errors.
+
+### 5. Event Log Decoding
+
+When using the decode_event_log_data! macro:
+
+```rust
+// Always clone the log before decoding to avoid ownership errors
+let log_clone = log.clone();
+let event: MyEvent = decode_event_log_data!(log_clone)?;
+```
+
+### 6. Data Structure Ownership
+
+When working with data structures in Rust, especially with API responses:
+
+```rust
+// CRITICAL: Always derive Clone for ALL data structures used in API responses
+// Missing Clone derivation is a common source of build errors
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct ApiResponse {
+    name: String,
+    description: String,
+    // other fields...
+}
+
+// WRONG - Will cause "borrow of partially moved value" errors:
+let weather_struct = WeatherData {
+    city: api_response.name, // This moves the string from api_response
+    // other fields...
+};
+let json_data = serde_json::to_vec(&api_response)?; // ERROR: api_response partially moved
+
+// CORRECT - Process in the right order:
+let json_data = serde_json::to_vec(&api_response)?; // Use the complete struct first
+let weather_struct = WeatherData {
+    city: api_response.name, // Then move fields
+    // other fields...
+};
+
+// ALSO CORRECT - Use clone to avoid ownership issues entirely:
+let weather_struct = WeatherData {
+    city: api_response.name.clone(), // Clone prevents moving from api_response
+    // other fields...
+};
+let json_data = serde_json::to_vec(&api_response)?; // Works fine now
+```
+
 ## Best Practices
 
 To build reliable components:
@@ -411,6 +422,7 @@ When creating a new component, follow these steps to avoid common errors:
 
 3. **Handle data ownership properly**:
    - ALWAYS clone data before consuming: `data.clone()` before passing to String::from_utf8()
+   - CRITICAL!! NEVER use String::from_utf8 on ABI-encoded data. Only to be used with format-bytes32
    - ALWAYS clone logs for decoding: `let log_clone = log.clone()`
    - ALWAYS clone collection elements: `array[0].field.clone()` to avoid "move out of index" errors
    - ALWAYS trim string input nulls: `trim_end_matches('\0')` on all format-bytes32-string inputs
@@ -439,6 +451,7 @@ When creating a new component, follow these steps to avoid common errors:
 - Validate output format matches expected contract format
 - CRITICAL: Verify all data structures used with API responses implement `Clone` - missing this will cause build errors
 - Confirm string inputs from format-bytes32-string are trimmed of null bytes
+- Verify that String::from_utf8 is only used with format-bytes32 inputs, never abi-encoded inputs.
 
 
 ## Troubleshooting Common Errors

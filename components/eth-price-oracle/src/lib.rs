@@ -5,7 +5,7 @@ use wavs_wasi_chain::decode_event_log_data;
 use wavs_wasi_chain::http::{fetch_json, http_request_get};
 use wstd::{http::HeaderValue, runtime::block_on};
 
-pub mod bindings;
+pub mod bindings; // bindings are auto-generated during the build process
 use crate::bindings::wavs::worker::layer_types::{TriggerData, TriggerDataEthContractEvent};
 use crate::bindings::{export, Guest, TriggerAction};
 

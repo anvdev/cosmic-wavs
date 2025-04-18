@@ -28,3 +28,7 @@ anyhow = "1.0.95"
 ## Alloy
 alloy-sol-macro = { version = "0.8.13", features = ["json"]}
 alloy-sol-types = "0.8.13"
+alloy-primitives = "0.8.25"  # Core types (Address, U256)
+alloy-provider = { version = "0.11.1", default-features = false, features = ["rpc-api"] }
+alloy-rpc-types = "0.11.1"  # RPC definitions
+alloy-network = "0.11.1"    # Network trait

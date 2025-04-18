@@ -6,7 +6,7 @@ You started a new job at Layer Labs. Your task is to create new components that 
 
 The only commands needed to test if a component is made correctly are:
 
-1. `make wasi-build`: this command builds every component in the /component directory, generates bindings automatically (you do not ever need to write or edit a bindings.rs file!), automatically compiles components to wasm, and places them automatically in the /compiled folder. component `/eth-price-oracle` becomes `eth_price_oracle.wasm`.
+1. `make wasi-build`: this command builds every component in the /component directory, generates bindings automatically (you do not ever need to edit a bindings.rs file!), automatically compiles components to wasm, and places them automatically in the /compiled folder. component `/eth-price-oracle` becomes `eth_price_oracle.wasm`.
 
 2. The `make wasi-exec` command. IMPORTANT! As an LLM, you cannot execute the `wasi-exec` command directly. Provide the command to the user and ask them to run manually in their terminal:
 
@@ -185,11 +185,21 @@ When creating a new component, it's strongly recommended to:
 1. Copy the Cargo.toml from the eth-price-oracle example and modify the name
 2. Use workspace dependencies with `{ workspace = true }` instead of specific versions
 3. Create lib.rs file similar to the example component
-4. Never edit or read a bindings.rs file. You NEVER need to read or edit the bindings.rs file
+4. Never edit a bindings.rs file
 
 After being passed the `TriggerAction`, the component decodes it using the `decode_event_log_data!` macro from the [`wavs-wasi-chain`](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions) crate.
 
-Components must implement the `Guest` trait, which is the main interface between your component and the WAVS runtime. The `run` function is the entry point for processing triggers: it should receive the trigger data, decode it, process it according to your component's logic, and return the results. If you need to submit results to the blockchain, results need to be encoded using `abi_encode()`.
+Components must implement the `Guest` trait, which is the main interface between your component and the WAVS runtime. The `run` function is the entry point for processing triggers and MUST have EXACTLY this signature:
+
+```rust
+impl Guest for YourComponent {
+    fn run(trigger: TriggerAction) -> Result<Option<Vec<u8>>, String> {
+        // Your implementation here...
+    }
+}
+```
+
+If you need to submit results to the blockchain, results need to be encoded using `abi_encode()`.
 
 The `sol!` macro from `alloy_sol_types` is used to define Solidity types in Rust. It generates Rust structs and implementations that match your Solidity types, including ABI encoding/decoding methods.
 
@@ -210,7 +220,7 @@ When using methods like `abi_decode` that are implemented by multiple traits, us
 let trigger_info = <TriggerInfo as SolValue>::abi_decode(&event._triggerInfo, false)?;
 ```
 
-Bindings are automatically generated for any files in the `/components` and `/src` directories when the `make build` command is run. Never read or the bindings.rs file.
+Bindings are automatically generated for any files in the `/components` and `/src` directories when the `make build` command is run. Never edit the bindings.rs file.
 
 ## Common Type and Data Handling Issues
 
@@ -380,7 +390,7 @@ When using the decode_event_log_data! macro:
 ```rust
 // Always clone the log before decoding to avoid ownership errors
 let log_clone = log.clone();
-let event: MyEvent = decode_event_log_data!(log_clone)?;
+ let event: solidity::NewTrigger = decode_event_log_data!(log_clone)?;
 ```
 
 ### 6. Data Structure Ownership
@@ -431,7 +441,7 @@ When creating a new component, follow these steps to avoid common errors:
    - Copy the `eth-price-oracle` component's Cargo.toml and modify the name
    - Create a lib.rs module similar to the `eth-price-oracle`
    - Use the existing component structure as a template
-   - Never read copy, or edit bindings.rs
+   - Never edit bindings.rs
 
 2. **Configure dependencies correctly**:
    - Use workspace dependencies with `{ workspace = true }` syntax
@@ -442,7 +452,8 @@ When creating a new component, follow these steps to avoid common errors:
    - CRITICAL: Include essential standard library imports:
      - `use std::str::FromStr;` when using `from_str` methods (e.g., for parsing addresses)
      - `use std::cmp::min;` when comparing values
-   - CRITICAL: Ensure all methods and types used in the component are properly imported - missing imports will cause compilation errors
+   - CRITICAL: Ensure all methods and types used in your component are properly imported - missing imports will cause compilation errors
+   - CRITICAL: Use `export!` macro (NOT `#[export]` attribute) to export your component
 
 
 3. **Handle data ownership properly**:
@@ -494,6 +505,7 @@ When creating a new component, follow these steps to avoid common errors:
   - ONLY use `String::from_utf8` with format-bytes32-string inputs
   - NEVER use `String::from_utf8` on ABI-encoded data
   - ABI-encoded data is handled according to its format (addresses, numbers, etc.)
+- CRITICAL: Check your code and imports. Verify all types and methods used in your component are properly imported
 
 ## Troubleshooting Common Errors
 
@@ -545,7 +557,7 @@ alloy-network = { workspace = true }
 
 ```rust
 use alloy_network::Ethereum;                    // Ethereum network types
-use alloy_primitives::{Address, TxKind, U256};  // Common blockchain primitives
+use alloy_primitives::{hex, Address, TxKind, U256};  // Common blockchain primitives
 use alloy_provider::{Provider, RootProvider};   // Blockchain provider interfaces
 use alloy_rpc_types::TransactionInput;          // RPC transaction types
 use alloy_sol_types::{sol, SolCall, SolValue}; // Solidity type support
@@ -555,32 +567,39 @@ use wavs_wasi_chain::decode_event_log_data;     // Event log decoding
 use wavs_wasi_chain::ethereum::new_eth_provider; // Ethereum provider creation
 use wstd::runtime::block_on;                    // Async runtime utilities
 
-// IMPORTANT: Ensure all methods and types used in your component are imported before using
-// Missing imports will cause compilation errors
-
 pub mod bindings;
 use crate::bindings::host::get_eth_chain_config; // Chain config from wavs.toml
 use crate::bindings::wavs::worker::layer_types::{TriggerData, TriggerDataEthContractEvent};
 use crate::bindings::{export, Guest, TriggerAction};
+
+// IMPORTANT: Ensure all methods and types used in your component are imported before using
+// Missing imports will cause compilation errors
 ```
 
 ### Example component
 
 ```rust
-//
 sol! {
     interface IERC721 {
         function balanceOf(address owner) external view returns (uint256);
     }
 }
 
-pub async fn query_nft_ownership(address: Address, nft_contract: Address) -> Result<bool, String> {
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct NFTResult {
+    is_holder: bool,
+    balance: String,
+}
+
+// not shown: Helper function to handle different trigger types goes here
+
+async fn query_nft_balance(address: Address, nft_contract: Address) -> Result<NFTResult, String> {
     let chain_config = get_eth_chain_config("mainnet")
-    .ok_or_else(|| "Failed to get Ethereum chain config".to_string())?;
-    let provider: RootProvider<Ethereum> =
-        new_eth_provider::<Ethereum>(chain_config.http_endpoint
-            .clone()
-            .ok_or("No HTTP endpoint in chain config")?);
+        .ok_or_else(|| "Failed to get Ethereum chain config".to_string())?;
+    
+    let provider: RootProvider<Ethereum> = new_eth_provider::<Ethereum>(
+        chain_config.http_endpoint.clone().ok_or("No HTTP endpoint in config")?
+    );
 
     let balance_call = IERC721::balanceOfCall { owner: address };
     let tx = alloy_rpc_types::eth::TransactionRequest {
@@ -591,10 +610,50 @@ pub async fn query_nft_ownership(address: Address, nft_contract: Address) -> Res
 
     let result = provider.call(&tx).await.map_err(|e| e.to_string())?;
     let balance: U256 = U256::from_be_slice(&result);
-    Ok(balance > U256::ZERO)
+    
+    Ok(NFTResult {
+        is_holder: balance > U256::ZERO,
+        balance: balance.to_string(),
+    })
 }
 
-//
+struct NFTComponent;
+
+// CRITICAL: Must use with_types_in bindings
+export!(NFTComponent with_types_in bindings);
+
+impl Guest for NFTComponent {
+    fn run(trigger: TriggerAction) -> Result<Option<Vec<u8>>, String> {
+        // Extract input data properly
+        let data = decode_trigger_data(trigger.data)?;
+        
+        // Safely clone data before using slices
+        let data_clone = data.clone();
+        
+        // Handle address (assuming ABI-encoded input)
+        let wallet_address = if data_clone.len() >= 32 {
+            Address::from_slice(&data_clone[12..32])
+        } else {
+            return Err("Invalid address format".to_string());
+        };
+        
+        // Parse NFT contract address
+        let nft_contract = "0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d" // BAYC
+            .parse::<Address>()
+            .map_err(|e| format!("Failed to parse contract address: {}", e))?;
+            
+        // Use block_on for async code
+        let result = block_on(async { 
+            query_nft_balance(wallet_address, nft_contract).await 
+        })?;
+        
+        // Serialize result to JSON
+        let json_result = serde_json::to_vec(&result)
+            .map_err(|e| format!("Failed to serialize: {}", e))?;
+            
+        Ok(Some(json_result))
+    }
+}
 ```
 
 CRITICAL: All blockchain interactions must use async functions with `block_on`. Never hardcode RPC endpoints - always use chain configuration from wavs.toml.

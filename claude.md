@@ -31,7 +31,8 @@ export TRIGGER_DATA_INPUT=`cast format-bytes32-string 1`
 
 # CRITICAL: When handling ABI-encoded inputs:
 # - NEVER use String::from_utf8 directly on binary data
-# - For addresses, extract the 20-byte address from its correct position: `&data[4+12..4+32]` (after 4-byte selector and 12-byte padding)
+# - For addresses when testing: extract from position `&data[12..32]` (last 20 bytes of input)
+# - For addresses in production triggers: extract from position `&data[4+12..4+32]` (after 4-byte selector and 12-byte padding)
 # - For format-bytes32-string inputs, ALWAYS trim null bytes: `trim_end_matches('\0')`
 
 # For raw hex data:
@@ -181,7 +182,7 @@ A basic component has three main parts:
 - Encoding and returning the result for submission (if applicable).
 
 When creating a new component, it's strongly recommended to:
-1. Copy the Cargo.toml from the eth-price-oracle example and modify only the name
+1. Copy the Cargo.toml from the eth-price-oracle example and modify the name
 2. Use workspace dependencies with `{ workspace = true }` instead of specific versions
 3. Create lib.rs file similar to the example component
 
@@ -259,103 +260,73 @@ Components can receive trigger data in two ways:
 
 When testing components with `make wasi-exec`, choose the appropriate data format based on your input type:
 
-#### `format-bytes32-string` (ONLY for short strings < 32 bytes, NEVER for addresses)
-```bash
-# For short strings (< 32 bytes)(NOT Ethereum addresses):
-export TRIGGER_DATA_INPUT=`cast format-bytes32-string "90210"`
-# IMPORTANT: This adds null byte padding that MUST be trimmed in component code:
-# clean_input = input_string.trim_end_matches('\0')
-```
+#### Input Handling
 
-For format-bytes32-string inputs, ALWAYS trim null bytes: `trim_end_matches('\0')`
+Components can receive trigger data in two ways:
+1. Via an onchain event (after deployment)
+2. Via the `wasi-exec` command (for testing)
 
+When testing, choose the appropriate input format:
+
+| Input Type | Command | Code Handling |
+|------------|---------|--------------|
+| Short string (<32B) | `cast format-bytes32-string "text"` | `let s = String::from_utf8(data)?.trim_end_matches('\0')` |
+| Address | `cast abi-encode "f(address)" 0xAddress` | `let addr = Address::from_slice(&data[12..32])` // When testing with make wasi-exec |
+| Number | `cast abi-encode "f(uint256)" 123` | `let num = U256::from_be_slice(&data[4..36])` |
+| Long string | `cast abi-encode "f(string)" "text"` | Extract from ABI string format |
+
+CRITICAL: NEVER use `String::from_utf8` on ABI-encoded data. ABI-encoded data is binary and must be handled according to its format.
+
+Debug input format:
 ```rust
-// 1. ALWAYS clone before using String::from_utf8 to avoid ownership errors.
-// CRITICAL!! ONLY use String::from_utf8 with format-bytes32-string inputs
-
-// Wrong - creates temporary that is immediately dropped:
-// let input_string = std::str::from_utf8(&trigger_data.clone())?; // ERROR!
-
-// Correct - create variable to hold the cloned data first:
-let data_clone = trigger_data.clone();
-let input_string = std::str::from_utf8(&data_clone)
-    .map_err(|e| format!("Failed to convert input to string: {}", e))?;
-
-// 2. ALWAYS trim null bytes added by format-bytes32-string before using in URLs or API calls
-// This is CRITICAL for API URLs or your requests will DEFINITELY fail
-let clean_input = input_string.trim_end_matches('\0');
-
-// Now safe to use in URLs or other contexts
-let url = format!("https://api.example.com/endpoint?param={}", clean_input);
-
-// ALWAYS print the URL before sending requests to debug formatting issues
-println!("Debug - Request URL: {}", url);
-```
-
-#### ABI-encoded input handling (for addresses, numbers, structs)
-```bash
-# CRITICAL!! NEVER use String::from_utf8 on ABI-encoded data
-# ABI-encoded data is binary and must be handled according to its format
-
-# For Ethereum addresses (ALWAYS use abi-encode, NEVER format-bytes32-string):
-export TRIGGER_DATA_INPUT=`cast abi-encode "f(address)" 0x28C6c06298d514Db089934071355E5743bf21d60`
-
-# For longer strings or when exact format matters:
-export TRIGGER_DATA_INPUT=`cast abi-encode "f(string)" "your long string here"`
-
-# For numeric values:
-export TRIGGER_DATA_INPUT=`cast abi-encode "f(uint256)" 123456`
-
-# For custom structs:
-export TRIGGER_DATA_INPUT=`cast abi-encode "f((uint256,string))" 123 "example"`
-```
-
-IMPORTANT: When handling ABI-encoded inputs:
-- CRITICAL!! NEVER use String::from_utf8 on ABI-encoded data - it will fail with "invalid utf-8 sequence"
-- For addresses, extract the 20-byte address from its correct position: `&data[4+12..4+32]` (after 4-byte selector and 12-byte padding)
-- For numbers, use `U256::from_be_slice(&data[4..36])`
-- Add defensive format detection and debugging
-- Debug with logging: `println!("Raw data length: {} bytes", data.len())`
-
-```rust
-// CRITICAL: ABI-encoded data is binary - never attempt String::from_utf8 on it
-// Add debugging to identify format
 println!("Input length: {} bytes", data.len());
 let hex_display: Vec<String> = data.iter().take(8).map(|b| format!("{:02x}", b)).collect();
 println!("First 8 bytes: {}", hex_display.join(" "));
-
-// Memory layouts for different ABI formats:
-match data.len() {
-    // Basic ABI-encoded address (32 bytes): [12 bytes padding][20 bytes address]
-    32 => {
-        let address_bytes = &data[12..32];
-        let address = Address::from_slice(address_bytes);
-        println!("Extracted address: {}", address);
-    },
-    // With function selector (36 bytes): [4 bytes selector][12 bytes padding][20 bytes address]
-    36 => {
-        let address_bytes = &data[4+12..4+32];
-        let address = Address::from_slice(address_bytes);
-        println!("Extracted address: {}", address);
-    },
-    // Handle other formats defensively
-    _ => {
-        // Only try string conversion if data looks like valid ASCII
-        if data.iter().all(|&b| b == 0 || (b >= 32 && b <= 126)) {
-            let data_clone = data.clone();
-            match std::str::from_utf8(&data_clone) {
-                Ok(s) => {
-                    let clean_input = s.trim_end_matches('\0');
-                    // Process as string...
-                },
-                Err(_) => return Err("Invalid UTF-8 in input data".to_string())
-            }
-        } else {
-            return Err("Unsupported binary data format".to_string());
-        }
-    }
-}
 ```
+
+#### Common Input Handling Mistakes
+
+1. **Using String::from_utf8 on ABI-encoded data**
+   ```rust
+   // WRONG - This will fail with "invalid utf-8 sequence":
+   let input = String::from_utf8(abi_encoded_data)?;
+   
+   // CORRECT - For ABI-encoded addresses when testing with make wasi-exec:
+   let addr = Address::from_slice(&data[12..32]);
+   
+   // CORRECT - For ABI-encoded addresses from production triggers:
+   // let addr = Address::from_slice(&data[4+12..4+32]);
+   ```
+
+2. **Not trimming null bytes from format-bytes32-string**
+   ```rust
+   // WRONG - URL will contain null bytes:
+   let url = format!("https://api.example.com/{}", input);
+   
+   // CORRECT - Always trim null bytes:
+   let clean_input = input.trim_end_matches('\0');
+   let url = format!("https://api.example.com/{}", clean_input);
+   ```
+
+3. **Using format-bytes32-string for addresses**
+   ```bash
+   # WRONG - Never use format-bytes32-string for addresses:
+   export TRIGGER_DATA_INPUT=`cast format-bytes32-string 0xAddress`
+   
+   # CORRECT - Always use abi-encode for addresses:
+   export TRIGGER_DATA_INPUT=`cast abi-encode "f(address)" 0xAddress`
+   ```
+
+4. **Not cloning data before use**
+   ```rust
+   // WRONG - Creates temporary that is immediately dropped:
+   let input = std::str::from_utf8(&data.clone())?;
+   
+   // CORRECT - Create variable to hold the owned value:
+   let data_clone = data.clone();
+   let input = std::str::from_utf8(&data_clone)?;
+   ```
+
 
 ### 4. Network Requests
 
@@ -456,14 +427,14 @@ To build reliable components:
 When creating a new component, follow these steps to avoid common errors:
 
 1. **Start by copying the example component**:
-   - Copy the `eth-price-oracle` component's Cargo.toml and modify only the name
+   - Copy the `eth-price-oracle` component's Cargo.toml and modify the name
    - Create a lib.rs module similar to the `eth-price-oracle`
    - Use the existing component structure as a template
 
 2. **Configure dependencies correctly**:
    - Use workspace dependencies with `{ workspace = true }` syntax
    - NEVER specify direct version numbers in component Cargo.toml
-   - For new functionality, add dependencies to workspace Cargo.toml first, then reference with `{ workspace = true }`
+   - For new functionality, always add all necessary dependencies to workspace Cargo.toml first, then reference with `{ workspace = true }`
    - Consider standard library alternatives before adding new dependencies
    - Import HTTP functions from the correct submodule: `wavs_wasi_chain::http::{fetch_json, http_request_get}`
    - Include essential standard library imports when necessary: `use std::cmp::min;`, `use std::str::FromStr;`
@@ -471,16 +442,21 @@ When creating a new component, follow these steps to avoid common errors:
    - Remove unused imports to prevent warnings that might obscure more important messages
 
 3. **Handle data ownership properly**:
-   - ALWAYS clone data before consuming: `data.clone()` before passing to String::from_utf8()
-   - CRITICAL!! NEVER use String::from_utf8 on ABI-encoded data. Only to be used with format-bytes32
+   - ALWAYS clone data before consuming: data.clone() before passing to any function that takes ownership of the data
    - CRITICAL: NEVER use `&data.clone()` pattern which creates temporary values that are immediately dropped. Instead:
      ```rust
      // Wrong - temporary value is dropped:
      let input = std::str::from_utf8(&data.clone())?; 
      
-     // Correct - create variable to hold the owned value:
+     // Correct for bytes32 input - create variable to hold the owned value:
      let data_clone = data.clone();
      let input = std::str::from_utf8(&data_clone)?;
+     
+     // Correct for abi-encoded address when testing with make wasi-exec:
+     let addr = Address::from_slice(&data_clone[12..32]);  // Clone persists for the slice operation
+     
+     // Correct for abi-encoded address in production triggers:
+     // let addr = Address::from_slice(&data_clone[4+12..4+32]);
      ```
    - ALWAYS clone logs for decoding: `let log_clone = log.clone()`
    - ALWAYS clone collection elements: `array[0].field.clone()` to avoid "move out of index" errors
@@ -519,7 +495,7 @@ When creating a new component, follow these steps to avoid common errors:
 
 | Error Type | Symptom | Solution |
 |------------|---------|----------|
-| Dependency Version | "failed to select a version for..." | Copy Cargo.toml from eth-price-oracle and only change the name |
+| Dependency Version | "failed to select a version for..." | Copy Cargo.toml from eth-price-oracle and change the name |
 | Missing Dependency | "unresolved module or crate" | Add the dependency to workspace Cargo.toml first, then reference with `{ workspace = true }` |
 | Import Path | "unresolved imports http_request_get" | Use: `use wavs_wasi_chain::http::{fetch_json, http_request_get}` |
 | Type Conversion | "expected Uint<256, 4>, found u128" | Use string parsing: `value.to_string().parse().unwrap()` |
@@ -601,3 +577,6 @@ pub async fn query_nft_ownership(address: Address, nft_contract: Address) -> Res
 ```
 
 CRITICAL: All blockchain interactions must use async functions with `block_on`. Never hardcode RPC endpoints - always use chain configuration from wavs.toml.
+CRITICAL: Never implement methods on foreign types. Use built-in methods:
+  - For addresses: `Address::from_slice()` or `address_str.parse::<Address>()`
+  - For RPC calls: `provider.call(&tx)` (single parameter only)

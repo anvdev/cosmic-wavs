@@ -21,7 +21,7 @@ export TRIGGER_DATA_INPUT=`cast format-bytes32-string 1`
 # export TRIGGER_DATA_INPUT=`cast abi-encode "f(string)" "your long string here"`
 
 # For Ethereum addresses (ALWAYS use abi-encode, NEVER format-bytes32-string):
-# export TRIGGER_DATA_INPUT=`cast abi-encode "f(address)" 0xf3d583d521cC7A9BE84a5E4e300aaBE9C0757229`
+# export TRIGGER_DATA_INPUT=`cast abi-encode "f(address)" 0x28C6c06298d514Db089934071355E5743bf21d60`
 
 # For numeric values:
 # export TRIGGER_DATA_INPUT=`cast abi-encode "f(uint256)" 123456`
@@ -191,6 +191,12 @@ Components must implement the `Guest` trait, which is the main interface between
 
 The `sol!` macro from `alloy_sol_types` is used to define Solidity types in Rust. It generates Rust structs and implementations that match your Solidity types, including ABI encoding/decoding methods.
 
+IMPORTANT: The example in eth-price-oracle is just one example of a specific component. You will need to make sure that you use appropriate input formats for your component.
+The most common error in components is trying to use `String::from_utf8` on ABI-encoded data. This will ALWAYS fail with "invalid utf-8 sequence". Remember:
+- ONLY use `String::from_utf8` with format-bytes32-string inputs
+- NEVER use `String::from_utf8` on ABI-encoded data
+- ABI-encoded data is binary and must be handled according to its format
+
 IMPORTANT: Always import the required traits if using these methods:
 ```rust
 use alloy_sol_types::{sol, SolCall, SolValue}; // SolCall needed for abi_encode() on call structs
@@ -223,6 +229,12 @@ let temperature_uint256 = temperature.to_string().parse().unwrap();
 // ALWAYS use explicit type conversions for struct fields with specific types
 let decimals = 6; // inferred as i32/usize
 struct_field: decimals as u32, // explicit cast required between integer types
+
+// CORRECT - Use a loop for exponentiation with U256 (pow expects U256, not u32/u8)
+let mut divisor = U256::from(1);
+for _ in 0..decimals {
+    divisor = divisor * U256::from(10);
+}
 ```
 
 ### 2. Binary Data Handling
@@ -455,6 +467,8 @@ When creating a new component, follow these steps to avoid common errors:
    - Consider standard library alternatives before adding new dependencies
    - Import HTTP functions from the correct submodule: `wavs_wasi_chain::http::{fetch_json, http_request_get}`
    - Include essential standard library imports when necessary: `use std::cmp::min;`, `use std::str::FromStr;`
+   - ONLY import what you actually need (e.g., `use alloy_sol_types::{sol, SolCall, SolValue}` - not `SolType` if unused)
+   - Remove unused imports to prevent warnings that might obscure more important messages
 
 3. **Handle data ownership properly**:
    - ALWAYS clone data before consuming: `data.clone()` before passing to String::from_utf8()
@@ -496,8 +510,10 @@ When creating a new component, follow these steps to avoid common errors:
 - Validate output format matches expected contract format
 - CRITICAL: Verify all data structures used with API responses implement `Clone` - missing this will cause build errors
 - Confirm string inputs from format-bytes32-string are trimmed of null bytes
-- Verify that String::from_utf8 is only used with format-bytes32 inputs, never abi-encoded inputs.
-
+- CRITICAL: Verify correct UTF-8 handling:
+  - ONLY use `String::from_utf8` with format-bytes32-string inputs
+  - NEVER use `String::from_utf8` on ABI-encoded data
+  - ABI-encoded data is handled according to its format (addresses, numbers, etc.)
 
 ## Troubleshooting Common Errors
 
@@ -549,14 +565,12 @@ alloy-network = { workspace = true }
 Use host bindings to get chain config from wavs.toml:
 
 ```rust
-use std::io::Read;
-
 use crate::bindings::host::get_eth_chain_config;
-use alloy_network::{Ethereum};
-use alloy_primitives::{Address, Bytes, TxKind, U256};
+use alloy_network::Ethereum;
+use alloy_primitives::{Address, TxKind, U256};
 use alloy_provider::{Provider, RootProvider};
 use alloy_rpc_types::TransactionInput;
-use alloy_sol_types::{sol, SolCall, SolType, SolValue};
+use alloy_sol_types::{sol, SolCall, SolValue};
 use wavs_wasi_chain::ethereum::new_eth_provider;
 
 sol! {

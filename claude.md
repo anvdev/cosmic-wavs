@@ -390,7 +390,13 @@ When using the decode_event_log_data! macro:
 ```rust
 // Always clone the log before decoding to avoid ownership errors
 let log_clone = log.clone();
- let event: solidity::NewTrigger = decode_event_log_data!(log_clone)?;
+
+// If your function returns Result<_, anyhow::Error>:
+let event: solidity::NewTrigger = decode_event_log_data!(log_clone)?;
+
+// If your function returns Result<_, String>:
+let event: solidity::NewTrigger = decode_event_log_data!(log_clone)
+    .map_err(|e| e.to_string())?;
 ```
 
 ### 6. Data Structure Ownership
@@ -553,7 +559,7 @@ alloy-rpc-types = { workspace = true }
 alloy-network = { workspace = true }
 ```
 
-### Example imports
+### Example component
 
 ```rust
 use alloy_network::Ethereum;                    // Ethereum network types
@@ -574,9 +580,6 @@ use crate::bindings::{export, Guest, TriggerAction};
 
 // IMPORTANT: Ensure all methods and types used in your component are imported before using
 // Missing imports will cause compilation errors
-```
-
-### Example component
 
 ```rust
 sol! {

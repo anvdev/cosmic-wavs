@@ -245,25 +245,28 @@ Components can receive trigger data in two ways:
 1. Via an onchain event (after deployment)
 2. Via the `wasi-exec` command (for testing)
 
-When testing components with `make wasi-exec`, choose the appropriate data format based on your input type: bytes32, abi-encode, or raw hex.
+When testing components with `make wasi-exec`, choose the appropriate data format based on your input type:
 
-#### `format-bytes32-string`
-
+#### `format-bytes32-string` (ONLY for short strings < 32 bytes, NEVER for addresses)
 ```bash
 # For short strings (< 32 bytes)(NOT Ethereum addresses):
 export TRIGGER_DATA_INPUT=`cast format-bytes32-string "90210"`
 # IMPORTANT: This adds null byte padding that MUST be trimmed in component code:
 # clean_input = input_string.trim_end_matches('\0')
-
 ```
 
 For format-bytes32-string inputs, ALWAYS trim null bytes: `trim_end_matches('\0')`
 
 ```rust
-
 // 1. ALWAYS clone before using String::from_utf8 to avoid ownership errors.
-// CRITICAL!! NEVER use String::from_utf8 on ABI-encoded data. Only to be used with format-bytes32
-let input_string = String::from_utf8(trigger_data.clone())
+// CRITICAL!! ONLY use String::from_utf8 with format-bytes32-string inputs
+
+// Wrong - creates temporary that is immediately dropped:
+// let input_string = std::str::from_utf8(&trigger_data.clone())?; // ERROR!
+
+// Correct - create variable to hold the cloned data first:
+let data_clone = trigger_data.clone();
+let input_string = std::str::from_utf8(&data_clone)
     .map_err(|e| format!("Failed to convert input to string: {}", e))?;
 
 // 2. ALWAYS trim null bytes added by format-bytes32-string before using in URLs or API calls
@@ -277,14 +280,13 @@ let url = format!("https://api.example.com/endpoint?param={}", clean_input);
 println!("Debug - Request URL: {}", url);
 ```
 
-#### abi-encoded input
-
+#### ABI-encoded input handling (for addresses, numbers, structs)
 ```bash
-
-# CRITICAL!! NEVER use String::from_utf8 on ABI-encoded data. Only to be used with format-bytes32
+# CRITICAL!! NEVER use String::from_utf8 on ABI-encoded data
+# ABI-encoded data is binary and must be handled according to its format
 
 # For Ethereum addresses (ALWAYS use abi-encode, NEVER format-bytes32-string):
-export TRIGGER_DATA_INPUT=`cast abi-encode "f(address)" 0xf3d583d521cC7A9BE84a5E4e300aaBE9C0757229`
+export TRIGGER_DATA_INPUT=`cast abi-encode "f(address)" 0x28C6c06298d514Db089934071355E5743bf21d60`
 
 # For longer strings or when exact format matters:
 export TRIGGER_DATA_INPUT=`cast abi-encode "f(string)" "your long string here"`
@@ -297,16 +299,50 @@ export TRIGGER_DATA_INPUT=`cast abi-encode "f((uint256,string))" 123 "example"`
 ```
 
 IMPORTANT: When handling ABI-encoded inputs:
-- CRITICAL!! NEVER use String::from_utf8 on ABI-encoded data. Only to be used with format-bytes32
-- For ABI-encoded addresses, extract correctly: `Address::from_slice(&data[4+12..4+32])`
-- Add defensive format detection: `if data.len() >= 36 { /* handle as ABI */ } else { /* try string */ }`
+- CRITICAL!! NEVER use String::from_utf8 on ABI-encoded data - it will fail with "invalid utf-8 sequence"
+- For addresses, extract the 20-byte address from its correct position: `&data[4+12..4+32]` (after 4-byte selector and 12-byte padding)
+- For numbers, use `U256::from_be_slice(&data[4..36])`
+- Add defensive format detection and debugging
 - Debug with logging: `println!("Raw data length: {} bytes", data.len())`
 
-#### hex input
+```rust
+// CRITICAL: ABI-encoded data is binary - never attempt String::from_utf8 on it
+// Add debugging to identify format
+println!("Input length: {} bytes", data.len());
+let hex_display: Vec<String> = data.iter().take(8).map(|b| format!("{:02x}", b)).collect();
+println!("First 8 bytes: {}", hex_display.join(" "));
 
-```bash
-# For raw hex data:
-export TRIGGER_DATA_INPUT="0x1234abcd"
+// Memory layouts for different ABI formats:
+match data.len() {
+    // Basic ABI-encoded address (32 bytes): [12 bytes padding][20 bytes address]
+    32 => {
+        let address_bytes = &data[12..32];
+        let address = Address::from_slice(address_bytes);
+        println!("Extracted address: {}", address);
+    },
+    // With function selector (36 bytes): [4 bytes selector][12 bytes padding][20 bytes address]
+    36 => {
+        let address_bytes = &data[4+12..4+32];
+        let address = Address::from_slice(address_bytes);
+        println!("Extracted address: {}", address);
+    },
+    // Handle other formats defensively
+    _ => {
+        // Only try string conversion if data looks like valid ASCII
+        if data.iter().all(|&b| b == 0 || (b >= 32 && b <= 126)) {
+            let data_clone = data.clone();
+            match std::str::from_utf8(&data_clone) {
+                Ok(s) => {
+                    let clean_input = s.trim_end_matches('\0');
+                    // Process as string...
+                },
+                Err(_) => return Err("Invalid UTF-8 in input data".to_string())
+            }
+        } else {
+            return Err("Unsupported binary data format".to_string());
+        }
+    }
+}
 ```
 
 ### 4. Network Requests
@@ -423,6 +459,15 @@ When creating a new component, follow these steps to avoid common errors:
 3. **Handle data ownership properly**:
    - ALWAYS clone data before consuming: `data.clone()` before passing to String::from_utf8()
    - CRITICAL!! NEVER use String::from_utf8 on ABI-encoded data. Only to be used with format-bytes32
+   - CRITICAL: NEVER use `&data.clone()` pattern which creates temporary values that are immediately dropped. Instead:
+     ```rust
+     // Wrong - temporary value is dropped:
+     let input = std::str::from_utf8(&data.clone())?; 
+     
+     // Correct - create variable to hold the owned value:
+     let data_clone = data.clone();
+     let input = std::str::from_utf8(&data_clone)?;
+     ```
    - ALWAYS clone logs for decoding: `let log_clone = log.clone()`
    - ALWAYS clone collection elements: `array[0].field.clone()` to avoid "move out of index" errors
    - ALWAYS trim string input nulls: `trim_end_matches('\0')` on all format-bytes32-string inputs

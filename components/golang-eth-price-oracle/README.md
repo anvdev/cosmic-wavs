@@ -73,31 +73,48 @@ Run the component with the `wasi-exec` command in the root of the repo
 COMPONENT_FILENAME=golang_eth_price_oracle.wasm COIN_MARKET_CAP_ID=2 make wasi-exec
 ```
 
-## Run in a local environment
-
-Start all services
-
-```bash docci-background docci-delay-after=5
-make start-all
-```
-
 Build your smart contracts
 
 ```bash
 forge build
 ```
 
+## Run in a local environment
+
+Start all services
+
+```bash docci-background docci-delay-after=25
+cp .env.example .env
+sh ./script/start_all.sh
+```
+
+Wait for full local deployment, then grab values
+
+```bash docci-ignore
+while [ ! -f .docker/start.log ]; do echo "waiting for start.log" && sleep 1; done
+```
+
+Core values
+
+```bash docci-delay-per-cmd=1
+export SERVICE_MANAGER_ADDRESS=$(jq -r .addresses.WavsServiceManager .nodes/avs_deploy.json)
+export PRIVATE_KEY=$(cat .nodes/deployer)
+export MY_ADDR=$(cast wallet address --private-key $PRIVATE_KEY)
+```
+
 Deploy the contracts
 
-```bash docci-delay-after=1
-export SERVICE_MANAGER_ADDR=`make get-eigen-service-manager-from-deploy`
+```bash docci-delay-per-cmd=3
+forge create SimpleSubmit --json --broadcast -r http://127.0.0.1:8545 --private-key "${PRIVATE_KEY}" --constructor-args "${SERVICE_MANAGER_ADDRESS}" > .docker/submit.json
+export SERVICE_SUBMISSION_ADDR=`jq -r .deployedTo .docker/submit.json`
 
-forge script ./script/Deploy.s.sol ${SERVICE_MANAGER_ADDR} --sig 'run(string)' --rpc-url http://localhost:8545 --broadcast
+forge create SimpleTrigger --json --broadcast -r http://127.0.0.1:8545 --private-key "${PRIVATE_KEY}" > .docker/trigger.json
+export SERVICE_TRIGGER_ADDR=`jq -r .deployedTo .docker/trigger.json`
 ```
 
 Deploy the component
 
-```bash docci-delay-after=1
+```bash docci-delay-per-cmd=3
 COMPONENT_FILENAME=golang_eth_price_oracle.wasm sh ./script/build_service.sh
 
 SERVICE_CONFIG_FILE=.docker/service.json make deploy-service
@@ -105,10 +122,9 @@ SERVICE_CONFIG_FILE=.docker/service.json make deploy-service
 
 Trigger the service
 
-```bash docci-delay-after=1
+```bash docci-delay-after=2
 export COIN_MARKET_CAP_ID=1
 export SERVICE_TRIGGER_ADDR=`make get-trigger-from-deploy`
-
 forge script ./script/Trigger.s.sol ${SERVICE_TRIGGER_ADDR} ${COIN_MARKET_CAP_ID} --sig 'run(string,string)' --rpc-url http://localhost:8545 --broadcast -v 4
 ```
 

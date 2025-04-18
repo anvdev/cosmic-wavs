@@ -126,8 +126,7 @@ Now build the WASI components into the `compiled` output directory.
 > `brew uninstall rust` & install it from <https://rustup.rs>
 
 ```bash
-# or `make build` to include solidity compilation.
-# this command only builds the rust component.
+# This command only builds the rust component.
 # Remove `WASI_BUILD_DIR` to build all components.
 WASI_BUILD_DIR=components/eth-price-oracle make wasi-build
 ```
@@ -173,17 +172,25 @@ Result (utf8):
 
 Start an ethereum node (anvil), the WAVS service, and deploy [eigenlayer](https://www.eigenlayer.xyz/) contracts to the local network.
 
-```bash docci-background docci-delay-after=5
-# copy over the .env file if you need to override the defaults
-# the default component does not require any env variables
-#
-# cp .env.example .env
-
+```bash docci-background docci-delay-after=15
 # Start the backend
 #
 # This must remain running in your terminal. Use another terminal to run other commands.
 # You can stop the services with `ctrl+c`. Some MacOS terminals require pressing it twice.
-make start-all
+# make start-all
+cp .env.example .env
+
+sh ./script/start_all.sh
+```
+
+Wait for full local deployment, then grab values
+
+```bash docci-delay-after=2
+while [ ! -f .docker/start.log ]; do echo "waiting for start.log" && sleep 1; done
+
+export SERVICE_MANAGER_ADDRESS=$(jq -r .addresses.WavsServiceManager .nodes/avs_deploy.json)
+export PRIVATE_KEY=$(cat .nodes/deployer)
+export MY_ADDR=$(cast wallet address --private-key $PRIVATE_KEY)
 ```
 
 ### Deploy Service Contracts
@@ -195,21 +202,21 @@ make start-all
 
 `SERVICE_MANAGER_ADDR` is the address of the Eigenlayer service manager contract. It was deployed in the previous step. Then you deploy the trigger and submission contracts which depends on the service manager. The service manager will verify that a submission is valid (from an authorized operator) before saving it to the blockchain. The trigger contract is any arbitrary contract that emits some event that WAVS will watch for. Yes, this can be on another chain (e.g. an L2) and then the submission contract on the L1 *(Ethereum for now because that is where Eigenlayer is deployed)*.
 
-```bash
-export SERVICE_MANAGER_ADDR=`make get-eigen-service-manager-from-deploy`
-forge script ./script/Deploy.s.sol ${SERVICE_MANAGER_ADDR} --sig 'run(string)' --rpc-url http://localhost:8545 --broadcast
-```
+```bash docci-delay-per-cmd=2
+forge create SimpleSubmit --json --broadcast -r http://127.0.0.1:8545 --private-key "${PRIVATE_KEY}" --constructor-args "${SERVICE_MANAGER_ADDRESS}" > .docker/submit.json
+export SERVICE_SUBMISSION_ADDR=`jq -r .deployedTo .docker/submit.json`
 
-> [!TIP]
-> You can see the deployed trigger address with `make get-trigger-from-deploy`
+forge create SimpleTrigger --json --broadcast -r http://127.0.0.1:8545 --private-key "${PRIVATE_KEY}" > .docker/trigger.json
+export SERVICE_TRIGGER_ADDR=`jq -r .deployedTo .docker/trigger.json`
+```
 
 ## Deploy Service
 
 Deploy the compiled component with the contract information from the previous steps. Review the [makefile](./Makefile) for more details and configuration options.`TRIGGER_EVENT` is the event that the trigger contract emits and WAVS watches for. By altering `SERVICE_TRIGGER_ADDR` you can watch events for contracts others have deployed.
 
-```bash docci-delay-per-cmd=1
+```bash docci-delay-per-cmd=2
 # Build your service JSON with optional overrides in the script
-COMPONENT_FILENAME=eth_price_oracle.wasm sh ./script/build_service.sh
+COMPONENT_FILENAME=eth_price_oracle.wasm AGGREGATOR_URL=http://127.0.0.1:8001 sh ./script/build_service.sh
 
 # Deploy the service JSON to WAVS so it now watches and submits
 # the results based on the service json configuration.
@@ -234,7 +241,10 @@ forge script ./script/Trigger.s.sol ${SERVICE_TRIGGER_ADDR} ${COIN_MARKET_CAP_ID
 
 Query the latest submission contract id from the previous request made.
 
+```bash docci-delay-per-cmd=2 docci-output-contains="1"
+make get-trigger
+```
+
 ```bash docci-delay-per-cmd=2 docci-output-contains="BTC"
-# Get the latest TriggerId and show the result via `script/ShowResult.s.sol`
-make show-result
+TRIGGER_ID=1 make show-result
 ```

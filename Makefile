@@ -14,7 +14,7 @@ SERVICE_CONFIG_FILE?=.docker/service.json
 CARGO=cargo
 # the directory to build, or "" for all
 WASI_BUILD_DIR ?= ""
-DOCKER_IMAGE?=ghcr.io/lay3rlabs/wavs:0.4.0-alpha1-amd64
+DOCKER_IMAGE?=ghcr.io/lay3rlabs/wavs:reece_priv_key_signing_apr_10
 WAVS_CMD ?= $(SUDO) docker run --rm --network host $$(test -f .env && echo "--env-file ./.env") -v $$(pwd):/data ${DOCKER_IMAGE} wavs-cli
 ANVIL_PRIVATE_KEY?=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 RPC_URL?=http://localhost:8545
@@ -22,9 +22,6 @@ SERVICE_MANAGER_ADDR?=`jq -r '.eigen_service_managers.local | .[-1]' .docker/dep
 SERVICE_TRIGGER_ADDR?=`jq -r '.trigger' "./.docker/script_deploy.json"`
 SERVICE_SUBMISSION_ADDR?=`jq -r '.service_handler' "./.docker/script_deploy.json"`
 COIN_MARKET_CAP_ID?=1
-
-## check-requirements: verify system requirements are installed
-check-requirements: check-node check-jq check-cargo
 
 ## build: building the project
 build: _build_forge wasi-build
@@ -38,16 +35,6 @@ wasi-exec: pull-image
 	@$(WAVS_CMD) exec --log-level=info --data /data/.docker --home /data \
 	--component "/data/compiled/$(COMPONENT_FILENAME)" \
 	--input `cast format-bytes32-string $(COIN_MARKET_CAP_ID)`
-
-pull-image:
-	@if ! docker image inspect ${DOCKER_IMAGE} &>/dev/null; then \
-		echo "Image ${DOCKER_IMAGE} not found. Pulling..."; \
-		$(SUDO) docker pull ${DOCKER_IMAGE}; \
-	fi
-
-## update-submodules: update the git submodules
-update-submodules:
-	@git submodule update --init --recursive
 
 ## clean: cleaning the project files
 clean: clean-docker
@@ -81,16 +68,13 @@ start-all: clean-docker setup-env
 	@rm --interactive=never .docker/*.json 2> /dev/null || true
 	bash -ec 'anvil & anvil_pid=$$!; trap "kill -9 $$anvil_pid 2>/dev/null" EXIT; $(SUDO) docker compose up; wait';
 
-## get-service-handler: getting the service handler address from the script deploy
-get-service-handler-from-deploy:
-	@jq -r '.service_handler' "./.docker/script_deploy.json"
-
-get-eigen-service-manager-from-deploy:
-	@jq -r '.eigen_service_managers.local | .[-1]' .docker/deployments.json
-
-## get-trigger: getting the trigger address from the script deploy
+## get-trigger-from-deploy: getting the trigger address from the script deploy
 get-trigger-from-deploy:
-	@jq -r '.trigger' "./.docker/script_deploy.json"
+	@jq -r '.deployedTo' "./.docker/trigger.json"
+
+## get-submit-from-deploy: getting the submit address from the script deploy
+get-submit-from-deploy:
+	@jq -r '.deployedTo' "./.docker/submit.json"
 
 ## wavs-cli: running wavs-cli in docker
 wavs-cli:
@@ -98,18 +82,25 @@ wavs-cli:
 
 ## upload-component: uploading the WAVS component | COMPONENT_FILENAME
 upload-component:
-	@curl --silent -X POST http://127.0.0.1:8000/upload --data-binary @./compiled/$(COMPONENT_FILENAME) -H "Content-Type: application/wasm" | jq -r .digest
+# TODO: move to $(WAVS_CMD)  upload-component ./compiled/${COMPONENT_FILENAME}
+	@wget --post-file=./compiled/${COMPONENT_FILENAME} --header="Content-Type: application/wasm" -O - http://127.0.0.1:8000/upload | jq -r .digest
 
 ## deploy-service: deploying the WAVS component service json | SERVICE_CONFIG_FILE
 deploy-service:
-	@$(WAVS_CMD) deploy-service-raw --log-level=info --data /data/.docker --home /data --service `jq -c . < $(SERVICE_CONFIG_FILE)`
+	@$(WAVS_CMD) deploy-service-raw --service `jq . -cr ${SERVICE_CONFIG_FILE}` --log-level=info --data /data/.docker --home /data
 
-## show-result: showing the result | SERVICE_TRIGGER_ADDR, SERVICE_SUBMISSION_ADDR, RPC_URL
+## get-trigger: get the trigger id | SERVICE_TRIGGER_ADDR, RPC_URL
+get-trigger:
+	@forge script ./script/ShowResult.s.sol ${SERVICE_TRIGGER_ADDR} --sig 'trigger(string)' --rpc-url $(RPC_URL) --broadcast -v 4
+
+TRIGGER_ID?=1
+## show-result: showing the result | SERVICE_SUBMISSION_ADDR, TRIGGER_ID, RPC_URL
 show-result:
-	@forge script ./script/ShowResult.s.sol ${SERVICE_TRIGGER_ADDR} ${SERVICE_SUBMISSION_ADDR} --sig 'run(string,string)' --rpc-url $(RPC_URL) --broadcast -v 4
+	@forge script ./script/ShowResult.s.sol ${SERVICE_SUBMISSION_ADDR} ${TRIGGER_ID} --sig 'data(string,uint64)' --rpc-url $(RPC_URL) --broadcast -v 4
 
-_build_forge:
-	@forge build
+## update-submodules: update the git submodules
+update-submodules:
+	@git submodule update --init --recursive
 
 # Declare phony targets
 .PHONY: build clean fmt bindings test
@@ -123,6 +114,8 @@ help: Makefile
 	@echo
 
 # helpers
+_build_forge:
+	@forge build
 
 .PHONY: setup-env
 setup-env:
@@ -134,7 +127,16 @@ setup-env:
 		fi; \
 	fi
 
+pull-image:
+	@if ! docker image inspect ${DOCKER_IMAGE} &>/dev/null; then \
+		echo "Image ${DOCKER_IMAGE} not found. Pulling..."; \
+		$(SUDO) docker pull ${DOCKER_IMAGE}; \
+	fi
+
 # check versions
+
+## check-requirements: verify system requirements are installed
+check-requirements: check-node check-jq check-cargo
 
 check-command:
 	@command -v $(1) > /dev/null 2>&1 || (echo "Command $(1) not found. Please install $(1), reference the System Requirements section"; exit 1)

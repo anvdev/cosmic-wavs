@@ -18,9 +18,8 @@ DOCKER_IMAGE?=ghcr.io/lay3rlabs/wavs:reece_priv_key_signing_apr_10
 WAVS_CMD ?= $(SUDO) docker run --rm --network host $$(test -f .env && echo "--env-file ./.env") -v $$(pwd):/data ${DOCKER_IMAGE} wavs-cli
 ANVIL_PRIVATE_KEY?=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 RPC_URL?=http://localhost:8545
-SERVICE_MANAGER_ADDR?=`jq -r '.eigen_service_managers.local | .[-1]' .docker/deployments.json`
-SERVICE_TRIGGER_ADDR?=`jq -r '.trigger' "./.docker/script_deploy.json"`
-SERVICE_SUBMISSION_ADDR?=`jq -r '.service_handler' "./.docker/script_deploy.json"`
+SERVICE_TRIGGER_ADDR?=`jq -r .deployedTo .docker/trigger.json`
+SERVICE_SUBMISSION_ADDR?=`jq -r .deployedTo .docker/submit.json`
 COIN_MARKET_CAP_ID?=1
 
 ## build: building the project
@@ -66,7 +65,7 @@ setup: check-requirements
 # running anvil out of compose is a temp work around for MacOS
 start-all: clean-docker setup-env
 	@rm --interactive=never .docker/*.json 2> /dev/null || true
-	bash -ec 'anvil & anvil_pid=$$!; trap "kill -9 $$anvil_pid 2>/dev/null" EXIT; $(SUDO) docker compose up; wait';
+	@sh ./script/start_all.sh
 
 ## get-trigger-from-deploy: getting the trigger address from the script deploy
 get-trigger-from-deploy:

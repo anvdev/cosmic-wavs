@@ -1,7 +1,13 @@
-use crate::bindings::wavs::worker::layer_types::{TriggerData, TriggerDataEthContractEvent};
 use alloy_sol_types::SolValue;
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use wavs_wasi_chain::decode_event_log_data;
+use wavs_wasi_chain::http::{fetch_json, http_request_get};
+use wstd::{http::HeaderValue, runtime::block_on};
+
+pub mod bindings;
+use crate::bindings::wavs::worker::layer_types::{TriggerData, TriggerDataEthContractEvent};
+use crate::bindings::{export, Guest, TriggerAction};
 
 pub enum Destination {
     Ethereum,
@@ -31,12 +37,6 @@ mod solidity {
 
     sol!("../../src/interfaces/ITypes.sol");
 }
-
-use wavs_wasi_chain::http::{fetch_json, http_request_get};
-pub mod bindings;
-use crate::bindings::{export, Guest, TriggerAction};
-use serde::{Deserialize, Serialize};
-use wstd::{http::HeaderValue, runtime::block_on};
 
 struct Component;
 export!(Component with_types_in bindings);

@@ -6,7 +6,9 @@ You started a new job at Layer Labs. Your task is to create new components that 
 
 The only commands needed to test if a component is made correctly are:
 
-1. `make wasi-build`: this command builds every component in the /component directory, generates bindings automatically (you do not ever need to edit a bindings.rs file!), automatically compiles components to wasm, and places them automatically in the /compiled folder. component `/eth-price-oracle` becomes `eth_price_oracle.wasm`.
+1. `make wasi-build`: this command builds every component in the /component directory, generates bindings automatically (you do not ever need to edit a bindings.rs file!), automatically compiles components to wasm, and places them automatically in the /compiled folder. component `/eth-price-oracle` becomes `eth_price_oracle.wasm`. 
+
+Before you run the `make wasi-build` command, double check that all types/methods in your component are imported correctly, or there will be an error on the build. ALWAYS AVOID BUILD ERRORS. CRITICAL: Double check all code, imports, and toml before building to ensure there will be no errors on the build.
 
 2. The `make wasi-exec` command. IMPORTANT! As an LLM, you cannot execute the `wasi-exec` command directly. Provide the command to the user and ask them to run manually in their terminal:
 
@@ -130,7 +132,8 @@ The basic service is made up of a trigger, a component, and submission logic (op
 
 A trigger prompts a WAVS service to run. Operators listen for the trigger event specified by the service and execute the corresponding component off-chain. Triggers can be any onchain event emitted from any contract.
 
-### Trigger lifecycle
+WAVS doesn't interpret the contents of event triggers. Instead, it passes the raw log data to components, which can decode and process the data according to their specific needs.
+
 
 1. When a service is deployed, it is configured with a trigger address and event, a wasi component, and a submission contract (optional).
 
@@ -138,38 +141,35 @@ A trigger prompts a WAVS service to run. Operators listen for the trigger event 
 
 3. When a trigger event is emitted, operators pick up the event and verify the event matches the registered trigger.
 
-4. If a match is found, WAVS creates a `TriggerAction` that wraps the trigger event data:
-
-```rust
-TriggerAction {
-    // Service and workflow identification
-    config: TriggerConfig {
-       service_id: ServiceID,      // Generated during deployment
-        workflow_id: WorkflowID,    // Default or specified
-        trigger: Trigger::EthContractEvent {
-           address: Address,       // Contract address
-            chain_name: ChainName,  // Chain identifier
-            event_hash: ByteArray<32> // Event signature
-        }
-    },
-   // The actual event data
-    data: TriggerData::EthContractEvent {
-        contract_address: Address,  // Emitting contract
-        chain_name: ChainName,      // Source chain
-        log: LogData {             // Raw event data
-            topics: Vec<Vec<u8>>,  // Event signature + indexed params
-            data: Vec<u8>         // ABI-encoded event data
-        },
-        block_height: u64         // Block number
-    }
-}
-```
+4. If a match is found, WAVS creates a `TriggerAction` that wraps the trigger event data.
 
 5. The TriggerAction is converted to a WASI-compatible format and passed to the component where it is decoded and processed.
 
-### Developing triggers
 
-WAVS doesn't interpret the contents of event triggers. Instead, it passes the raw log data to components, which can decode and process the data according to their specific needs.
+```rust
+pub enum Destination {
+    Ethereum,
+    CliOutput,
+}
+
+pub fn decode_trigger_event(trigger_data: TriggerData) -> Result<(u64, Vec<u8>, Destination)> {
+    match trigger_data {
+        TriggerData::EthContractEvent(TriggerDataEthContractEvent { log, .. }) => {
+            let event: solidity::NewTrigger = decode_event_log_data!(log)?;
+            let trigger_info = solidity::TriggerInfo::abi_decode(&event._triggerInfo, false)?;
+            Ok((trigger_info.triggerId, trigger_info.data.to_vec(), Destination::Ethereum))
+        }
+        TriggerData::Raw(data) => Ok((0, data.clone(), Destination::CliOutput)),
+        _ => Err(anyhow::anyhow!("Unsupported trigger data type")),
+    }
+}
+
+pub fn encode_trigger_output(trigger_id: u64, output: impl AsRef<[u8]>) -> Vec<u8> {
+    solidity::DataWithId { triggerId: trigger_id, data: output.as_ref().to_vec().into() }
+        .abi_encode()
+}
+```
+
 
 ## Components
 
@@ -265,19 +265,10 @@ let data_with_id = solidity::DataWithId {
 ### 3. Input and Output Handling
 
 Components can receive trigger data in two ways:
-
 1. Via an onchain event (after deployment)
 2. Via the `wasi-exec` command (for testing)
 
-When testing components with `make wasi-exec`, choose the appropriate data format based on your input type:
-
-#### Input Handling
-
-Components can receive trigger data in two ways:
-1. Via an onchain event (after deployment)
-2. Via the `wasi-exec` command (for testing)
-
-When testing, choose the appropriate input format:
+When testing, choose one appropriate input format:
 
 | Input Type | Command | Code Handling |
 |------------|---------|--------------|
@@ -399,7 +390,31 @@ let event: solidity::NewTrigger = decode_event_log_data!(log_clone)
     .map_err(|e| e.to_string())?;
 ```
 
-### 6. Data Structure Ownership
+### 6. Option and Result Handling
+
+When working with Option and Result types:
+
+```rust
+// CRITICAL: Never use map_err() on Option types - it will cause a build error
+// WRONG:
+let chain_config = get_eth_chain_config("mainnet").map_err(|e| e.to_string())?;
+
+// CORRECT - For Option types, use ok_or_else() to convert to Result:
+let chain_config = get_eth_chain_config("mainnet")
+    .ok_or_else(|| "Failed to get Ethereum chain config".to_string())?;
+
+// CORRECT - For Result types, use map_err():
+let balance = fetch_balance(address).await.map_err(|e| format!("Balance fetch failed: {}", e))?;
+
+// Check if Option has value before using:
+if let Some(config) = get_eth_chain_config("mainnet") {
+    // Use config here
+} else {
+    // Handle None case
+}
+```
+
+### 7. Data Structure Ownership
 
 When working with data structures in Rust, especially with API responses:
 
@@ -461,8 +476,12 @@ When creating a new component, follow these steps to avoid common errors:
    - CRITICAL: Ensure all methods and types used in your component are properly imported - missing imports will cause compilation errors
    - CRITICAL: Use `export!` macro (NOT `#[export]` attribute) to export your component
 
+3. Before you run the `make wasi-build` command, double check that all types/methods in your component are imported correctly. Then, make sure all dependencies are listed correctly, or there will be an error on the build.
+   - ALWAYS AVOID BUILD ERRORS. Run through the component code, imports, and toml files before building.
+   - CRITICAL:Double check all code, imports, and toml before building to ensure there will be no errors on the build.
 
-3. **Handle data ownership properly**:
+
+4. **Handle data ownership properly**:
    - ALWAYS clone data before consuming: data.clone() before passing to any function that takes ownership of the data
    - CRITICAL: NEVER use `&data.clone()` pattern which creates temporary values that are immediately dropped. Instead:
      ```rust
@@ -486,7 +505,7 @@ When creating a new component, follow these steps to avoid common errors:
    - ALWAYS use correct Bytes import: `use wavs_wasi_chain::ethereum::alloy_primitives::Bytes`
    - Be careful with Solidity types defined with sol! macro - they can't be directly imported between files with syntax like `trigger::sol::Type` - either define them where needed or create a module to export them
 
-4. **Structure your component for both testing and production**:
+5. **Structure your component for both testing and production**:
    - Implement proper destination-based output handling (CLI vs Ethereum)
    - Include detailed error messages with context in all error cases
 
@@ -529,8 +548,9 @@ When creating a new component, follow these steps to avoid common errors:
 | Ownership Issues | "use of moved value" | Clone data before use: `data.clone()` |
 | Collection Access | "cannot move out of index" | Clone when accessing: `array[0].field.clone()` |
 | TriggerAction Access | "no field data_input on type TriggerAction" | Use trigger.rs module like the example instead of direct access |
+| TriggerData Variants | "no variant or associated item named 'X' found for enum `TriggerData`" | Check the actual enum variants in bindings.rs - the common variants are: `EthContractEvent`, `CosmosContractEvent`, and `Raw` (for testing with wasi-exec) |
 | Environment Variables | API key access issues | Include in SERVICE_CONFIG "host_envs" array AND in .env file with WAVS_ENV_ prefix |
-| Option Handling | "no method named `map_err` found for enum `Option`" | Use `.ok_or_else(|| "error message".to_string())?` for Option types, not `.map_err()` |
+| Option/Result Handling | "no method named `map_err` found for enum `Option`" | Use `.ok_or_else(|| "error message".to_string())?` for Option types, NEVER `.map_err()`. For example, `get_eth_chain_config("mainnet").ok_or_else(|| "Config not found".to_string())?` |
 | Serialization Error | "trait `Serialize` not implemented for struct from sol! macro" | Create a separate struct with `#[derive(Serialize)]` for JSON output |
 | Partially Moved Value | "borrow of partially moved value" | Process data in correct order: serialize/use struct *before* moving its fields |
 | Solidity Type Import | "could not find `sol` in module" | Define Solidity types where needed - can't import using `trigger::sol::` syntax |
@@ -559,7 +579,10 @@ alloy-rpc-types = { workspace = true }
 alloy-network = { workspace = true }
 ```
 
-### Example component
+### Example component imports
+
+The following imports can be helpful when creating components that interact with ethereum.
+CRITICAL: Ensure all methods and types used in your component are properly imported - missing imports will cause compilation errors
 
 ```rust
 use alloy_network::Ethereum;                    // Ethereum network types
@@ -581,28 +604,35 @@ use crate::bindings::{export, Guest, TriggerAction};
 // IMPORTANT: Ensure all methods and types used in your component are imported before using
 // Missing imports will cause compilation errors
 
+```
+
+### Example component
+
 ```rust
+use std::io::Read;
+
+pub mod bindings; // bindings are auto-generated during the build process
+use crate::bindings::host::get_eth_chain_config;
+
+use alloy_network::{Ethereum};
+use alloy_primitives::{Address, Bytes, TxKind, U256};
+use alloy_provider::{Provider, RootProvider};
+use alloy_rpc_types::TransactionInput;
+use alloy_sol_types::{sol, SolCall, SolType, SolValue};
+use wavs_wasi_chain::ethereum::new_eth_provider;
+
 sol! {
     interface IERC721 {
         function balanceOf(address owner) external view returns (uint256);
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct NFTResult {
-    is_holder: bool,
-    balance: String,
-}
-
-// not shown: Helper function to handle different trigger types goes here
-
-async fn query_nft_balance(address: Address, nft_contract: Address) -> Result<NFTResult, String> {
+pub async fn query_nft_ownership(address: Address, nft_contract: Address) -> Result<bool, String> {
+    // IMPORTANT: get_eth_chain_config returns Option, not Result - use ok_or_else, not map_err
     let chain_config = get_eth_chain_config("mainnet")
         .ok_or_else(|| "Failed to get Ethereum chain config".to_string())?;
-    
-    let provider: RootProvider<Ethereum> = new_eth_provider::<Ethereum>(
-        chain_config.http_endpoint.clone().ok_or("No HTTP endpoint in config")?
-    );
+    let provider: RootProvider<Ethereum> =
+        new_eth_provider::<Ethereum>(chain_config.http_endpoint.unwrap());
 
     let balance_call = IERC721::balanceOfCall { owner: address };
     let tx = alloy_rpc_types::eth::TransactionRequest {
@@ -613,49 +643,7 @@ async fn query_nft_balance(address: Address, nft_contract: Address) -> Result<NF
 
     let result = provider.call(&tx).await.map_err(|e| e.to_string())?;
     let balance: U256 = U256::from_be_slice(&result);
-    
-    Ok(NFTResult {
-        is_holder: balance > U256::ZERO,
-        balance: balance.to_string(),
-    })
-}
-
-struct NFTComponent;
-
-// CRITICAL: Must use with_types_in bindings
-export!(NFTComponent with_types_in bindings);
-
-impl Guest for NFTComponent {
-    fn run(trigger: TriggerAction) -> Result<Option<Vec<u8>>, String> {
-        // Extract input data properly
-        let data = decode_trigger_data(trigger.data)?;
-        
-        // Safely clone data before using slices
-        let data_clone = data.clone();
-        
-        // Handle address (assuming ABI-encoded input)
-        let wallet_address = if data_clone.len() >= 32 {
-            Address::from_slice(&data_clone[12..32])
-        } else {
-            return Err("Invalid address format".to_string());
-        };
-        
-        // Parse NFT contract address
-        let nft_contract = "0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d" // BAYC
-            .parse::<Address>()
-            .map_err(|e| format!("Failed to parse contract address: {}", e))?;
-            
-        // Use block_on for async code
-        let result = block_on(async { 
-            query_nft_balance(wallet_address, nft_contract).await 
-        })?;
-        
-        // Serialize result to JSON
-        let json_result = serde_json::to_vec(&result)
-            .map_err(|e| format!("Failed to serialize: {}", e))?;
-            
-        Ok(Some(json_result))
-    }
+    Ok(balance > U256::ZERO)
 }
 ```
 

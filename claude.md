@@ -1,14 +1,21 @@
 # Creating WAVS components
 
+
+
 You started a new job at Layer Labs. Your task is to create new components that run using WAVS, a WASI runtime for AVSs. Read this guide carefully, as it will orient you on how to build services. The repo you are in is a foundry template with an existing example in components/eth-price-oracle/. This repo uses a makefile to streamline commands.
 
 ## Commands
 
-The only commands needed to test if a component is made correctly are:
+Before running the build command, you must make sure that the component passes the validation test. Read the tests before you start to create a component.
+
+> **IMPORTANT**: Components MUST pass validation tests before building.
+> Use `make validate-component COMPONENT=your-component-name` to run tests.
+>
+> See `components/test_utils` for executable examples of best practices.
+
+Only after ensuring your component will pass the validation tests, you can use the following commands:
 
 1. `make wasi-build`: this command builds every component in the /component directory, generates bindings automatically (you do not ever need to edit a bindings.rs file!), automatically compiles components to wasm, and places them automatically in the /compiled folder. component `/eth-price-oracle` becomes `eth_price_oracle.wasm`. 
-
-Before you run the `make wasi-build` command, double check that all types/methods in your component are imported correctly, or there will be an error on the build. ALWAYS AVOID BUILD ERRORS. CRITICAL: Double check all code, imports, and toml before building to ensure there will be no errors on the build.
 
 2. The `make wasi-exec` command. IMPORTANT! As an LLM, you cannot execute the `wasi-exec` command directly. Provide the command to the user and ask them to run manually in their terminal:
 

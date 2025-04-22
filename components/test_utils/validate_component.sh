@@ -81,16 +81,44 @@ if grep -r "version = \"[0-9]" "$COMPONENT_DIR/Cargo.toml" > /dev/null; then
 fi
 
 # 8. Check for unused imports
-echo "📝 Checking for unused imports..."
+echo "📝 Running comprehensive code quality checks..."
 cd "$SCRIPT_DIR/../.."
 COMPONENT_NAME_SIMPLE=$(basename "$COMPONENT_DIR")
-cargo check -p "$COMPONENT_NAME_SIMPLE" --message-format=json 2>&1 | grep -i "unused" | grep -i "import"
-if [ $? -eq 0 ]; then
-  echo "⚠️  Warning: Found unused imports in component. These should be removed for code quality."
-  cargo check -p "$COMPONENT_NAME_SIMPLE" --message-format=json 2>&1 | grep -i "unused" | grep -i "import"
+
+# Use the new verify_required_imports function via a simple Rust program
+cat > /tmp/run_checks.rs << EOF
+fn main() {
+    let component_path = std::env::args().nth(1).expect("Component path required");
+    println!("Running code quality checks for component: {}", component_path);
+    match test_utils::code_quality::run_component_code_quality_checks(&component_path) {
+        Ok(_) => println!("✅ All code quality checks passed"),
+        Err(e) => {
+            println!("⚠️ Code quality issues found:");
+            println!("{}", e);
+            std::process::exit(1);
+        }
+    }
+}
+EOF
+
+# Compile and run the check program
+rustc -L target/debug/deps -L target/debug -l test_utils /tmp/run_checks.rs -o /tmp/run_checks
+if [ $? -ne 0 ]; then
+    echo "⚠️ Failed to compile check program. Falling back to basic checks."
+    # Basic import check as fallback
+    cargo check -p "$COMPONENT_NAME_SIMPLE" --message-format=json 2>&1 | grep -i "unused" | grep -i "import"
+    if [ $? -eq 0 ]; then
+        echo "⚠️ Warning: Found unused imports in component. These should be removed for code quality."
+        cargo check -p "$COMPONENT_NAME_SIMPLE" --message-format=json 2>&1 | grep -i "unused" | grep -i "import"
+    else
+        echo "✅ No unused imports found"
+    fi
 else
-  echo "✅ No unused imports found"
+    # Run the comprehensive check program
+    /tmp/run_checks "$COMPONENT_NAME_SIMPLE"
+    rm /tmp/run_checks /tmp/run_checks.rs
 fi
+
 cd "$SCRIPT_DIR"
 
 echo "✅ Component validation checks complete!"

@@ -14,14 +14,14 @@ pub fn validate_component_code_quality(component_path: &str) -> bool {
     
     println!("\n🔍 Running code quality checks for component...");
     
-    // Check for unused imports
-    match code_quality::validate_no_unused_imports(component_path) {
+    // Run all component code quality checks
+    match code_quality::run_component_code_quality_checks(component_path) {
         Ok(_) => {
-            println!("✅ No unused imports found");
+            println!("✅ All code quality checks passed!");
             true
         }
         Err(e) => {
-            println!("❌ Found unused imports: {}", e);
+            println!("❌ Code quality issues found: {}", e);
             false
         }
     }

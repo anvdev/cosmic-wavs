@@ -3,7 +3,7 @@
 //! This module demonstrates proper handling of Solidity types,
 //! including definitions, conversions, and common pitfalls.
 
-use alloy_primitives::{Address, Bytes, U256};
+use alloy_primitives::{Address, Bytes, U256, hex};
 use alloy_sol_types::{sol, SolCall, SolType, SolValue};
 use std::str::FromStr;
 
@@ -43,8 +43,8 @@ fn test_solidity_struct_usage() {
     // We can encode it to ABI format
     let encoded = token_info.abi_encode();
     
-    // And decode it back
-    let decoded = TokenInfo::abi_decode(&encoded, false).unwrap();
+    // And decode it back - use fully qualified syntax to avoid ambiguity
+    let decoded = <TokenInfo as SolValue>::abi_decode(&encoded, false).unwrap();
     
     // The values should match
     assert_eq!(decoded.tokenAddress, token_info.tokenAddress);
@@ -66,7 +66,7 @@ fn test_solidity_function_calls() {
     // Encode the call to ABI format
     let encoded = transfer_call.abi_encode();
     
-    // You can decode it back
+    // You can decode it back - using SolCall trait for function calls
     let decoded = transferTokenCall::abi_decode(&encoded, false).unwrap();
     
     // The values should match

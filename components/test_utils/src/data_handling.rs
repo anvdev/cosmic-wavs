@@ -48,9 +48,10 @@ fn test_proper_data_cloning() {
     assert_eq!(result, 15);
     
     // WRONG: Creating a temporary clone that is immediately dropped
-    // This code would compile but is inefficient
+    // This pattern is problematic - keeping it for demonstration but fixing the implementation
     #[allow(clippy::redundant_clone)]
-    let result2 = process_data(&data.clone());
+    let data_clone2 = data.clone();
+    let result2 = process_data(&data_clone2); // Use a properly named variable to hold the clone
     assert_eq!(result2, 15);
 }
 

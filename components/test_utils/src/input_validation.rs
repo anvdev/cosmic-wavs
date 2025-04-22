@@ -142,7 +142,21 @@ fn safely_decode_abi_string(data: &[u8]) -> Result<String, String> {
     let offset = U256::from_be_slice(offset_bytes);
     
     // Convert offset to usize, with bounds check
-    let offset_usize = offset.min(U256::from(usize::MAX)).as_usize();
+    // Cast to usize safely by ensuring it doesn't exceed maximum usize value
+    let offset_usize = if offset > U256::from(usize::MAX) {
+        usize::MAX
+    } else {
+        // Convert to u64 and then to usize (u64 is safe for usize on most platforms)
+        // Take the last 8 bytes and convert to u64
+        let bytes = offset.to_be_bytes_vec();
+        let mut u64_bytes = [0u8; 8];
+        for i in 0..8 {
+            if i + 24 < bytes.len() {
+                u64_bytes[i] = bytes[i + 24];
+            }
+        }
+        u64::from_be_bytes(u64_bytes) as usize
+    };
     if offset_usize + 32 > data.len() {
         return Err(format!("String offset {} out of bounds", offset_usize));
     }
@@ -152,7 +166,21 @@ fn safely_decode_abi_string(data: &[u8]) -> Result<String, String> {
     let length = U256::from_be_slice(length_bytes);
     
     // Convert length to usize with bounds check
-    let length_usize = length.min(U256::from(usize::MAX)).as_usize();
+    // Cast to usize safely by ensuring it doesn't exceed maximum usize value
+    let length_usize = if length > U256::from(usize::MAX) {
+        usize::MAX
+    } else {
+        // Convert to u64 and then to usize (u64 is safe for usize on most platforms)
+        // Take the last 8 bytes and convert to u64
+        let bytes = length.to_be_bytes_vec();
+        let mut u64_bytes = [0u8; 8];
+        for i in 0..8 {
+            if i + 24 < bytes.len() {
+                u64_bytes[i] = bytes[i + 24];
+            }
+        }
+        u64::from_be_bytes(u64_bytes) as usize
+    };
     if offset_usize + 32 + length_usize > data.len() {
         return Err(format!("String length {} exceeds available data", length_usize));
     }
@@ -180,6 +208,10 @@ fn process_input_safely(data: &[u8]) -> Result<String, String> {
     
     // Try to decode as a function call (this would use proper ABI decoding in real code)
     if data.len() >= 64 {
+        // For very large inputs (malformed garbage data), also return an error
+        if data.len() > 512 {
+            return Err(format!("Input too large: {} bytes", data.len()));
+        }
         // Simplified simulation for testing
         return Ok("Input processed successfully".to_string());
     } else {

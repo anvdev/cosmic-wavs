@@ -46,11 +46,65 @@ impl Guest for Component {
         let (trigger_id, req, dest) =
             decode_trigger_event(action.data).map_err(|e| e.to_string())?;
 
-        // Convert bytes to string and parse first char as u64
-        let input = std::str::from_utf8(&req).map_err(|e| e.to_string())?;
-        println!("input id: {}", input);
+        // For debugging
+        println!("Input length: {} bytes", req.len());
+        let hex_display: Vec<String> = req.iter().take(8).map(|b| format!("{:02x}", b)).collect();
+        println!("First 8 bytes: {}", hex_display.join(" "));
 
-        let id = input.chars().next().ok_or("Empty input")?;
+        // The req will now be ABI-encoded string data
+        // Extract the string from the ABI encoding (skip function selector and offset)
+        let string_data = if req.len() >= 68 {
+            // Standard ABI encoding for a string has:
+            // - 4 bytes function selector (if part of a function call)
+            // - 32 bytes for the offset
+            // - 32 bytes for the length
+            // - Actual string data (padded to 32 byte multiple)
+
+            // Skip the first 4 bytes (function selector) if present
+            let start_pos = if req[0] == 0x46 && req[1] == 0x8a && req[2] == 0x46 && req[3] == 0x9d
+            {
+                4
+            } else {
+                0
+            };
+
+            // Get the string length from the second 32-byte chunk (may need to skip selector first)
+            let length_pos = start_pos + 32;
+            let mut length_bytes = [0u8; 32];
+            if req.len() >= length_pos + 32 {
+                length_bytes.copy_from_slice(&req[length_pos..length_pos + 32]);
+            } else {
+                return Err("Invalid input format: not enough data for string length".to_string());
+            }
+
+            let length = u64::from_be_bytes([
+                length_bytes[24],
+                length_bytes[25],
+                length_bytes[26],
+                length_bytes[27],
+                length_bytes[28],
+                length_bytes[29],
+                length_bytes[30],
+                length_bytes[31],
+            ]) as usize;
+
+            // Get the actual string data
+            let string_pos = length_pos + 32;
+            if req.len() >= string_pos + length {
+                let string_data = &req[string_pos..string_pos + length];
+                std::str::from_utf8(string_data)
+                    .map_err(|e| format!("Invalid UTF-8 in string: {}", e))?
+            } else {
+                return Err("Invalid input format: not enough data for string content".to_string());
+            }
+        } else {
+            return Err("Invalid input format: too short for ABI-encoded string".to_string());
+        };
+
+        println!("Decoded string input: {}", string_data);
+
+        // Parse the first character as a hex digit for the ID
+        let id = string_data.chars().next().ok_or("Empty input")?;
         let id = id.to_digit(16).ok_or("Invalid hex digit")? as u64;
 
         let res = block_on(async move {

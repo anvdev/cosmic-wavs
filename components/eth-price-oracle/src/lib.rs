@@ -46,29 +46,10 @@ impl Guest for Component {
         let (trigger_id, req, dest) =
             decode_trigger_event(action.data).map_err(|e| e.to_string())?;
 
-        // Handle ABI-encoded string
-        // Skip first 4 bytes if present (function selector)
-        let start_pos = if req.len() > 100 { 36 } else { 32 };
-
-        // Extract the string length (last 8 bytes of the 32-byte length field)
-        let length = u64::from_be_bytes([
-            req[start_pos + 24],
-            req[start_pos + 25],
-            req[start_pos + 26],
-            req[start_pos + 27],
-            req[start_pos + 28],
-            req[start_pos + 29],
-            req[start_pos + 30],
-            req[start_pos + 31],
-        ]);
-
-        // Extract and decode the string data
-        let data_start = start_pos + 32;
-        let input = std::str::from_utf8(&req[data_start..data_start + length as usize])
-            .map_err(|e| e.to_string())?;
+        // Convert bytes to string and parse first char as u64
+        let input = std::str::from_utf8(&req).map_err(|e| e.to_string())?;
         println!("input id: {}", input);
 
-        // Parse input as a hex digit
         let id = input.chars().next().ok_or("Empty input")?;
         let id = id.to_digit(16).ok_or("Invalid hex digit")? as u64;
 

@@ -9,7 +9,7 @@ default: build
 # Customize these variables
 COMPONENT_FILENAME ?= eth_price_oracle.wasm
 TRIGGER_EVENT ?= NewTrigger(bytes)
-SERVICE_CONFIG ?= '{"fuel_limit":100000000,"max_gas":5000000,"host_envs":[],"kv":[],"workflow_id":"default","component_id":"default"}'
+SERVICE_CONFIG ?= '{"fuel_limit":100000000,"max_gas":5000000,"host_envs":["WAVS_ENV_OPENWEATHER_API_KEY"],"kv":[],"workflow_id":"default","component_id":"default"}'
 
 # Define common variables
 CARGO?=cargo
@@ -27,9 +27,30 @@ check-requirements: check-node check-jq check-cargo
 ## build: building the project
 build: _build_forge wasi-build
 
+## validate-component: validate a WAVS component against best practices
+validate-component:
+	@if [ -z "$(COMPONENT)" ]; then \
+		echo "Usage: make validate-component COMPONENT=your-component-name"; \
+		echo "Example: make validate-component COMPONENT=eth-price-oracle"; \
+		exit 1; \
+	fi
+	@if [ ! -d "./components/$(COMPONENT)" ]; then \
+		echo "Error: Component directory ./components/$(COMPONENT) not found"; \
+		exit 1; \
+	fi
+	@if [ ! -d "./components/test_utils" ]; then \
+		echo "Error: Test utilities not found. Please ensure components/test_utils exists."; \
+		exit 1; \
+	fi
+	@cd components/test_utils && ./validate_component.sh $(COMPONENT)
+
 ## wasi-build: building the WAVS wasi component(s)
 wasi-build:
-	@for component in $(shell ls ./components); do \
+	@echo "⚠️  IMPORTANT: Components should be validated before building."
+	@echo "   Run 'make validate-component COMPONENT=your-component-name' first."
+	@echo "   Continuing with build in 3 seconds..."
+	@sleep 3
+	@for component in $(shell ls ./components | grep -v "test_utils"); do \
 		echo "Building component: $$component"; \
 		(cd components/$$component; cargo component build --release; cargo fmt); \
 	done
@@ -64,9 +85,15 @@ fmt:
 	@forge fmt --check
 	@$(CARGO) fmt
 
-## test: running tests
+## test: running all tests (Solidity and Rust)
 test:
 	@forge test
+	@echo "Running component test utilities..."
+	@if [ -d "./components/test_utils" ]; then \
+		cd components/test_utils && cargo test; \
+	else \
+		echo "Warning: Test utilities not found. Skipping component tests."; \
+	fi
 
 ## setup: install initial dependencies
 setup: check-requirements

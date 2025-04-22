@@ -1,0 +1,27 @@
+[package]
+name = "test_utils"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[dependencies]
+wavs-wasi-chain = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+alloy-sol-macro = { workspace = true }
+wstd = { workspace = true }
+alloy-sol-types = { workspace = true }
+anyhow = { workspace = true }
+alloy-primitives = { workspace = true }
+alloy-provider = { workspace = true }
+alloy-rpc-types = { workspace = true }
+alloy-network = { workspace = true }
+futures = "0.3.29"
+tokio = { version = "1.36.0", features = ["full"] }
+mockall = "0.12.1"
+
+[dev-dependencies]
+more-asserts = "0.3.1"
+pretty_assertions = "1.4.0"

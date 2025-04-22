@@ -185,7 +185,6 @@ The `sol!` macro from `alloy_sol_types` is used to define Solidity types in Rust
 
 IMPORTANT: The example in eth-price-oracle is just one example of a specific component. You will need to make sure that you use appropriate input formats for your component.
 The most common error in components is trying to use `String::from_utf8` on ABI-encoded data. This will ALWAYS fail with "invalid utf-8 sequence". Remember:
-- ONLY use `String::from_utf8` with format-bytes32-string inputs
 - NEVER use `String::from_utf8` on ABI-encoded data
 - ABI-encoded data is binary and must be handled according to its format
 

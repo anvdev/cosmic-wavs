@@ -1,4 +1,4 @@
-use alloy_sol_types::SolValue;
+use alloy_sol_types::{SolCall, SolValue};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use wavs_wasi_chain::decode_event_log_data;
@@ -36,6 +36,11 @@ mod solidity {
     pub use ITypes::*;
 
     sol!("../../src/interfaces/ITypes.sol");
+
+    // Define the function signature that will be used for ABI decoding input
+    sol! {
+        function f(string s) external;
+    }
 }
 
 struct Component;
@@ -51,54 +56,31 @@ impl Guest for Component {
         let hex_display: Vec<String> = req.iter().take(8).map(|b| format!("{:02x}", b)).collect();
         println!("First 8 bytes: {}", hex_display.join(" "));
 
-        // The req will now be ABI-encoded string data
-        // Extract the string from the ABI encoding (skip function selector and offset)
-        let string_data = if req.len() >= 68 {
-            // Standard ABI encoding for a string has:
-            // - 4 bytes function selector (if part of a function call)
-            // - 32 bytes for the offset
-            // - 32 bytes for the length
-            // - Actual string data (padded to 32 byte multiple)
+        // Decode the ABI-encoded string input using alloy_sol_types
+        // This expects input formatted as `cast abi-encode "f(string)" "your string here"`
+        let string_data = if !req.is_empty() {
+            // Make a copy of req to avoid ownership issues
+            let req_clone = req.clone();
 
-            // Skip the first 4 bytes (function selector) if present
-            let start_pos = if req[0] == 0x46 && req[1] == 0x8a && req[2] == 0x46 && req[3] == 0x9d
+            // Try to decode as a function call first (with function selector)
+            if req.len() >= 4
+                && req[0] == 0x46
+                && req[1] == 0x8a
+                && req[2] == 0x46
+                && req[3] == 0x9d
             {
-                4
+                // This is a function call with the function selector for "f(string)"
+                let call = solidity::fCall::abi_decode(&req_clone, false)
+                    .map_err(|e| format!("Failed to decode ABI-encoded string: {}", e))?;
+                call.s
             } else {
-                0
-            };
-
-            // Get the string length from the second 32-byte chunk (may need to skip selector first)
-            let length_pos = start_pos + 32;
-            let mut length_bytes = [0u8; 32];
-            if req.len() >= length_pos + 32 {
-                length_bytes.copy_from_slice(&req[length_pos..length_pos + 32]);
-            } else {
-                return Err("Invalid input format: not enough data for string length".to_string());
-            }
-
-            let length = u64::from_be_bytes([
-                length_bytes[24],
-                length_bytes[25],
-                length_bytes[26],
-                length_bytes[27],
-                length_bytes[28],
-                length_bytes[29],
-                length_bytes[30],
-                length_bytes[31],
-            ]) as usize;
-
-            // Get the actual string data
-            let string_pos = length_pos + 32;
-            if req.len() >= string_pos + length {
-                let string_data = &req[string_pos..string_pos + length];
-                std::str::from_utf8(string_data)
-                    .map_err(|e| format!("Invalid UTF-8 in string: {}", e))?
-            } else {
-                return Err("Invalid input format: not enough data for string content".to_string());
+                // If no function selector, try to decode as just a string value
+                // This might happen if user didn't include the function name in the cast command
+                String::from_utf8(req_clone)
+                    .map_err(|_| "Failed to decode raw input as UTF-8 string".to_string())?
             }
         } else {
-            return Err("Invalid input format: too short for ABI-encoded string".to_string());
+            return Err("Empty input data".to_string());
         };
 
         println!("Decoded string input: {}", string_data);

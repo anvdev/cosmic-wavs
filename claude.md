@@ -13,32 +13,12 @@ Before you run the `make wasi-build` command, double check that all types/method
 2. The `make wasi-exec` command. IMPORTANT! As an LLM, you cannot execute the `wasi-exec` command directly. Provide the command to the user and ask them to run manually in their terminal:
 
 ```bash
-# Choose the appropriate format for your component's input data:
-# For short strings (NOT Ethereum addresses)(< 32 bytes):
-export TRIGGER_DATA_INPUT=`cast format-bytes32-string 1`
-# IMPORTANT: This adds null byte padding that MUST be trimmed in component code:
-# clean_input = input_string.trim_end_matches('\0')
-
-# For longer strings or when exact format matters:
-# export TRIGGER_DATA_INPUT=`cast abi-encode "f(string)" "your long string here"`
-
-# For Ethereum addresses (ALWAYS use abi-encode, NEVER format-bytes32-string):
-# export TRIGGER_DATA_INPUT=`cast abi-encode "f(address)" 0x28C6c06298d514Db089934071355E5743bf21d60`
-
-# For numeric values:
-# export TRIGGER_DATA_INPUT=`cast abi-encode "f(uint256)" 123456`
-
-# For custom structs:
-# export TRIGGER_DATA_INPUT=`cast abi-encode "f((uint256,string))" 123 "example"`
+# ONLY use this format for component input data:
+export TRIGGER_DATA_INPUT=`cast abi-encode "f(string)" "your long string here"`
 
 # CRITICAL: When handling ABI-encoded inputs:
 # - NEVER use String::from_utf8 directly on binary data
-# - For addresses when testing: extract from position `&data[12..32]` (last 20 bytes of input)
-# - For addresses in production triggers: extract from position `&data[4+12..4+32]` (after 4-byte selector and 12-byte padding)
-# - For format-bytes32-string inputs, ALWAYS trim null bytes: `trim_end_matches('\0')`
-
-# For raw hex data:
-# export TRIGGER_DATA_INPUT="0x1234abcd"
+# - ABI-encoded data is binary and must be handled according to its format
 
 export COMPONENT_FILENAME=eth_price_oracle.wasm # the filename of your compiled component.
 export SERVICE_CONFIG="'{\"fuel_limit\":100000000,\"max_gas\":5000000,\"host_envs\":[],\"kv\":[],\"workflow_id\":\"default\",\"component_id\":\"default\"}'" # The service config
@@ -77,7 +57,7 @@ IMPORTANT: NEVER hardcode API keys directly in components. Always store API keys
 Set in command:
 
 ```bash
-export TRIGGER_DATA_INPUT=`cast format-bytes32-string 1` # your input data for testing the component. Make sure this is formatted correctly for your component.
+export TRIGGER_DATA_INPUT=`cast abi-encode "f(string)" "your long string here"` # your input data for testing the component.
 export COMPONENT_FILENAME=eth_price_oracle.wasm # the filename of your compiled component.
 export SERVICE_CONFIG="'{\"fuel_limit\":100000000,\"max_gas\":5000000,\"host_envs\":[\"WAVS_ENV_MY_API_KEY\"],\"kv\":[[\"api_endpoint\",\"https://api.example.com\"]],\"workflow_id\":\"default\",\"component_id\":\"default\"}'" # public variable set in kv.
 
@@ -268,14 +248,11 @@ Components can receive trigger data in two ways:
 1. Via an onchain event (after deployment)
 2. Via the `wasi-exec` command (for testing)
 
-When testing, choose one appropriate input format:
+When testing, use the following input format:
 
 | Input Type | Command | Code Handling |
 |------------|---------|--------------|
-| Short string (<32B) | `cast format-bytes32-string "text"` | `let s = String::from_utf8(data)?.trim_end_matches('\0')` |
-| Address | `cast abi-encode "f(address)" 0xAddress` | `let addr = Address::from_slice(&data[12..32])` // When testing with make wasi-exec |
-| Number | `cast abi-encode "f(uint256)" 123` | `let num = U256::from_be_slice(&data[4..36])` |
-| Long string | `cast abi-encode "f(string)" "text"` | Extract from ABI string format |
+| String | `cast abi-encode "f(string)" "text"` | Extract from ABI string format |
 
 CRITICAL: NEVER use `String::from_utf8` on ABI-encoded data. ABI-encoded data is binary and must be handled according to its format.
 
@@ -293,30 +270,8 @@ println!("First 8 bytes: {}", hex_display.join(" "));
    // WRONG - This will fail with "invalid utf-8 sequence":
    let input = String::from_utf8(abi_encoded_data)?;
    
-   // CORRECT - For ABI-encoded addresses when testing with make wasi-exec:
-   let addr = Address::from_slice(&data[12..32]);
-   
-   // CORRECT - For ABI-encoded addresses from production triggers:
-   // let addr = Address::from_slice(&data[4+12..4+32]);
-   ```
-
-2. **Not trimming null bytes from format-bytes32-string**
-   ```rust
-   // WRONG - URL will contain null bytes:
-   let url = format!("https://api.example.com/{}", input);
-   
-   // CORRECT - Always trim null bytes:
-   let clean_input = input.trim_end_matches('\0');
-   let url = format!("https://api.example.com/{}", clean_input);
-   ```
-
-3. **Using format-bytes32-string for addresses**
-   ```bash
-   # WRONG - Never use format-bytes32-string for addresses:
-   export TRIGGER_DATA_INPUT=`cast format-bytes32-string 0xAddress`
-   
-   # CORRECT - Always use abi-encode for addresses:
-   export TRIGGER_DATA_INPUT=`cast abi-encode "f(address)" 0xAddress`
+   // CORRECT - Process ABI-encoded data according to its type
+   // For strings, follow the ABI string format specification
    ```
 
 4. **Not cloning data before use**
@@ -372,7 +327,7 @@ fn process_data() -> Result<ResponseType, String> {
 }
 ```
 
-CRITICAL: String inputs via format-bytes32-string MUST be trimmed of null bytes before using in URLs or API calls. This is the most common cause of "invalid URI character" errors.
+CRITICAL: ABI-encoded string inputs must be properly decoded according to the ABI specification before using in URLs or API calls.
 
 ### 5. Event Log Decoding
 
@@ -488,19 +443,13 @@ When creating a new component, follow these steps to avoid common errors:
      // Wrong - temporary value is dropped:
      let input = std::str::from_utf8(&data.clone())?; 
      
-     // Correct for bytes32 input - create variable to hold the owned value:
+     // Correct - create variable to hold the owned value:
      let data_clone = data.clone();
      let input = std::str::from_utf8(&data_clone)?;
-     
-     // Correct for abi-encoded address when testing with make wasi-exec:
-     let addr = Address::from_slice(&data_clone[12..32]);  // Clone persists for the slice operation
-     
-     // Correct for abi-encoded address in production triggers:
-     // let addr = Address::from_slice(&data_clone[4+12..4+32]);
      ```
    - ALWAYS clone logs for decoding: `let log_clone = log.clone()`
    - ALWAYS clone collection elements: `array[0].field.clone()` to avoid "move out of index" errors
-   - ALWAYS trim string input nulls: `trim_end_matches('\0')` on all format-bytes32-string inputs
+   - ALWAYS properly decode ABI-encoded string inputs according to the ABI specification
    - ALWAYS use string parsing for numbers: `value.to_string().parse()` for Solidity numeric types (avoid .into())
    - ALWAYS use correct Bytes import: `use wavs_wasi_chain::ethereum::alloy_primitives::Bytes`
    - Be careful with Solidity types defined with sol! macro - they can't be directly imported between files with syntax like `trigger::sol::Type` - either define them where needed or create a module to export them
@@ -525,11 +474,10 @@ When creating a new component, follow these steps to avoid common errors:
 - Ensure all sensitive data is in environment variables
 - Validate output format matches expected contract format
 - CRITICAL: Verify all data structures used with API responses implement `Clone` - missing this will cause build errors
-- Confirm string inputs from format-bytes32-string are trimmed of null bytes
+- Confirm ABI-encoded string inputs are properly decoded
 - CRITICAL: Verify correct UTF-8 handling:
-  - ONLY use `String::from_utf8` with format-bytes32-string inputs
   - NEVER use `String::from_utf8` on ABI-encoded data
-  - ABI-encoded data is handled according to its format (addresses, numbers, etc.)
+  - ABI-encoded data is handled according to its format
 - CRITICAL: Check your code and imports. Verify all types and methods used in your component are properly imported
 
 ## Troubleshooting Common Errors
@@ -542,8 +490,8 @@ When creating a new component, follow these steps to avoid common errors:
 | Type Conversion | "expected Uint<256, 4>, found u128" | Use string parsing: `value.to_string().parse().unwrap()` |
 | Binary Type Mismatch | "expected Bytes, found Vec<u8>" | Use: `Bytes::from(data)` with correct import |
 | Event Decoding | "cannot move out of log.data" | ALWAYS clone: `let log_clone = log.clone()` |
-| String Handling | URL formatting errors | ALWAYS trim nulls: `string.trim_end_matches('\0')`, debug with `println!("URL: {}", url)` |
-| Input Format | "bytes32 strings must not exceed 32 bytes" | For addresses, use `cast abi-encode "f(address)" 0xAddress`; for long strings use `cast abi-encode "f(string)" "text"` |
+| String Handling | URL formatting errors | Process ABI-encoded data properly, debug with `println!("URL: {}", url)` |
+| Input Format | ABI-encoded format issues | Always use `cast abi-encode "f(string)" "text"` |
 | HTTP Requests | "invalid uri character" | Check for special characters in URLs, use debug prints to identify issues |
 | Ownership Issues | "use of moved value" | Clone data before use: `data.clone()` |
 | Collection Access | "cannot move out of index" | Clone when accessing: `array[0].field.clone()` |

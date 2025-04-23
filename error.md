@@ -160,3 +160,120 @@ error[E0433]: failed to resolve: could not find `TxKind` in `eth`
    ```
 
 This is a common error when working with blockchain components that interact with Ethereum. The validation checks now explicitly look for this error pattern to help catch it early.
+
+## Validation Error (2025-04-23)
+```
+🔍 Validating component: usdt-balance-checker
+📝 Checking for common String::from_utf8 misuse...
+📝 Checking for Clone derivation on structs...
+📝 Checking for map_err on Option types...
+📝 Checking for essential imports...
+📝 Checking for proper component export...
+❌ Error: export! macro not found. Components must use export! macro.
+```
+
+- The component used #[export] attribute instead of the required export! macro.
+- Fixed by replacing #[export] with export!(UsdtBalanceChecker with_types_in bindings) at the end of the file.
+
+## Build Error (2025-04-23)
+```
+error[E0609]: no field `trigger_data` on type `layer_types::TriggerAction`
+   --> components/usdt-balance-checker/src/lib.rs:139:23
+    |
+139 |         match trigger.trigger_data {
+    |                       ^^^^^^^^^^^^ unknown field
+    |
+    = note: available fields are: `config`, `data`
+```
+
+- The TriggerAction struct does not have a `trigger_data` field as expected.
+- According to the error, it has `config` and `data` fields instead.
+
+## Build Error (2025-04-23) - Second Attempt
+```
+error[E0308]: mismatched types
+   --> components/usdt-balance-checker/src/lib.rs:133:13
+    |
+132 |         match trigger.data {
+    |               ------------ this expression has type `TriggerData`
+133 |             Some(trigger_data) => {
+    |             ^^^^^^^^^^^^^^^^^^ expected `TriggerData`, found `Option<_>`
+```
+
+- The `trigger.data` field is of type `TriggerData`, not `Option<TriggerData>`.
+- We need to update our match statement to handle `TriggerData` directly, not as an Optional.
+
+## Runtime Error (2025-04-23)
+```
+Running USDT Balance Checker
+Received raw data, length: 128 bytes
+Received address hex: *
+thread 'main' panicked at packages/cli/src/main.rs:157:14:
+called `Result::unwrap()` on an `Err` value: Wasm exec result: Failed to parse wallet address: invalid string length
+```
+
+- The issue is with how we're attempting to extract the wallet address from the ABI-encoded data.
+- The current implementation incorrectly assumes the address is a UTF-8 string at a fixed position.
+- We need to properly decode the ABI-encoded string function call.
+
+## USDT Balance Checker Component Validation Errors (2025-04-23)
+
+The validation for the USDT Balance Checker component failed with the following errors:
+
+### 1. "Move out of index" errors (2025-04-23)
+```
+❌ Error: Found potential 'move out of index' errors - accessing collection elements without cloning.
+      When accessing fields from elements in a collection, you must clone the field to avoid
+      moving out of the collection, which would make the collection unusable afterward.
+      WRONG:  let field = collection[0].field; // This moves the field out of the collection
+      RIGHT:  let field = collection[0].field.clone(); // This clones the field
+      ../usdt-balance-checker/src/lib.rs:        let mut formatted = padded[0..decimal_index].to_string();
+../usdt-balance-checker/src/lib.rs:        let mut formatted = balance_str[0..decimal_index].to_string();
+```
+
+This error occurs in our `format_token_balance` function where we're extracting slices from strings without cloning them appropriately.
+
+### 2. Missing std::cmp::min import (2025-04-23)
+```
+❌ Error: Found min function usage but std::cmp::min is not imported.
+      This will cause a compile error when using min().
+      Fix: Add 'use std::cmp::min;' to your imports.
+      ../usdt-balance-checker/src/lib.rs:        let padding = std::cmp::min(decimals as usize - balance_len + 1, 100);
+```
+
+We're using `std::cmp::min` in our code but haven't imported it.
+
+### 3. Cargo check compilation errors (2025-04-23)
+The component has compilation errors that need to be fixed before it can be built.
+
+### 4. Potentially unbounded string.repeat operations (2025-04-23)
+```
+❌ Error: Found potentially unbounded string.repeat operations:
+../usdt-balance-checker/src/lib.rs:        let padded = "0".repeat(padding) + &balance_str;
+
+This can cause capacity overflow errors. Options to fix:
+  1. Add a direct safety check: ".repeat(std::cmp::min(variable, 100))"
+  2. Use a bounded variable: "let safe_value = std::cmp::min(variable, MAX_SIZE); .repeat(safe_value)"
+  3. Add a safety comment if manually verified: "// SAFE: bounded by check above"
+```
+
+Although we're using `std::cmp::min` to limit the padding value, the validation script still reports this as a potential issue. We should make the safety check more explicit or add a comment to clarify.
+
+### 5. Option Type Error Handling
+```
+❌ Error: Found potential map_err used on Option types. Use ok_or_else instead.
+      Option types don't have map_err method - it's only available on Result types.
+      WRONG:  get_eth_chain_config("mainnet").map_err(|e| e.to_string())?
+      RIGHT:  get_eth_chain_config("mainnet").ok_or_else(|| "Failed to get config".to_string())?
+```
+
+This error occurs because we're trying to use `map_err` on an `Option` type, but this method only exists on `Result` types. We need to convert the `Option` to a `Result` using `ok_or_else` before using `map_err`.
+
+### 6. Function Signature Mismatch
+```
+❌ Error: run function with correct signature not found.
+      The run function must match EXACTLY this signature:
+      fn run(trigger: TriggerAction) -> Result<Option<Vec<u8>>, String>
+```
+
+There's an issue with our `run` function signature. It must exactly match the required signature for the WAVS runtime to properly invoke it.

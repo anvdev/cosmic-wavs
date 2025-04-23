@@ -13,4 +13,3 @@ pub mod error_handling;
 pub mod network_requests;
 pub mod solidity_types;
 pub mod input_validation;
-pub mod examples;

@@ -14,9 +14,10 @@ When creating a new component, you must follow these steps completely to avoid c
 
 **Phase 2: Create**
 5. Copy the `eth-price-oracle` component's Cargo.toml and modify the name
-6. Create a lib.rs file similar to the `eth-price-oracle`
-7. Copy the `eth-price-oracle` component's Cargo.toml and modify the name
-8. Never edit bindings.rs
+6. Copy bindings.rs from `eth-price-oracle`
+7. Never edit bindings.rs
+8. Create a lib.rs file similar to the `eth-price-oracle`
+
 
 **Phase 3: Test**
 9.  Double-check your component code against validate_component.sh, eth-price-oracle example, and claude.md to ensure it is made correctly
@@ -621,3 +622,5 @@ CRITICAL: All blockchain interactions must use async functions with `block_on`. 
 CRITICAL: Never implement methods on foreign types. Use built-in methods:
   - For addresses: `Address::from_slice()` or `address_str.parse::<Address>()`
   - For RPC calls: `provider.call(&tx)` (single parameter only)
+
+

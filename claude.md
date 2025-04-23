@@ -139,13 +139,18 @@ let input_string = String::from_utf8(abi_encoded_data)?;
 // CORRECT - Use proper ABI decoding
 let req_clone = req.clone(); // Clone first
 
-// Decode function call
-if let Ok(decoded) = YourFunctionCall::abi_decode(&req_clone, false) {
-    decoded.parameter
-} else {
-    // Fallback: try decoding just as a parameter
-    String::abi_decode(&req_clone, false)?
-}
+// Decode the data using proper ABI decoding
+let parameter = 
+    if let Ok(decoded) = YourFunctionCall::abi_decode(&req_clone, false) {
+        // Successfully decoded as function call
+        decoded.parameter
+    } else {
+        // Try decoding just as a string parameter
+        match String::abi_decode(&req_clone, false) {
+            Ok(s) => s,
+            Err(e) => return Err(format!("Failed to decode input as ABI string: {}", e)),
+        }
+    };
 ```
 
 ### 2. Solidity Types Definition
@@ -380,12 +385,17 @@ impl Guest for Component {
         // Clone request data to avoid ownership issues
         let req_clone = req.clone();
         
-        // Decode wallet address from input
+        // Decode the wallet address string using proper ABI decoding
         let wallet_address_str = 
             if let Ok(decoded) = checkTokenBalanceCall::abi_decode(&req_clone, false) {
+                // Successfully decoded as function call
                 decoded.wallet
             } else {
-                String::abi_decode(&req_clone, false)?
+                // Try decoding just as a string parameter
+                match String::abi_decode(&req_clone, false) {
+                    Ok(s) => s,
+                    Err(e) => return Err(format!("Failed to decode input as ABI string: {}", e)),
+                }
             };
         
         // Check token balance
@@ -505,12 +515,17 @@ impl Guest for Component {
         // Clone request data to avoid ownership issues
         let req_clone = req.clone();
         
-        // Decode parameter from input
+        // Decode the parameter string using proper ABI decoding
         let param = 
             if let Ok(decoded) = fetchApiDataCall::abi_decode(&req_clone, false) {
+                // Successfully decoded as function call
                 decoded.param
             } else {
-                String::abi_decode(&req_clone, false)?
+                // Try decoding just as a string parameter
+                match String::abi_decode(&req_clone, false) {
+                    Ok(s) => s,
+                    Err(e) => return Err(format!("Failed to decode input as ABI string: {}", e)),
+                }
             };
         
         // Make API request
@@ -621,12 +636,17 @@ impl Guest for Component {
         // Clone request data to avoid ownership issues
         let req_clone = req.clone();
         
-        // Decode wallet address from input
+        // Decode the wallet address string using proper ABI decoding
         let wallet_address_str = 
             if let Ok(decoded) = checkNftOwnershipCall::abi_decode(&req_clone, false) {
+                // Successfully decoded as function call
                 decoded.wallet
             } else {
-                String::abi_decode(&req_clone, false)?
+                // Try decoding just as a string parameter
+                match String::abi_decode(&req_clone, false) {
+                    Ok(s) => s,
+                    Err(e) => return Err(format!("Failed to decode input as ABI string: {}", e)),
+                }
             };
         
         // Check NFT ownership

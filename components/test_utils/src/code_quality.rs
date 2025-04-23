@@ -209,7 +209,7 @@ pub fn verify_txkind_import(component_path: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Checks for common sol macro issues
+/// Checks for common sol macro issues and solidity module structure
 ///
 /// # Arguments
 /// * `component_path` - Path to the component directory
@@ -227,6 +227,15 @@ pub fn verify_sol_macro_usage(component_path: &str) -> Result<(), String> {
        !component_code.contains("use alloy_sol_macro::sol") &&
        !component_code.contains("use alloy_sol_types::sol") {
         return Err("Component uses sol! macro but doesn't import it. Add 'use alloy_sol_macro::sol;' or 'use alloy_sol_types::sol;' to imports.".to_string());
+    }
+    
+    // Check for proper solidity module structure
+    let uses_sol_macro = component_code.contains("sol!");
+    let has_solidity_module = component_code.contains("mod solidity");
+    let references_sol_namespace = component_code.contains("sol::");
+    
+    if uses_sol_macro && references_sol_namespace && !has_solidity_module {
+        return Err("Component uses 'sol::' namespace without defining a 'solidity' module. Create a proper 'mod solidity { ... }' module for Solidity type definitions or use fully qualified paths.".to_string());
     }
     
     Ok(())
@@ -461,12 +470,71 @@ mod tests {
         assert!(verify_sol_macro_from_code(bad_code).is_err());
     }
     
+    #[test]
+    fn test_verify_solidity_module_structure() {
+        // Good code with proper module structure
+        let good_code = r#"
+            use alloy_sol_types::sol;
+            
+            // Proper module structure for Solidity types
+            mod solidity {
+                use alloy_sol_types::sol;
+                
+                sol! {
+                    struct TokenInfo {
+                        address token;
+                        uint256 amount;
+                    }
+                }
+            }
+            
+            fn use_types() {
+                // Properly reference types with module namespace
+                let token_info = solidity::TokenInfo::default();
+            }
+        "#;
+        
+        // Bad code with improper namespace usage
+        let bad_code = r#"
+            use alloy_sol_types::sol;
+            
+            // Directly using sol! without a module
+            sol! {
+                struct TokenInfo {
+                    address token;
+                    uint256 amount;
+                }
+            }
+            
+            fn use_types() {
+                // Incorrectly trying to use sol:: namespace
+                let token_info = sol::TokenInfo::default();
+            }
+        "#;
+        
+        assert!(verify_solidity_module_structure(good_code).is_ok());
+        assert!(verify_solidity_module_structure(bad_code).is_err());
+    }
+    
     // Helper to check sol macro usage directly from code string
     fn verify_sol_macro_from_code(code: &str) -> Result<(), String> {
         if code.contains("sol!") && 
            !code.contains("use alloy_sol_macro::sol") && 
            !code.contains("use alloy_sol_types::sol") {
             return Err("Component uses sol! macro but doesn't import it".to_string());
+        }
+        
+        Ok(())
+    }
+    
+    // Helper to check solidity module structure directly from code string
+    fn verify_solidity_module_structure(code: &str) -> Result<(), String> {
+        let uses_sol_macro = code.contains("sol!");
+        let has_solidity_module = code.contains("mod solidity");
+        let references_sol_namespace = code.contains("sol::");
+        
+        if uses_sol_macro && references_sol_namespace && !has_solidity_module {
+            return Err("Component uses 'sol::' namespace without defining a 'solidity' module".to_string());
         }
         
         Ok(())

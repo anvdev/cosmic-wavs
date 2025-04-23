@@ -13,7 +13,7 @@ Before running the build command, you must make sure that the component passes t
 
 Only after ensuring your component will pass the validation tests, you can use the following commands:
 
-1. `make wasi-build`: this command builds every component in the /component directory, generates bindings automatically (you do not ever need to edit a bindings.rs file!), automatically compiles components to wasm, and places them automatically in the /compiled folder. component `/eth-price-oracle` becomes `eth_price_oracle.wasm`.
+1. BEFORE USING THIS COMMAND, RUN THE VALIDATION TESTS AND FIX ALL ERRORS AND WARNINGS OR THE BUILD WILL FAIL. `make wasi-build`: this command builds every component in the /component directory, generates bindings automatically (you do not ever need to edit a bindings.rs file!), automatically compiles components to wasm, and places them automatically in the /compiled folder. component `/eth-price-oracle` becomes `eth_price_oracle.wasm`.
 
 2. The `make wasi-exec` command. IMPORTANT! As an LLM, you cannot execute the `wasi-exec` command directly. Provide the command to the user and ask them to run manually in their terminal:
 
@@ -507,11 +507,13 @@ When creating a new component, follow these steps to avoid common errors:
 | Serialization Error | "trait `Serialize` not implemented for struct from sol! macro" | Create a separate struct with `#[derive(Serialize)]` for JSON output |
 | Partially Moved Value | "borrow of partially moved value" | Process data in correct order: serialize/use struct *before* moving its fields |
 | Solidity Type Import | "could not find `sol` in module" | Define Solidity types where needed - can't import using `trigger::sol::` syntax |
+| Solidity Module Structure | "use of unresolved module or unlinked crate `sol`" | Create proper module structure: `mod solidity { use alloy_sol_types::sol; sol! { /* solidity types */ } }` at module level, not inline with other code |
 | ABI Method Ambiguity | "multiple applicable items in scope" | Use qualified syntax: `<Type as SolValue>::abi_decode(...)` |
 | Missing Trait | "no function or associated item named 'method' found" | Import required traits, e.g., `use std::str::FromStr;` for `from_str` methods |
 | String Capacity Overflow | "capacity overflow" or "panicked at alloc/src/slice.rs" | NEVER use unbounded `string.repeat(n)` without checks. Always limit max size: `"0".repeat(std::cmp::min(padding, 100))` and add bounds checking before calculating padding |
 | Numeric Formatting | Invalid token decimal formatting | Always check for edge cases: 1) Verify decimals is valid, 2) Add safety checks to prevent negative or massive padding values, 3) Remember token values can be 0 or very large |
 | Module Structure | "failed to resolve: could not find X in module" | Create proper module structure: `mod solidity { use alloy_sol_macro::sol; sol! { /* solidity types */ } }` at module level, not inline with other code |
+| TxKind Import Path | "failed to resolve: could not find `TxKind` in `eth`" | Use the correct import: `use alloy_primitives::{Address, TxKind, U256};` and then use `TxKind::Call(address)` directly instead of `alloy_rpc_types::eth::TxKind::Call` |
 
 For more details on specific topics, refer to `/docs/custom-components.mdx` or https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions.
 

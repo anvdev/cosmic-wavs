@@ -46,10 +46,26 @@ if grep -r "get_eth_chain_config.*map_err" "$COMPONENT_DIR" > /dev/null; then
   exit 1
 fi
 
-# 4. Check for proper import of essential traits
+# 4. Check for proper import of essential traits and types
 echo "📝 Checking for essential imports..."
 if grep -r "FromStr" "$COMPONENT_DIR"/src/*.rs > /dev/null && ! grep -r "use std::str::FromStr" "$COMPONENT_DIR"/src/*.rs > /dev/null; then
   echo "⚠️  Warning: Found FromStr usage but std::str::FromStr might not be imported"
+fi
+
+# Check for TxKind import issues - specific check for common error
+if grep -r "alloy_rpc_types::eth::TxKind" "$COMPONENT_DIR"/src/*.rs > /dev/null; then
+  echo "❌ Error: Found incorrect TxKind import path. Use alloy_primitives::TxKind instead of alloy_rpc_types::eth::TxKind."
+  echo "This is a critical error that will prevent component compilation."
+  echo "Fix: 1. Add 'use alloy_primitives::{Address, TxKind, U256};' (or add TxKind to existing import)"
+  echo "     2. Replace 'alloy_rpc_types::eth::TxKind::Call' with 'TxKind::Call'"
+  grep -r "alloy_rpc_types::eth::TxKind" "$COMPONENT_DIR"/src/*.rs
+  exit 1
+fi
+
+# Check for TxKind usage without import
+if grep -r "::Call" "$COMPONENT_DIR"/src/*.rs > /dev/null && ! grep -r "use.*TxKind" "$COMPONENT_DIR"/src/*.rs > /dev/null; then
+  echo "⚠️  Warning: Found potential TxKind usage but TxKind might not be properly imported."
+  echo "Make sure to import TxKind from alloy_primitives: use alloy_primitives::TxKind;"
 fi
 
 # 5. Check for proper export! macro usage and syntax
@@ -94,16 +110,47 @@ cd "$SCRIPT_DIR"
 # 9. Check for unbounded string.repeat operations
 echo "📝 Checking for string capacity overflow risks..."
 if grep -r "\.repeat(" "$COMPONENT_DIR"/src/*.rs > /dev/null; then
-  # Look for .repeat with risky patterns but without safety checks
-  UNSAFE_REPEATS=$(grep -r "\.repeat(" "$COMPONENT_DIR"/src/*.rs | grep -i "decimals\|padding" | grep -v "std::cmp::min\|if " || true)
-  if [ ! -z "$UNSAFE_REPEATS" ]; then
-    echo "❌ Error: Found unbounded string.repeat operations. Use bounds checking with std::cmp::min."
-    echo "$UNSAFE_REPEATS"
-    echo "This can cause capacity overflow errors. Add safety checks like:"
-    echo "  let safe_padding = std::cmp::min(padding, 100);"
-    echo "  let zeros = \"0\".repeat(safe_padding);"
-    exit 1
-  fi
+  # First, collect all .repeat() calls
+  ALL_REPEATS=$(grep -r "\.repeat(" "$COMPONENT_DIR"/src/*.rs | grep -v "\"\.repeat" || true)
+  
+  # Define patterns that indicate safety
+  SAFETY_PATTERNS="std::cmp::min\|::min(\|min(\|if \|safe_\|bounded_\|max_\|limit\|const \|// SAFE:"
+  
+  # Define risky variable patterns that often lead to unbounded repetition
+  RISKY_VARS="len\|size\|count\|width\|height\|padding\|indent\|offset\|spaces\|zeros\|chars\|decimals\|digits"
+  
+  # Check each .repeat() call for safety
+  echo "$ALL_REPEATS" | while read -r line; do
+    # Skip if it contains a safety pattern
+    if echo "$line" | grep -q "$SAFETY_PATTERNS"; then
+      continue
+    fi
+    
+    # Check if it contains any risky variable
+    if echo "$line" | grep -q -i "$RISKY_VARS"; then
+      # Collect file and line number for error reporting
+      file_path=$(echo "$line" | cut -d':' -f1)
+      line_num=$(echo "$line" | cut -d':' -f2)
+      
+      # Get a few lines before for context (to check for bounds checks above)
+      context_before=$(tail -n +$((line_num - 5)) "$file_path" 2>/dev/null | head -n 5)
+      
+      # If the context contains safety patterns, it might be safe
+      if echo "$context_before" | grep -q "$SAFETY_PATTERNS"; then
+        continue
+      fi
+      
+      # If we reach here, we have a potentially unsafe .repeat() call
+      echo "❌ Error: Found potentially unbounded string.repeat operation in $file_path line $line_num:"
+      echo "$line" | sed 's/^[^:]*:[^:]*://'
+      echo 
+      echo "This can cause capacity overflow errors. Options to fix:"
+      echo "  1. Add a direct safety check: \".repeat(std::cmp::min(variable, 100))\""
+      echo "  2. Use a bounded variable: \"let safe_value = std::cmp::min(variable, MAX_SIZE); .repeat(safe_value)\""
+      echo "  3. Add a safety comment if manually verified: \"// SAFE: bounded by check above\""
+      exit 1
+    fi
+  done
 fi
 
 echo "✅ Component validation checks complete!"

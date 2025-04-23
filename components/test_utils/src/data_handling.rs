@@ -198,20 +198,54 @@ fn test_api_response_cloning() {
     // in scenarios requiring cloning.
 }
 
-/// EXAMPLE 7: Safe string padding for numeric formatting
+/// EXAMPLE 7: Safe string padding and repetition - preventing capacity overflow
 #[test]
 fn test_safe_string_formatting() {
-    // Sample token decimals and value to format
-    let decimals: u8 = 6;
+    // This example demonstrates how to safely handle string repetition operations
+    // to prevent "capacity overflow" errors that can crash programs
+    
+    // ❌ UNSAFE PATTERN: Unbounded string repetition
+    // This pattern can cause "capacity overflow" in many scenarios:
+    // - When working with user input or network data that could be unexpectedly large
+    // - When calculating padding based on differences between string lengths
+    // - When working with data that might have extreme values
+    // 
+    // let padding = target_length - current_length; // Could be a massive number
+    // let padding_str = " ".repeat(padding);        // UNSAFE - could cause capacity overflow
+    // 
+    // Runtime error: "thread panicked at alloc/src/slice.rs:569:23: capacity overflow"
+    
+    // ✅ SAFE PATTERN 1: General string repetition with bounds checking
+    
+    let current_text = "Hello";
+    let desired_length = 50; // Could be from user input or network
+    
+    // Safety check 1: Handle case where no padding is needed
+    let padding_needed = if current_text.len() >= desired_length {
+        0 // No padding needed
+    } else {
+        // Safe subtraction that won't underflow
+        desired_length - current_text.len()
+    };
+    
+    // Safety check 2: Set a reasonable maximum limit
+    const MAX_PADDING: usize = 1000;
+    let safe_padding = std::cmp::min(padding_needed, MAX_PADDING);
+    
+    // Create padding safely
+    let padding_spaces = " ".repeat(safe_padding);
+    let padded_text = format!("{}{}", current_text, padding_spaces);
+    
+    // Verify we got the expected result or at least a safe approximation
+    assert!(padded_text.len() <= current_text.len() + MAX_PADDING);
+    
+    // ✅ SAFE PATTERN 2: Numeric formatting with leading zeros
+    
+    // Sample numeric value to format with leading zeros
+    let decimals = 6;
     let balance = U256::from(123456789);
     
-    // UNSAFE: Direct calculation without bounds checking
-    // This could cause capacity overflow if fractional_part is very small compared to decimals
-    // let fractional_str = fractional_part.to_string();
-    // let padding = decimals as usize - fractional_str.len(); // Potential underflow or large number
-    // let zeros = "0".repeat(padding); // UNSAFE - could cause capacity overflow
-    
-    // Step 1: Calculate whole and fractional parts
+    // Calculate whole and fractional parts
     let mut divisor = U256::from(1);
     for _ in 0..decimals {
         divisor = divisor * U256::from(10);
@@ -220,39 +254,46 @@ fn test_safe_string_formatting() {
     let whole_part = balance / divisor;
     let fractional_part = balance % divisor;
     
-    // SAFE: Check bounds before calculating padding
+    // Convert fractional part to string
     let fractional_str = fractional_part.to_string();
     
-    // Safety check 1: Handle cases where fractional_str is already longer than decimals
+    // Calculate zero padding needed with safety checks
     let padding = if fractional_str.len() >= decimals as usize {
         0 // No padding needed
     } else {
-        // Safe subtraction that won't underflow
+        // Safe subtraction
         decimals as usize - fractional_str.len()
     };
     
-    // Safety check 2: Limit maximum padding size to avoid capacity overflow
+    // Apply safety limit
     let safe_padding = std::cmp::min(padding, 100);
     
     // Create padding zeros safely
     let zeros = "0".repeat(safe_padding);
     
     // Format the final string
-    let formatted_balance = format!("{}.{}{}", whole_part, zeros, fractional_str);
+    let formatted_number = format!("{}.{}{}", whole_part, zeros, fractional_str);
     
     // Verify the result
-    assert_eq!(formatted_balance, "0.123456789");
+    assert_eq!(formatted_number, "0.123456789");
     
-    // Test case with zero padding needed
-    let large_fractional_part = U256::from(1_000_000_000_000_000u64);
-    let large_fractional_str = large_fractional_part.to_string();
+    // ✅ SAFE PATTERN 3: Alternative approach using standard library formatting
     
-    // Even if fractional_str is larger than decimals, this won't underflow with our check
-    let padding_large = if large_fractional_str.len() >= decimals as usize {
-        0
-    } else {
-        decimals as usize - large_fractional_str.len()
-    };
+    // Many formatting tasks can use standard library functions instead of manual padding
     
-    assert_eq!(padding_large, 0); // No padding needed, doesn't underflow
+    // Example: Zero-padding numbers to a fixed width
+    let number = 42;
+    let padded_number = format!("{:08}", number); // Uses width specifier instead of repeat()
+    assert_eq!(padded_number, "00000042");
+    
+    // Example: Formatting decimal numbers with fixed precision
+    let decimal = 12.3456;
+    let formatted_decimal = format!("{:.6}", decimal); // 6 decimal places
+    assert_eq!(formatted_decimal, "12.345600");
+    
+    // Example: Right-aligned padding with spaces
+    let short_text = "aligned";
+    let aligned_text = format!("{:>20}", short_text); // 20 chars, right-aligned
+    assert_eq!(aligned_text.len(), 20);
+    assert!(aligned_text.starts_with(" ") && aligned_text.ends_with("aligned"));
 }

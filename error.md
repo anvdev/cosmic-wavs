@@ -120,3 +120,43 @@ The fix involves:
 1. Adding boundary checks to ensure padding can't be negative
 2. Limiting the maximum amount of padding to avoid overflows
 3. Adding more robust error handling around the string formation code
+
+## NFT Ownership Checker Component Errors (April 22, 2025)
+
+### Validation Error: Incorrect export! macro syntax
+```
+❌ Error: Incorrect export! macro syntax. Use 'export!(YourComponent with_types_in bindings)' instead of just 'export!(YourComponent)'.
+../nft-ownership-checker/src/lib.rs:export!(NftOwnershipChecker);
+```
+
+The issue was resolved by using the correct export macro syntax:
+```rust
+export!(NftOwnershipChecker with_types_in bindings);
+```
+
+This error demonstrates the importance of using the correct export macro format for WAVS components.
+
+## Common Blockchain Components Errors (April 22, 2025)
+
+### TxKind Import Error - Critical Build Failure
+```
+error[E0433]: failed to resolve: could not find `TxKind` in `eth`
+   --> components/usdt-balance-checker/src/lib.rs:151:40
+    |
+151 |         to: Some(alloy_rpc_types::eth::TxKind::Call(token_contract)),
+    |                                        ^^^^^^ could not find `TxKind` in `eth`
+```
+
+**Problem**: The component was trying to use `alloy_rpc_types::eth::TxKind` but it should be imported from `alloy_primitives::TxKind`.
+
+**Solution**:
+1. Add the correct import:
+   ```rust
+   use alloy_primitives::{Address, TxKind, U256};
+   ```
+2. Update the usage throughout the file:
+   ```rust
+   to: Some(TxKind::Call(token_contract))
+   ```
+
+This is a common error when working with blockchain components that interact with Ethereum. The validation checks now explicitly look for this error pattern to help catch it early.

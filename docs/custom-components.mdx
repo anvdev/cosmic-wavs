@@ -385,7 +385,7 @@ forge script ./script/Deploy.s.sol ${SERVICE_MANAGER_ADDR} --sig "run(string)" -
   6. Broadcasts the transaction to the network.
 
 ```bash
-TRIGGER_EVENT="NewTrigger(bytes)" COMPONENT_FILENAME=usdt_balance.wasm make deploy-service
+TRIGGER_EVENT="NewTrigger(bytes)" COMPONENT_FILENAME=eth_price_oracle.wasm make deploy-service
 ```
 - **Purpose**: Registers the WASI component as a service with the WAVS network.
 - **Under the hood**:

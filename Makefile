@@ -48,8 +48,6 @@ validate-component:
 wasi-build:
 	@echo "⚠️  IMPORTANT: Components should be validated before building."
 	@echo "   Run 'make validate-component COMPONENT=your-component-name' first."
-	@echo "   Continuing with build in 3 seconds..."
-	@sleep 3
 	@for component in $(shell ls ./components | grep -v "test_utils"); do \
 		echo "Building component: $$component"; \
 		(cd components/$$component; cargo component build --release; cargo fmt); \

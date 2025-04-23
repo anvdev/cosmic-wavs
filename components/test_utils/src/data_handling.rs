@@ -197,3 +197,62 @@ fn test_api_response_cloning() {
     // In real code, the bad struct (without Clone) would fail to compile when used
     // in scenarios requiring cloning.
 }
+
+/// EXAMPLE 7: Safe string padding for numeric formatting
+#[test]
+fn test_safe_string_formatting() {
+    // Sample token decimals and value to format
+    let decimals: u8 = 6;
+    let balance = U256::from(123456789);
+    
+    // UNSAFE: Direct calculation without bounds checking
+    // This could cause capacity overflow if fractional_part is very small compared to decimals
+    // let fractional_str = fractional_part.to_string();
+    // let padding = decimals as usize - fractional_str.len(); // Potential underflow or large number
+    // let zeros = "0".repeat(padding); // UNSAFE - could cause capacity overflow
+    
+    // Step 1: Calculate whole and fractional parts
+    let mut divisor = U256::from(1);
+    for _ in 0..decimals {
+        divisor = divisor * U256::from(10);
+    }
+    
+    let whole_part = balance / divisor;
+    let fractional_part = balance % divisor;
+    
+    // SAFE: Check bounds before calculating padding
+    let fractional_str = fractional_part.to_string();
+    
+    // Safety check 1: Handle cases where fractional_str is already longer than decimals
+    let padding = if fractional_str.len() >= decimals as usize {
+        0 // No padding needed
+    } else {
+        // Safe subtraction that won't underflow
+        decimals as usize - fractional_str.len()
+    };
+    
+    // Safety check 2: Limit maximum padding size to avoid capacity overflow
+    let safe_padding = std::cmp::min(padding, 100);
+    
+    // Create padding zeros safely
+    let zeros = "0".repeat(safe_padding);
+    
+    // Format the final string
+    let formatted_balance = format!("{}.{}{}", whole_part, zeros, fractional_str);
+    
+    // Verify the result
+    assert_eq!(formatted_balance, "0.123456789");
+    
+    // Test case with zero padding needed
+    let large_fractional_part = U256::from(1_000_000_000_000_000u64);
+    let large_fractional_str = large_fractional_part.to_string();
+    
+    // Even if fractional_str is larger than decimals, this won't underflow with our check
+    let padding_large = if large_fractional_str.len() >= decimals as usize {
+        0
+    } else {
+        decimals as usize - large_fractional_str.len()
+    };
+    
+    assert_eq!(padding_large, 0); // No padding needed, doesn't underflow
+}

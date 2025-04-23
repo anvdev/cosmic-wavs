@@ -509,6 +509,9 @@ When creating a new component, follow these steps to avoid common errors:
 | Solidity Type Import | "could not find `sol` in module" | Define Solidity types where needed - can't import using `trigger::sol::` syntax |
 | ABI Method Ambiguity | "multiple applicable items in scope" | Use qualified syntax: `<Type as SolValue>::abi_decode(...)` |
 | Missing Trait | "no function or associated item named 'method' found" | Import required traits, e.g., `use std::str::FromStr;` for `from_str` methods |
+| String Capacity Overflow | "capacity overflow" or "panicked at alloc/src/slice.rs" | NEVER use unbounded `string.repeat(n)` without checks. Always limit max size: `"0".repeat(std::cmp::min(padding, 100))` and add bounds checking before calculating padding |
+| Numeric Formatting | Invalid token decimal formatting | Always check for edge cases: 1) Verify decimals is valid, 2) Add safety checks to prevent negative or massive padding values, 3) Remember token values can be 0 or very large |
+| Module Structure | "failed to resolve: could not find X in module" | Create proper module structure: `mod solidity { use alloy_sol_macro::sol; sol! { /* solidity types */ } }` at module level, not inline with other code |
 
 For more details on specific topics, refer to `/docs/custom-components.mdx` or https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions.
 

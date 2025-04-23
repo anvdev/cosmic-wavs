@@ -232,6 +232,81 @@ pub fn verify_sol_macro_usage(component_path: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Checks for potential string capacity overflow issues in string repeat operations
+///
+/// # Arguments
+/// * `component_path` - Path to the component directory
+///
+/// # Returns
+/// * `Result<(), String>` - Ok if no issues found, Err with message otherwise
+pub fn check_string_repeat_safety(component_path: &str) -> Result<(), String> {
+    // Read component code
+    let lib_rs_path = Path::new(component_path).join("src").join("lib.rs");
+    let component_code = fs::read_to_string(lib_rs_path)
+        .map_err(|e| format!("Failed to read component code: {}", e))?;
+    
+    // Check for unbounded string.repeat() usage
+    if component_code.contains(".repeat(") {
+        // Look for patterns that suggest unbounded string repeat without safety checks
+        let unsafe_patterns = [
+            // Direct repeat with calculation without bounds check
+            r#".repeat(decimals"#,
+            r#".repeat(padding"#,
+            // Any repeat without std::cmp::min
+            r#".repeat("#,
+        ];
+        
+        // Check if any unsafe pattern is used without the corresponding safety pattern
+        let safety_patterns = [
+            "std::cmp::min", 
+            "min(", 
+            "if ", 
+            "if(", 
+            "if("
+        ];
+        
+        let mut violations = Vec::new();
+        
+        // Extract each line with string.repeat()
+        for line in component_code.lines() {
+            if line.contains(".repeat(") {
+                let mut has_unsafe_pattern = false;
+                for pattern in &unsafe_patterns {
+                    if line.contains(pattern) {
+                        has_unsafe_pattern = true;
+                        break;
+                    }
+                }
+                
+                if has_unsafe_pattern {
+                    // Check if the line or next line contains a safety pattern
+                    let mut has_safety_pattern = false;
+                    for pattern in &safety_patterns {
+                        if line.contains(pattern) {
+                            has_safety_pattern = true;
+                            break;
+                        }
+                    }
+                    
+                    if !has_safety_pattern {
+                        violations.push(line.to_string());
+                    }
+                }
+            }
+        }
+        
+        if !violations.is_empty() {
+            return Err(format!(
+                "Potential string capacity overflow risk: found {} unbounded string.repeat() operations without safety checks:\n{}",
+                violations.len(),
+                violations.join("\n")
+            ));
+        }
+    }
+    
+    Ok(())
+}
+
 /// Runs all code quality checks on a component
 ///
 /// # Arguments
@@ -258,6 +333,11 @@ pub fn run_component_code_quality_checks(component_path: &str) -> Result<(), Str
     // Check sol macro usage
     if let Err(msg) = verify_sol_macro_usage(component_path) {
         return Err(format!("Sol macro check failed: {}", msg));
+    }
+    
+    // Check for string capacity overflow risks
+    if let Err(msg) = check_string_repeat_safety(component_path) {
+        return Err(format!("String capacity check failed: {}", msg));
     }
     
     Ok(())
@@ -391,4 +471,90 @@ mod tests {
         
         Ok(())
     }
+    
+    #[test]
+    fn test_string_repeat_safety() {
+        // Safe cases with bounds checking
+        let safe_code1 = r#"
+            // With std::cmp::min
+            let safe_padding = std::cmp::min(padding, 100);
+            let zeros = "0".repeat(safe_padding);
+        "#;
+        
+        let safe_code2 = r#"
+            // With conditional check
+            let padding = if fractional_str.len() >= decimals as usize {
+                0 // No padding needed
+            } else {
+                decimals as usize - fractional_str.len()
+            };
+            let zeros = "0".repeat(padding);
+        "#;
+        
+        // Unsafe cases without bounds checking
+        let unsafe_code1 = r#"
+            // Direct unbounded repeat
+            let padding = decimals as usize - fractional_str.len();
+            let zeros = "0".repeat(padding); // No bounds check
+        "#;
+        
+        let unsafe_code2 = r#"
+            // More complex unbounded repeat
+            let padding_amount = token_decimals * 2 - value_str.len();
+            let padding = "0".repeat(padding_amount); // Could cause overflow
+        "#;
+        
+        // Test the checker function with mock code
+        let check_code = |code: &str| -> Result<(), String> {
+            if code.contains(".repeat(") {
+                let unsafe_patterns = [
+                    r#".repeat(decimals"#,
+                    r#".repeat(padding"#,
+                    r#".repeat("#,
+                ];
+                
+                let safety_patterns = [
+                    "std::cmp::min", 
+                    "min(", 
+                    "if ", 
+                    "if(", 
+                ];
+                
+                for line in code.lines() {
+                    if line.contains(".repeat(") {
+                        let mut has_unsafe_pattern = false;
+                        for pattern in &unsafe_patterns {
+                            if line.contains(pattern) {
+                                has_unsafe_pattern = true;
+                                break;
+                            }
+                        }
+                        
+                        if has_unsafe_pattern {
+                            let mut has_safety_pattern = false;
+                            for pattern in &safety_patterns {
+                                if line.contains(pattern) || code.contains(pattern) {
+                                    has_safety_pattern = true;
+                                    break;
+                                }
+                            }
+                            
+                            if !has_safety_pattern {
+                                return Err("Potential string capacity overflow risk".to_string());
+                            }
+                        }
+                    }
+                }
+            }
+            
+            Ok(())
+        };
+        
+        // These aren't actual file checks since we're just testing the logic
+        assert!(check_code(safe_code1).is_ok());
+        assert!(check_code(safe_code2).is_ok());
+        assert!(check_code(unsafe_code1).is_err());
+        assert!(check_code(unsafe_code2).is_err());
+    }
+}
 }

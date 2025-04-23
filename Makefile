@@ -9,7 +9,7 @@ default: build
 # Customize these variables
 COMPONENT_FILENAME ?= eth_price_oracle.wasm
 TRIGGER_EVENT ?= NewTrigger(bytes)
-SERVICE_CONFIG ?= '{"fuel_limit":100000000,"max_gas":5000000,"host_envs":["WAVS_ENV_OPENWEATHER_API_KEY"],"kv":[],"workflow_id":"default","component_id":"default"}'
+SERVICE_CONFIG ?= '{"fuel_limit":100000000,"max_gas":5000000,"host_envs":[""],"kv":[],"workflow_id":"default","component_id":"default"}'
 
 # Define common variables
 CARGO?=cargo

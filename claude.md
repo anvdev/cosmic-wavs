@@ -107,9 +107,8 @@ impl Guest for Component {
 pub fn decode_trigger_event(trigger_data: TriggerData) -> Result<(u64, Vec<u8>, Destination)> {
     match trigger_data {
         TriggerData::EthContractEvent(TriggerDataEthContractEvent { log, .. }) => {
-            let log_clone = log.clone(); // Always clone log
-            let event: solidity::NewTrigger = decode_event_log_data!(log_clone)?;
-            let trigger_info = 
+            let event: solidity::NewTrigger = decode_event_log_data!(log)?;
+            let trigger_info =
                 <solidity::TriggerInfo as SolValue>::abi_decode(&event._triggerInfo, false)?;
             Ok((trigger_info.triggerId, trigger_info.data.to_vec(), Destination::Ethereum))
         }
@@ -119,10 +118,8 @@ pub fn decode_trigger_event(trigger_data: TriggerData) -> Result<(u64, Vec<u8>, 
 }
 
 pub fn encode_trigger_output(trigger_id: u64, output: impl AsRef<[u8]>) -> Vec<u8> {
-    solidity::DataWithId { 
-        triggerId: trigger_id, 
-        data: output.as_ref().to_vec().into() 
-    }.abi_encode()
+    solidity::DataWithId { triggerId: trigger_id, data: output.as_ref().to_vec().into() }
+        .abi_encode()
 }
 ```
 
@@ -139,6 +136,9 @@ let input_string = String::from_utf8(abi_encoded_data)?;
 // CORRECT - Use proper ABI decoding
 let req_clone = req.clone(); // Clone first
 
+// IMPORTANT: For consistency, ALWAYS use string inputs in all components,
+// even for numeric, boolean, or other data types. Parse to the required type afterwards.
+
 // Decode the data using proper ABI decoding
 let parameter = 
     if let Ok(decoded) = YourFunctionCall::abi_decode(&req_clone, false) {
@@ -151,6 +151,10 @@ let parameter =
             Err(e) => return Err(format!("Failed to decode input as ABI string: {}", e)),
         }
     };
+    
+// For numeric parameters, parse from the string
+// Example: When you need a number but input is a string:
+let number = parameter.parse::<u64>().map_err(|e| format!("Invalid number: {}", e))?;
 ```
 
 ### 2. Solidity Types Definition
@@ -198,7 +202,7 @@ ALWAYS derive `Clone` for API response data structures:
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ResponseData {
     field1: String,
-    field2: u64, 
+    field2: u64,
     // other fields
 }
 ```
@@ -711,14 +715,18 @@ async fn check_nft_ownership(wallet_address_str: &str) -> Result<NftOwnershipDat
 
 ### Development Workflow
 
-1. Create the component directory:
+1. Create the component directory and copy the bindings (bindings will be written over during the build.):
+
    ```bash
    mkdir -p components/your-component-name/src
+   cp components/eth-price-oracle/src/bindings.rs components/your-component-name/src/
    ```
 
 2. Create Cargo.toml using the provided template
 
+
 3. Create lib.rs with proper implementation:
+   - Compare lib.rs code against the code in `validate_component.sh`
    - Define proper imports
    - Implement Solidity interfaces
    - Create component struct and implementation
@@ -741,6 +749,7 @@ async fn check_nft_ownership(wallet_address_str: &str) -> Result<NftOwnershipDat
 To test with the WASI executor:
 
 ```bash
+# IMPORTANT: Always use string parameters, even for numeric values!
 export TRIGGER_DATA_INPUT=`cast abi-encode "f(string)" "your parameter here"`
 export COMPONENT_FILENAME=your_component_name.wasm
 export SERVICE_CONFIG="'{\"fuel_limit\":100000000,\"max_gas\":5000000,\"host_envs\":[\"WAVS_ENV_API_KEY\"],\"kv\":[],\"workflow_id\":\"default\",\"component_id\":\"default\"}'"
@@ -756,9 +765,14 @@ make wasi-exec
 - ✅ ALWAYS derive `Clone` for API response data structures
 - ✅ ALWAYS decode ABI data properly, never with `String::from_utf8`
 - ✅ ALWAYS use `ok_or_else()` for Option types, `map_err()` for Result types
+- ✅ ALWAYS use string parameters for CLI testing (`cast abi-encode "f(string)" "5"` instead of `f(uint256)`)
+- ✅ ALWAYS use `.to_string()` to convert string literals (&str) to String types in struct field assignments
 - ✅ NEVER edit bindings.rs - it's auto-generated
 
+
 ## Validation Checklist
+
+ALL components must pass validation. Review [validate_component.sh](./components/test_utils/validate_component.sh) before creating a component.
 
 1. Component structure:
    - Implements Guest trait
@@ -801,6 +815,7 @@ make wasi-exec
    - Properly imports sol macro
    - Uses solidity module correctly
    - Handles numeric conversions safely
+   - Uses .to_string() for all string literals in struct initialization
 
 10. Network requests:
     - Uses block_on for async functions

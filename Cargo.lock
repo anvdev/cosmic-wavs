@@ -1964,6 +1964,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "nft-ownership-checker"
+version = "0.3.0"
+dependencies = [
+ "alloy-network",
+ "alloy-primitives",
+ "alloy-provider",
+ "alloy-rpc-types",
+ "alloy-sol-macro",
+ "alloy-sol-types",
+ "anyhow",
+ "serde",
+ "serde_json",
+ "wavs-wasi-chain",
+ "wit-bindgen-rt",
+ "wstd",
+]
+
+[[package]]
 name = "num-bigint"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3328,6 +3346,24 @@ dependencies = [
  "form_urlencoded",
  "idna",
  "percent-encoding",
+]
+
+[[package]]
+name = "usdt-balance-checker"
+version = "0.3.0"
+dependencies = [
+ "alloy-network",
+ "alloy-primitives",
+ "alloy-provider",
+ "alloy-rpc-types",
+ "alloy-sol-macro",
+ "alloy-sol-types",
+ "anyhow",
+ "serde",
+ "serde_json",
+ "wavs-wasi-chain",
+ "wit-bindgen-rt",
+ "wstd",
 ]
 
 [[package]]

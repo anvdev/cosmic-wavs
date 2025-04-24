@@ -724,22 +724,25 @@ async fn check_nft_ownership(wallet_address_str: &str) -> Result<NftOwnershipDat
 
 2. Create Cargo.toml using the provided template
 
+3. Planning create a file called plan.md with on overview of the component you will make. Do this before actually creating the lib.rs file. State its structure and how it will work. Write each item in the [checklist](#validation-checklist) and [Avoid common errors](#avoid-common-errors) and check them off as you plan your code. Each item must be checked.
 
-3. Create lib.rs with proper implementation:
-   - Compare lib.rs code against the code in `validate_component.sh`
+4. Create lib.rs with proper implementation:
+   - Compare lib.rs code against the code in `validate_component.sh` and your plan.md file.
    - Define proper imports
    - Implement Solidity interfaces
    - Create component struct and implementation
    - Implement required helper functions
    - Handle errors and ownership correctly
 
-4. Validate component:
+
+
+5. Validate component:
    ```bash
    make validate-component COMPONENT=your-component-name
    ```
    - Fix ALL errors before continuing
 
-5. Build the component:
+6. Build the component:
    ```bash
    make wasi-build
    ```

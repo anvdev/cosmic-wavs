@@ -1,6 +1,6 @@
 # WAVS Component Creation Guide
 
-This guide contains essential information for creating WAVS components that build and run without errors.
+You are an expert Rust developer specializing in creating WAVS (WASI AVS) components. Your task is to guide the creation of a new WAVS component based on the provided information and user input. Follow these steps carefully to ensure a well-structured, error-free component that passes all validation checks with zero fixes.
 
 ## Component Structure
 
@@ -711,45 +711,58 @@ async fn check_nft_ownership(wallet_address_str: &str) -> Result<NftOwnershipDat
 }
 ```
 
-## Component Execution Process
 
-### Development Workflow
+## Component Creation Process
 
-1. Create the component directory and copy the bindings (bindings will be written over during the build.):
+### Phase 1: Planning
+
+When you ask me to create a WAVS component, I'll follow this systematic process to ensure it works perfectly on the first try:
+
+1. **Understand Requirements**: I'll clarify exactly what the component needs to do
+2. I'll review the files in /examples to see common forms.
+3. I'll read test_utils/validate_component.sh to see what validation checks I need to pass.
+4. **Research Phase**: I'll research any unknown APIs or services needed
+5. **Plan Component**: I'll create a detailed implementation plan
+6. **Pre-validate Design**: I'll check for potential errors before coding
+7. I'll Create a file called plan.md with on overview of the component I will make. I'll do this before actually creating the lib.rs file. I'll write each item in the [checklist](#validation-checklist) and [Avoid common errors](#avoid-common-errors) and check them off as I plan your code. Each item must be checked and verified. I will list out all imports I will need. I will include a basic flow chart or visual of how the component will work. I will put plan.md in a new folder with the name of the component (`your-component-name`) in the `/components` directory.
+
+
+### Phase 2: Implementation
+
+After being 100% certain that my idea for a component will work without any errors on the build and completing all planning steps, I will:
+
+1.  Create the component directory and copy the bindings (bindings will be written over during the build.):
 
    ```bash
    mkdir -p components/your-component-name/src
    cp components/eth-price-oracle/src/bindings.rs components/your-component-name/src/
    ```
 
-2. Create Cargo.toml using the provided template
 
-3. Planning create a file called plan.md with on overview of the component you will make. Do this before actually creating the lib.rs file. State its structure and how it will work. Write each item in the [checklist](#validation-checklist) and [Avoid common errors](#avoid-common-errors) and check them off as you plan your code. Each item must be checked.
+2.  Then, I will create lib.rs with proper implementation:
+    1. I will compare my projected lib.rs code against the code in `validate_component.sh` and my plan.md file before creating.
+    2. I will define proper imports. I will Review the imports on the component that I want to make. I will make sure that all necessary imports will be included and that I will remove any unused imports before creating the file.
+    3. I will go through each of the items in the [checklist](#validation-checklist) and [Avoid common errors](#avoid-common-errors) sections one more time to ensure my component will build and function correctly.
 
-4. Create lib.rs with proper implementation:
-   - Compare lib.rs code against the code in `validate_component.sh` and your plan.md file.
-   - Define proper imports
-   - Implement Solidity interfaces
-   - Create component struct and implementation
-   - Implement required helper functions
-   - Handle errors and ownership correctly
+3.  I will create a Cargo.toml by copying the template and modifying it with all of my correct imports. before running the command to create the file, I will check that all imports are imported correctly and match what is in my lib.rs file. I will define imports correctly. I will make sure that imports are present in the main workspace Cargo.toml and then in my component's Cargo.toml using `{ workspace = true }`
 
-
-
-5. Validate component:
+4.  I will run the command to validate my component:
    ```bash
    make validate-component COMPONENT=your-component-name
    ```
-   - Fix ALL errors before continuing
+   - I will fix ALL errors before continuing
+   - (You do not need to fix warnings if they do not effect the build.)
+   - I will run again after fixing errors to make sure.
 
-6. Build the component:
+5.  After being 100% certain that the component will build correctly, I will build the component:
+
    ```bash
    make wasi-build
    ```
 
-### Testing Commands
+### Phase 3: Trying it out
 
-To test with the WASI executor:
+After I am 100% certain the component will execute correctly, I will give the following command to the user to run. Important! I cannot run this command as I do not have permissions. I will prompt the user to run it:
 
 ```bash
 # IMPORTANT: Always use string parameters, even for numeric values!
@@ -761,7 +774,7 @@ make wasi-exec
 
 ## Avoid Common Errors
 
-- ✅ ALWAYS use `{ workspace = true }` in Cargo.toml, never explicit versions
+- ✅ ALWAYS use `{ workspace = true }` in Cargo.toml. Explicit versions go in the workspace Cargo.toml.
 - ✅ ALWAYS implement the Guest trait and export your component
 - ✅ ALWAYS use `export!(Component with_types_in bindings)`
 - ✅ ALWAYS use `clone()` before consuming data to avoid ownership issues
@@ -775,54 +788,61 @@ make wasi-exec
 
 ## Validation Checklist
 
-ALL components must pass validation. Review [validate_component.sh](./components/test_utils/validate_component.sh) before creating a component.
+ALL components must pass validation. Review [validate_component.sh](test_utils/validate_component.sh) before creating a component.
 
 1. Component structure:
-   - Implements Guest trait
-   - Exports component correctly
-   - Properly handles TriggerAction and TriggerData
+   - [ ] Implements Guest trait
+   - [ ] Exports component correctly
+   - [ ] Properly handles TriggerAction and TriggerData
 
 2. ABI handling:
-   - Properly decodes function calls
-   - Avoids String::from_utf8 on ABI data
+   - [ ] Properly decodes function calls
+   - [ ] Avoids String::from_utf8 on ABI data
 
 3. Data ownership:
-   - All API structures derive Clone
-   - Clones data before use
-   - Avoids moving out of collections
+   - [ ] All API structures derive Clone
+   - [ ] Clones data before use
+   - [ ] Avoids moving out of collections
+   - [ ] Avoids all ownership issues and "Move out of index" errors
 
 4. Error handling:
-   - Uses ok_or_else() for Option types
-   - Uses map_err() for Result types
-   - Provides descriptive error messages
+   - [ ] Uses ok_or_else() for Option types
+   - [ ] Uses map_err() for Result types
+   - [ ] Provides descriptive error messages
 
 5. Imports:
-   - Includes all required traits and types
-   - Uses correct import paths
-   - Properly imports SolCall for encoding
+   - [ ] Includes all required traits and types
+   - [ ] Uses correct import paths
+   - [ ] Properly imports SolCall for encoding
+   - [ ] Each and every method and type is used properly and has the proper import
+   - [ ] Both structs and their traits are imported
+   - [ ] Verify all required imports are imported properly
+   - [ ] All dependencies are in Cargo.toml with `{workspace = true}`
+   - [ ] Any unused imports are removed
 
 6. Component structure:
-   - Uses proper sol! macro with correct syntax
-   - Correctly defines Solidity types in solidity module
-   - Implements required functions
+   - [ ] Uses proper sol! macro with correct syntax
+   - [ ] Correctly defines Solidity types in solidity module
+   - [ ] Implements required functions
 
 7. Security:
-   - No hardcoded API keys or secrets
-   - Uses environment variables for sensitive data
+   - [ ] No hardcoded API keys or secrets
+   - [ ] Uses environment variables for sensitive data
 
 8. Dependencies:
-   - Uses workspace dependencies correctly
-   - Includes all required dependencies
+   - [ ] Uses workspace dependencies correctly
+   - [ ] Includes all required dependencies
 
 9. Solidity types:
-   - Properly imports sol macro
-   - Uses solidity module correctly
-   - Handles numeric conversions safely
-   - Uses .to_string() for all string literals in struct initialization
+   - [ ] Properly imports sol macro
+   - [ ] Uses solidity module correctly
+   - [ ] Handles numeric conversions safely
+   - [ ] Uses .to_string() for all string literals in struct initialization
 
 10. Network requests:
-    - Uses block_on for async functions
-    - Uses fetch_json with correct headers
-    - Handles API responses correctly
+    - [ ] Uses block_on for async functions
+    - [ ] Uses fetch_json with correct headers
+    - [ ] Handles API responses correctly
 
 With this guide, you should be able to create any WAVS component that passes validation, builds without errors, and executes correctly.
+

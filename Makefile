@@ -9,7 +9,7 @@ default: build
 # Customize these variables
 COMPONENT_FILENAME ?= eth_price_oracle.wasm
 TRIGGER_EVENT ?= NewTrigger(bytes)
-SERVICE_CONFIG ?= '{"fuel_limit":100000000,"max_gas":5000000,"host_envs":["WAVS_ENV_OPENWEATHER_API_"],"kv":[],"workflow_id":"default","component_id":"default"}'
+SERVICE_CONFIG ?= '{"fuel_limit":100000000,"max_gas":5000000,"host_envs":[],"kv":[],"workflow_id":"default","component_id":"default"}'
 
 # Define common variables
 CARGO?=cargo
@@ -38,17 +38,17 @@ validate-component:
 		echo "Error: Component directory ./components/$(COMPONENT) not found"; \
 		exit 1; \
 	fi
-	@if [ ! -d "./components/test_utils" ]; then \
-		echo "Error: Test utilities not found. Please ensure components/test_utils exists."; \
+	@if [ ! -d "./test_utils" ]; then \
+		echo "Error: Test utilities not found. Please ensure test_utils exists."; \
 		exit 1; \
 	fi
-	@cd components/test_utils && ./validate_component.sh $(COMPONENT)
+	@cd test_utils && ./validate_component.sh $(COMPONENT)
 
 ## wasi-build: building the WAVS wasi component(s)
 wasi-build:
 	@echo "⚠️  IMPORTANT: Components should be validated before building."
 	@echo "   Run 'make validate-component COMPONENT=your-component-name' first."
-	@for component in $(shell ls ./components | grep -v "test_utils"); do \
+	@for component in $(shell ls ./components); do \
 		echo "Building component: $$component"; \
 		(cd components/$$component; cargo component build --release; cargo fmt); \
 	done
@@ -87,8 +87,8 @@ fmt:
 test:
 	@forge test
 	@echo "Running component test utilities..."
-	@if [ -d "./components/test_utils" ]; then \
-		cd components/test_utils && cargo test; \
+	@if [ -d "./test_utils" ]; then \
+		cd test_utils && cargo test; \
 	else \
 		echo "Warning: Test utilities not found. Skipping component tests."; \
 	fi

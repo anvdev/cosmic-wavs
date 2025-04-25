@@ -29,7 +29,7 @@ if [ -z "$1" ]; then
 fi
 
 COMPONENT_NAME=$1
-COMPONENT_DIR="../$COMPONENT_NAME"
+COMPONENT_DIR="../components/$COMPONENT_NAME"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Check if component directory exists
@@ -372,7 +372,7 @@ print_section "CODE QUALITY CHECKS"
 
 # 8. Check for unused imports with cargo check
 echo "📝 Checking for unused imports and code issues..."
-cd "$SCRIPT_DIR/../.."
+cd "$SCRIPT_DIR/.."
 COMPONENT_NAME_SIMPLE=$(basename "$COMPONENT_DIR")
 
 # Run cargo check and capture any errors (not just warnings)
@@ -420,6 +420,30 @@ if grep -r "sol::" "$COMPONENT_DIR"/src/*.rs > /dev/null && ! grep -r "mod solid
           sol! { /* your solidity types */ }
       }
       $SOL_NAMESPACE"
+fi
+
+# 9c. Check for string literals assigned to String type fields in structs
+echo "📝 Checking for string literal to String conversions..."
+# Look for patterns like 'field: "string literal",' in struct initializations
+STRING_FIELDS=$(grep -r -A 20 "pub struct" "$COMPONENT_DIR"/src/*.rs | grep "String" | sed -E 's/.*([a-zA-Z0-9_]+): String.*/\1/' || true)
+
+if [ ! -z "$STRING_FIELDS" ]; then
+  # For each string field, check for literals without to_string()
+  for FIELD in $STRING_FIELDS; do
+    # Look for patterns like 'field: "literal",' without to_string()
+    STRING_LITERAL_USAGE=$(grep -r "$FIELD: \"" "$COMPONENT_DIR"/src/*.rs | grep -v "\.to_string()" || true)
+    
+    if [ ! -z "$STRING_LITERAL_USAGE" ]; then
+      add_error "Found string literals assigned directly to String type fields without .to_string() conversion:
+      $STRING_LITERAL_USAGE
+      
+      This will cause a type mismatch error because &str cannot be assigned to String.
+      Fix: Always convert string literals to String type using .to_string():
+      WRONG:  field: \"literal string\",
+      RIGHT:  field: \"literal string\".to_string(),"
+      break
+    fi
+  done
 fi
 
 #=====================================================================================

@@ -277,3 +277,131 @@ This error occurs because we're trying to use `map_err` on an `Option` type, but
 ```
 
 There's an issue with our `run` function signature. It must exactly match the required signature for the WAVS runtime to properly invoke it.
+
+## ETH Gas Estimator Component Errors (2025-04-24)
+
+We encountered several specific errors when building the ETH Gas Estimator component that provide valuable lessons for future WAVS component development:
+
+### 1. Missing Provider Trait Import Error
+
+```
+error[E0599]: no method named 'get_gas_price' found for struct 'RootProvider' in the current scope
+  --> components/eth-gas-estimator/src/lib.rs:160:18
+   |
+160 |         provider.get_gas_price().await.map_err(|e| format\!("Failed to get gas price: {}", e))?;
+   |                  ^^^^^^^^^^^^^ method not found in 'RootProvider'
+   |
+  ::: /Users/evan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloy-provider-0.11.1/src/provider/trait.rs:331:8
+   |
+331 |     fn get_gas_price(&self) -> ProviderCall<NoParams, U128, u128> {
+   |        ------------- the method is available for 'RootProvider' here
+   |
+   = help: items from traits can only be used if the trait is in scope
+help: trait 'Provider' which provides 'get_gas_price' is implemented but not in scope; perhaps you want to import it
+```
+
+**Root Cause**: The `get_gas_price()` method is defined in the `Provider` trait, not directly in the `RootProvider` struct. We imported `RootProvider` but not the `Provider` trait itself.
+
+**Fix**: Add the proper trait import:
+```rust
+use alloy_provider::{Provider, RootProvider};
+```
+
+**Lesson**: In Rust, methods are often implemented through traits rather than directly on structs. Always check the method documentation to see which trait provides it, and ensure you import both the struct and its required traits.
+
+### 2. Gas Price Type Mismatch Error
+
+```
+error[E0277]: cannot multiply 'u128' by 'alloy_primitives::Uint<256, 4>'
+  --> components/eth-gas-estimator/src/lib.rs:163:32
+   |
+163 |     let slow_price = gas_price * U256::from(80) / U256::from(100);
+   |                                ^ no implementation for 'u128 * alloy_primitives::Uint<256, 4>'
+```
+
+**Root Cause**: The `get_gas_price()` method returns a `u128` value, but we tried to multiply it directly with a `U256` value without proper type conversion.
+
+**Fix**: Explicitly convert the `u128` gas price to `U256`:
+```rust
+// Get current gas price
+let gas_price_u128 = provider.get_gas_price().await.map_err(|e| format\!("Failed to get gas price: {}", e))?;
+
+// Convert from u128 to U256 for calculations
+let gas_price = U256::from(gas_price_u128);
+```
+
+**Lesson**: When working with blockchain numeric types, be extremely careful about type compatibility. Methods may return native Rust types (like `u128`) that need to be converted to blockchain-specific types (like `U256`) before performing operations.
+
+### 3. Function Parameter Type Mismatch Error
+
+```
+error[E0308]: mismatched types
+  --> components/eth-gas-estimator/src/lib.rs:179:44
+   |
+179 |             price_gwei: wei_to_gwei_string(average_price, 2),
+   |                         ------------------ ^^^^^^^^^^^^^ expected 'Uint<256, 4>', found 'u128'
+   |                         |
+   |                         arguments to this function are incorrect
+```
+
+**Root Cause**: After fixing the gas price calculation, we still had a type mismatch because the function `wei_to_gwei_string` expected a `U256` parameter but we were passing a `u128`.
+
+**Fix**: This was automatically fixed by our previous change to convert the gas price to `U256`.
+
+**Lesson**: Type consistency is critical throughout your code. When working with blockchain components, pay special attention to numeric type conversions and ensure consistent types are used throughout your calculation chain.
+
+### 4. Unnecessary Mutability Warning
+
+```
+warning: variable does not need to be mutable
+  --> components/eth-gas-estimator/src/lib.rs:132:9
+   |
+132 |     let mut fractional_str = fractional_part.to_string();
+   |         ---- help: remove this 'mut'
+```
+
+**Root Cause**: We declared a variable as mutable (`mut`) but never actually modified it.
+
+**Fix**: Remove the `mut` keyword:
+```rust
+let fractional_str = fractional_part.to_string();
+```
+
+**Lesson**: While this is a minor issue that doesn't affect functionality, keeping code clean by avoiding unnecessary mutability is a good practice. The Rust compiler's warnings are helpful for identifying such issues.
+
+### General Observations
+
+1. **Documentation Gaps**: The CLAUDE.md documentation didn't explicitly cover gas price estimation or the specific return types of blockchain provider methods, which contributed to these errors.
+
+2. **Type System Complexity**: Blockchain development in Rust involves complex type interactions between native Rust types and blockchain-specific type libraries, which requires careful attention.
+
+3. **Trait System Understanding**: Many errors in Rust blockchain development stem from misconceptions about the trait system and how methods are made available through traits rather than directly on structs.
+
+These errors highlight the importance of thorough documentation that covers common operations and their type signatures, especially in blockchain contexts where multiple type systems interact.
+EOF < /dev/null## Crypto Sentiment Component Validation Errors
+
+1. **Unused Import Warning**: 
+   - Error: Imported `min` function from `std::cmp::min` but didn't use it
+   - Fix: Removed the import and used if/else clamping instead
+
+2. **Field Naming Convention**: 
+   - Error: Used camelCase (e.g., `cryptoName`) instead of snake_case (`crypto_name`)
+   - Fix: Renamed all struct fields to use snake_case
+
+3. **String Conversion**: 
+   - Error: Assigned string literals (`&str`) directly to struct fields requiring `String`
+   - Fix: Added `.to_string()` for all string literal assignments
+
+4. **Redundant Imports**: 
+   - Error: Included unused imports like `std::collections::HashMap`
+   - Fix: Removed all unused imports
+
+5. **Option Type Error Handling**: 
+   - Error: Used `map_err()` on `Option` types instead of `ok_or_else()`
+   - Fix: Changed error handling to use `ok_or_else()` for `Option` types
+
+6. **Timestamp Formatting**: 
+   - Error: Incorrect date/time calculations from Unix timestamp
+   - Fix: Corrected the logic for calculating months and days from Unix time
+
+EOF < /dev/null

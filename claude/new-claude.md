@@ -1,6 +1,18 @@
-# WAVS Component Creation Guide
+# WAVS Component Creation Guide with WAVSai
 
-You specialize in creating WAVS (WASI AVS) components. Your task is to guide the creation of a new WAVS component based on the provided information and user input. Follow these steps carefully to ensure a well-structured, error-free component that passes all validation checks with zero fixes.
+This guide contains essential information for creating WAVS components that build and run without errors. Follow the WAVSai process for guaranteed error-free components.
+
+## WAVSai Component Creation Process
+
+When you ask me to create a WAVS component, I'll follow this systematic process to ensure it works perfectly on the first try:
+
+1. **Understand Requirements**: I'll clarify exactly what the component needs to do
+2. **Research Phase**: I'll research any unknown APIs or services needed
+3. **Plan Component**: I'll create a detailed implementation plan
+4. **Pre-validate Design**: I'll check for potential errors before coding
+5. **Implement Component**: I'll create the component files (Cargo.toml, lib.rs)
+6. **Validate Component**: I'll verify against common error patterns
+7. **Generate User Instructions**: I'll provide clear usage instructions
 
 ## Component Structure
 
@@ -8,6 +20,42 @@ A WAVS component needs:
 1. `Cargo.toml` - Dependencies configuration
 2. `src/lib.rs` - Component implementation
 3. `src/bindings.rs` - Auto-generated, never edit
+
+## WAVSai Pre-Implementation Validation Checklist
+
+Before writing any component code, I'll verify these critical aspects:
+
+1. **Imports and Dependencies**
+   - [ ] Each and every method and type is used properly and has the proper import
+   - [ ] Both structs and their traits are imported
+   - [ ] Verify all required imports are imported properly
+   - [ ] All dependencies are in Cargo.toml with `{workspace = true}`
+   - [ ] Any unused imports are removed
+
+2. **Component Structure**
+   - [ ] Component will implement Guest trait
+   - [ ] Component will be exported with correct export! macro
+   - [ ] All required helper functions will be implemented
+
+3. **ABI Handling**
+   - [ ] No String::from_utf8 on ABI data
+   - [ ] Proper ABI decoding with fallbacks planned
+   - [ ] ABI encoding for responses implemented
+
+4. **Type System**
+   - [ ] All type conversions will be explicit
+   - [ ] Blockchain-specific types will be used correctly
+   - [ ] No implicit conversions between numeric types
+
+5. **Error Handling**
+   - [ ] ok_or_else used for Option types
+   - [ ] map_err used for Result types
+   - [ ] All potential errors are handled
+
+6. **Memory Management**
+   - [ ] All data will be cloned before use
+   - [ ] All API response structures will derive Clone
+   - [ ] No moving out of collections
 
 ## Creating a Component
 
@@ -123,7 +171,7 @@ pub fn encode_trigger_output(trigger_id: u64, output: impl AsRef<[u8]>) -> Vec<u
 }
 ```
 
-## Critical Components
+## Critical Components for Error-Free Code
 
 ### 1. ABI Handling
 
@@ -303,7 +351,7 @@ async fn query_blockchain(address_str: &str) -> Result<ResponseData, String> {
 }
 ```
 
-### 7. Numeric Type Handling
+### 7. Numeric Type Handling 
 
 ```rust
 // WRONG - Using .into() for numeric conversions between types
@@ -326,9 +374,158 @@ let formatted_amount = amount / divisor;
 
 ## Component Examples by Task
 
-Here are templates for common WAVS component tasks:
+### 1. ENS Name to Address Resolver
 
-### 1. Token Balance Checker
+```rust
+// Required imports
+use alloy_sol_types::{sol, SolCall, SolValue};
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
+use wstd::runtime::block_on;
+use wavs_wasi_chain::decode_event_log_data;
+use wavs_wasi_chain::http::{fetch_json, http_request_get};
+use wstd::http::HeaderValue;
+
+pub mod bindings;
+use crate::bindings::wavs::worker::layer_types::{TriggerData, TriggerDataEthContractEvent};
+use crate::bindings::{export, Guest, TriggerAction};
+
+// Define destination for output
+pub enum Destination {
+    Ethereum,
+    CliOutput,
+}
+
+// Define input function signature
+sol! {
+    function resolveEns(string ensName) external;
+}
+
+// Create separate solidity module for ITypes
+mod solidity {
+    use alloy_sol_macro::sol;
+    pub use ITypes::*;
+
+    sol!("../../src/interfaces/ITypes.sol");
+}
+
+// Response data structure - MUST derive Clone
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct EnsResolveResponse {
+    ens_name: String,
+    eth_address: String,
+    timestamp: String,
+}
+
+// ENS API response structure - MUST derive Clone
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct EnsApiResponse {
+    address: String,
+}
+
+// Component struct declaration
+struct Component;
+export!(Component with_types_in bindings);
+
+// Main component implementation
+impl Guest for Component {
+    fn run(action: TriggerAction) -> std::result::Result<Option<Vec<u8>>, String> {
+        let (trigger_id, req, dest) = 
+            decode_trigger_event(action.data).map_err(|e| e.to_string())?;
+            
+        // Clone request data to avoid ownership issues
+        let req_clone = req.clone();
+        
+        // Decode the ENS name string using proper ABI decoding
+        let ens_name = 
+            if let Ok(decoded) = resolveEnsCall::abi_decode(&req_clone, false) {
+                // Successfully decoded as function call
+                decoded.ensName
+            } else {
+                // Try decoding just as a string parameter
+                match String::abi_decode(&req_clone, false) {
+                    Ok(s) => s,
+                    Err(e) => return Err(format!("Failed to decode input as ABI string: {}", e)),
+                }
+            };
+        
+        // Resolve ENS name to address
+        let res = block_on(async move {
+            let ens_result = resolve_ens_name(&ens_name).await?;
+            serde_json::to_vec(&ens_result).map_err(|e| e.to_string())
+        })?;
+        
+        // Return result based on destination
+        let output = match dest {
+            Destination::Ethereum => Some(encode_trigger_output(trigger_id, &res)),
+            Destination::CliOutput => Some(res),
+        };
+        Ok(output)
+    }
+}
+
+// Helper function to decode trigger event
+pub fn decode_trigger_event(trigger_data: TriggerData) -> Result<(u64, Vec<u8>, Destination)> {
+    match trigger_data {
+        TriggerData::EthContractEvent(TriggerDataEthContractEvent { log, .. }) => {
+            let event: solidity::NewTrigger = decode_event_log_data!(log)?;
+            let trigger_info =
+                <solidity::TriggerInfo as SolValue>::abi_decode(&event._triggerInfo, false)?;
+            Ok((trigger_info.triggerId, trigger_info.data.to_vec(), Destination::Ethereum))
+        }
+        TriggerData::Raw(data) => Ok((0, data.clone(), Destination::CliOutput)),
+        _ => Err(anyhow::anyhow!("Unsupported trigger data type")),
+    }
+}
+
+// Helper function to encode trigger output
+pub fn encode_trigger_output(trigger_id: u64, output: impl AsRef<[u8]>) -> Vec<u8> {
+    solidity::DataWithId { triggerId: trigger_id, data: output.as_ref().to_vec().into() }
+        .abi_encode()
+}
+
+// Helper function to get current timestamp
+fn get_current_timestamp() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    time.to_string()
+}
+
+// Main function to resolve ENS name to address
+async fn resolve_ens_name(ens_name: &str) -> Result<EnsResolveResponse, String> {
+    // Ensure ENS name is properly formatted
+    let normalized_ens_name = if !ens_name.ends_with(".eth") {
+        format!("{}.eth", ens_name)
+    } else {
+        ens_name.to_string()
+    };
+    
+    // Construct ENS API URL
+    let url = format!("https://api.ensideas.com/ens/resolve/{}", normalized_ens_name);
+    
+    // Create request with headers
+    let mut req = http_request_get(&url)
+        .map_err(|e| format!("Failed to create request: {}", e))?;
+    
+    req.headers_mut().insert("Accept", HeaderValue::from_static("application/json"));
+    
+    // Make API request
+    let api_response: EnsApiResponse = fetch_json(req).await
+        .map_err(|e| format!("Failed to fetch ENS data: {}", e))?;
+    
+    // Return formatted response
+    Ok(EnsResolveResponse {
+        ens_name: normalized_ens_name,
+        eth_address: api_response.address,
+        timestamp: get_current_timestamp(),
+    })
+}
+```
+
+### 2. Token Balance Checker
 
 ```rust
 // IMPORTS
@@ -470,7 +667,7 @@ async fn get_token_balance(wallet_address_str: &str) -> Result<TokenBalanceData,
 }
 ```
 
-### 2. API Data Fetcher
+### 3. API Data Fetcher
 
 ```rust
 // IMPORTS
@@ -579,7 +776,7 @@ async fn fetch_api_data(param: &str) -> Result<ResultData, String> {
 }
 ```
 
-### 3. NFT Ownership Checker
+### 4. NFT Ownership Checker
 
 ```rust
 // IMPORTS
@@ -711,99 +908,41 @@ async fn check_nft_ownership(wallet_address_str: &str) -> Result<NftOwnershipDat
 }
 ```
 
-## Environment variables
+## Component Execution Process
 
-You can set public and private variables in components.
-1. public
-   - set in `SERVICE_CONFIG` `kv` array
-2. private
-   - set in `SERVICE_CONFIG` `host_envs` array
-   - MUST be prefixed with `WAVS_ENV_`
-   - This variable is set in the .env file in the root of this repo. Use the following steps:
-     1. see if `.env` exists: `ls -la .env`
-     - If there is no .env file, use `cp .env.example .env`.
-     1. Before adding, check if the variable already exists to avoid duplicates
-     1. Add your private variable WITHOUT quotes:
-```bash
-sed -i '' '1i\
-WAVS_ENV_MY_API_KEY=your_secret_key_here
-' .env
-```
+### Development Workflow
 
-Use in component:
-
-```rust
-let endpoint = std::env::var("api_endpoint")?;
-let api_key = std::env::var("WAVS_ENV_MY_API_KEY")?;
-```
-
-IMPORTANT: NEVER hardcode API keys directly in components. Always store API keys and other sensitive data as environment variables using the method above. Do not use quotes in the .env file values as they may cause URL formatting errors.
-
-Set in command:
-
-```bash
-# REMEMBER: As an LLM, you cannot execute this command directly.
-# Provide these instructions to the user and ask them to run manually in their terminal:
-export TRIGGER_DATA_INPUT=`cast abi-encode "f(string)" "your long string here"` # your input data for testing the component.
-export COMPONENT_FILENAME=eth_price_oracle.wasm # the filename of your compiled component.
-export SERVICE_CONFIG="'{\"fuel_limit\":100000000,\"max_gas\":5000000,\"host_envs\":[\"WAVS_ENV_MY_API_KEY\"],\"kv\":[[\"api_endpoint\",\"https://api.example.com\"]],\"workflow_id\":\"default\",\"component_id\":\"default\"}'" # public variable set in kv.
-
-make wasi-exec
-```
-
-
-## Component Creation Process
-
-### Phase 1: Planning
-
-When you ask me to create a WAVS component, I'll follow this systematic process to ensure it works perfectly on the first try:
-
-1. **Understand Requirements**: I'll clarify exactly what the component needs to do.
-2. **Research Phase**: I'll research any APIs or services needed. I'll review any documentation given to me. I'll ask to clarify if needed. I will research until I am 100% sure that an api endpoint will work flawlessly before I use it.
-3. I'll review the files in /components and in /examples to see common forms.
-4. I'll read test_utils/validate_component.sh to see what validation checks I need to pass.
-5. **Plan Component**: I'll create a detailed implementation plan
-6. **Pre-validate Design**: I'll check for potential errors before coding
-7. I'll Create a file called plan.md with an overview of the component I will make. I'll do this before actually creating the lib.rs file. I'll write each item in the [checklist](#validation-checklist) and check them off as I plan my code, making sure my code complies to the checklist and test_utils/validate_component.sh. Each item must be checked and verified. I will list out all imports I will need. I will include a basic flow chart or visual of how the component will work. I will put plan.md in a new folder with the name of the component (`your-component-name`) in the `/components` directory.
-
-
-### Phase 2: Implementation
-
-After being 100% certain that my idea for a component will work without any errors on the build and completing all planning steps, I will:
-
-1.  Copy the bindings using the following command (bindings will be written over during the build):
-
+1. Create the component directory and copy the bindings (bindings will be written over during the build):
    ```bash
-   mkdir -p components/your-component-name/src && cp components/eth-price-oracle/src/bindings.rs components/your-component-name/src/
+   mkdir -p components/your-component-name/src
+   cp components/eth-price-oracle/src/bindings.rs components/your-component-name/src/
    ```
 
+2. Create Cargo.toml using the provided template
 
-2.  Then, I will create lib.rs with proper implementation:
-    1. I will compare my projected lib.rs code against the code in `validate_component.sh` and my plan.md file before creating.
-    2. I will define proper imports. I will Review the imports on the component that I want to make. I will make sure that all necessary imports will be included and that I will remove any unused imports before creating the file.
-    3. I will go through each of the items in the [checklist](#validation-checklist) one more time to ensure my component will build and function correctly.
+3. Create a plan.md file with an overview of the component you'll make
 
-3.  I will create a Cargo.toml by copying the template and modifying it with all of my correct imports. before running the command to create the file, I will check that all imports are imported correctly and match what is in my lib.rs file. I will define imports correctly. I will make sure that imports are present in the main workspace Cargo.toml and then in my component's `Cargo.toml` using `{ workspace = true }`
+4. Create lib.rs with proper implementation:
+   - Define proper imports
+   - Implement Solidity interfaces
+   - Create component struct and implementation
+   - Implement required helper functions
+   - Handle errors and ownership correctly
 
-4.  I will then add any [private variables to the `.env` file](#environment-variables) if applicable.
-
-5.  I will run the command to validate my component:
+5. Validate component:
    ```bash
    make validate-component COMPONENT=your-component-name
    ```
-   - I will fix ALL errors before continuing
-   - (You do not need to fix warnings if they do not effect the build.)
-   - I will run again after fixing errors to make sure.
+   - Fix ALL errors before continuing
 
-6.  After being 100% certain that the component will build correctly, I will build the component:
-
+6. Build the component:
    ```bash
    make wasi-build
    ```
 
-### Phase 3: Trying it out
+### Testing Commands
 
-After I am 100% certain the component will execute correctly, I will give the following command to the user to run. Important! I cannot run this command as I do not have permissions. I will prompt the user to run it:
+To test with the WASI executor:
 
 ```bash
 # IMPORTANT: Always use string parameters, even for numeric values!
@@ -813,75 +952,54 @@ export SERVICE_CONFIG="'{\"fuel_limit\":100000000,\"max_gas\":5000000,\"host_env
 make wasi-exec
 ```
 
-## Validation Checklist
+## Common Errors to Avoid
 
-ALL components must pass validation. Review [validate_component.sh](test_utils/validate_component.sh) before creating a component.
+- ✅ ALWAYS use `{ workspace = true }` in Cargo.toml, never explicit versions
+- ✅ ALWAYS implement the Guest trait and export your component
+- ✅ ALWAYS use `export!(Component with_types_in bindings)`
+- ✅ ALWAYS use `clone()` before consuming data to avoid ownership issues
+- ✅ ALWAYS derive `Clone` for API response data structures
+- ✅ ALWAYS decode ABI data properly, never with `String::from_utf8`
+- ✅ ALWAYS use `ok_or_else()` for Option types, `map_err()` for Result types
+- ✅ ALWAYS use string parameters for CLI testing (`cast abi-encode "f(string)" "5"` instead of `f(uint256)`)
+- ✅ ALWAYS use `.to_string()` to convert string literals (&str) to String types in struct field assignments
+- ✅ NEVER edit bindings.rs - it's auto-generated
 
-1. Common errors:
-   - [ ] ✅ ALWAYS use `{ workspace = true }` in your component Cargo.toml. Explicit versions go in the root Cargo.toml.
-   - [ ] ✅ ALWAYS implement the Guest trait and export your component
-   - [ ] ✅ ALWAYS use `export!(Component with_types_in bindings)`
-   - [ ] ✅ ALWAYS use `clone()` before consuming data to avoid ownership issues
-   - [ ] ✅ ALWAYS derive `Clone` for API response data structures
-   - [ ] ✅ ALWAYS decode ABI data properly, never with `String::from_utf8`
-   - [ ] ✅ ALWAYS use `ok_or_else()` for Option types, `map_err()` for Result types
-   - [ ] ✅ ALWAYS use string parameters for CLI testing (`cast abi-encode "f(string)" "5"` instead of `f(uint256)`)
-   - [ ] ✅ ALWAYS use `.to_string()` to convert string literals (&str) to String types in struct field assignments
-   - [ ] ✅ NEVER edit bindings.rs - it's auto-generated
+## Final WAVSai Component Validation Checklist
 
-1. Component structure:
-   - [ ] Implements Guest trait
-   - [ ] Exports component correctly
-   - [ ] Properly handles TriggerAction and TriggerData
+Before considering the component complete, I'll verify these critical areas:
 
-2. ABI handling:
-   - [ ] Properly decodes function calls
-   - [ ] Avoids String::from_utf8 on ABI data
+1. **ABI Data Handling**: 
+   - [ ] No String::from_utf8 on ABI-encoded data
+   - [ ] Proper cascading decode pattern implemented
+   - [ ] ABI encoding for output data
 
-3. Data ownership:
-   - [ ] All API structures derive Clone
-   - [ ] Clones data before use
-   - [ ] Avoids moving out of collections
-   - [ ] Avoids all ownership issues and "Move out of index" errors
+2. **Trait Imports**:
+   - [ ] Both structs AND their traits are imported
+   - [ ] Provider trait included with RootProvider
+   - [ ] SolCall trait imported when abi_encode() is used
 
-4. Error handling:
-   - [ ] Uses ok_or_else() for Option types
-   - [ ] Uses map_err() for Result types
-   - [ ] Provides descriptive error messages
+3. **Type Conversions**:
+   - [ ] Explicit conversions for all numeric types
+   - [ ] Proper handling of blockchain-specific types
+   - [ ] No reliance on .into() for numeric conversions
 
-5. Imports:
-   - [ ] Includes all required traits and types
-   - [ ] Uses correct import paths
-   - [ ] Properly imports SolCall for encoding
-   - [ ] Each and every method and type is used properly and has the proper import
-   - [ ] Both structs and their traits are imported
-   - [ ] Verify all required imports are imported properly
-   - [ ] All dependencies are in Cargo.toml with `{workspace = true}`
-   - [ ] Any unused imports are removed
+4. **Option/Result Handling**:
+   - [ ] ok_or_else() used for Option types
+   - [ ] map_err() used for Result types
+   - [ ] Descriptive error messages provided
 
-6. Component structure:
-   - [ ] Uses proper sol! macro with correct syntax
-   - [ ] Correctly defines Solidity types in solidity module
-   - [ ] Implements required functions
+5. **Export Macro**:
+   - [ ] Correct format: export!(Component with_types_in bindings)
 
-7. Security:
-   - [ ] No hardcoded API keys or secrets
-   - [ ] Uses environment variables for sensitive data
+6. **Memory Management**:
+   - [ ] All data cloned before use
+   - [ ] All API response structs derive Clone
+   - [ ] No moving from borrowed data
 
-8.  Dependencies:
-   - [ ] Uses workspace dependencies correctly
-   - [ ] Includes all required dependencies
+7. **Component Output**:
+   - [ ] Clear instructions for building
+   - [ ] Testing commands provided
+   - [ ] Expected behavior described
 
-9.  Solidity types:
-   - [ ] Properly imports sol macro
-   - [ ] Uses solidity module correctly
-   - [ ] Handles numeric conversions safely
-   - [ ] Uses .to_string() for all string literals in struct initialization
-
-10. Network requests:
-    - [ ] Uses block_on for async functions
-    - [ ] Uses fetch_json with correct headers
-    - [ ] Handles API responses correctly
-
-With this guide, you should be able to create any WAVS component that passes validation, builds without errors, and executes correctly.
-
+This complete guide will help you create WAVS components that pass validation, build without errors, and execute correctly. By following the WAVSai process, you can achieve error-free components on the first try.

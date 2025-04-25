@@ -2,22 +2,38 @@
 
 This library provides essential validation tools for WAVS components. All components **MUST** pass these tests before running the `make wasi-build` command.
 
-## Purpose
+## Overview
 
-These tests consolidate best practices and common error patterns from CLAUDE.md into executable tests, making it easier to:
+The test_utils component is a collection of utilities and validation scripts to ensure WAVS components meet the required standards and follow best practices. It's designed to catch common errors before they cause build failures or runtime issues.
 
-1. Verify that your component follows proper implementation patterns
-2. Avoid common pitfalls that cause build failures or runtime errors
-3. Ensure consistent handling of data, errors, and networking
+## What It Does
 
-## Running Tests
+- Validates component structure and implementation
+- Checks for common anti-patterns and implementation mistakes
+- Provides a standardized way to verify components
+- Ensures consistent error handling, data management, and API usage
 
-To validate your component:
+## Key Features
+
+- Automated code analysis
+- Comprehensive validation of ABI encoding/decoding
+- Data ownership and cloning validation
+- Error handling pattern verification
+- Network request and API security validation
+
+## Using the Validation Script
+
+The main validation script can be used to verify any component:
 
 ```bash
-cd components/test_utils
-./run_tests.sh
+# Validate a component using the Makefile command
+make validate-component COMPONENT=your-component-name
+
+# Or run the script directly
+cd test_utils
+./validate_component.sh your-component-name
 ```
+
 
 ## Test Modules
 
@@ -48,13 +64,3 @@ These tests help you avoid the following common errors:
 9. Unused imports cluttering the code
 10. Direct version specifications instead of workspace dependencies
 
-## Integration
-
-Add these lines to your component's Cargo.toml to add test dependencies:
-
-```toml
-[dev-dependencies]
-test_utils = { path = "../test_utils" }
-```
-
-Then implement component-specific tests using the validation patterns shown in the test utilities.

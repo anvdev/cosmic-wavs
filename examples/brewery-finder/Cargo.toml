@@ -1,5 +1,5 @@
 [package]
-name = "x-recent-post"
+name = "brewery-finder"
 edition.workspace = true
 version.workspace = true
 authors.workspace = true
@@ -7,7 +7,7 @@ rust-version.workspace = true
 repository.workspace = true
 
 [dependencies]
-# Core dependencies (always needed)
+# Core dependencies
 wit-bindgen-rt = {workspace = true}
 wavs-wasi-chain = { workspace = true }
 serde = { workspace = true }
@@ -28,5 +28,5 @@ strip = true
 lto = true
 
 [package.metadata.component]
-package = "component:x-recent-post"
+package = "component:brewery-finder"
 target = "wavs:worker/layer-trigger-world@0.3.0"

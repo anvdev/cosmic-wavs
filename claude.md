@@ -324,6 +324,46 @@ for _ in 0..decimals {
 let formatted_amount = amount / divisor;
 ```
 
+## Environment variables
+
+You can set public and private variables in components.
+1. public
+   - set in `SERVICE_CONFIG` `kv` array
+2. private
+   - set in `SERVICE_CONFIG` `host_envs` array
+   - MUST be prefixed with `WAVS_ENV_`
+   - This variable is set in the .env file in the root of this repo. Use the following steps:
+     1. see if `.env` exists: `ls -la .env`
+     - If there is no .env file, use `cp .env.example .env`.
+     1. Before adding, check if the variable already exists to avoid duplicates
+     1. Add your private variable WITHOUT quotes:
+```bash
+sed -i '' '1i\
+WAVS_ENV_MY_API_KEY=your_secret_key_here
+' .env
+```
+
+Use in component:
+
+```rust
+let endpoint = std::env::var("api_endpoint")?;
+let api_key = std::env::var("WAVS_ENV_MY_API_KEY")?;
+```
+
+IMPORTANT: NEVER hardcode API keys directly in components. Always store API keys and other sensitive data as environment variables using the method above. Do not use quotes in the .env file values as they may cause URL formatting errors.
+
+Set in command:
+
+```bash
+# REMEMBER: As an LLM, you cannot execute this command directly.
+# Provide these instructions to the user and ask them to run manually in their terminal:
+export TRIGGER_DATA_INPUT=`cast abi-encode "f(string)" "your long string here"` # your input data for testing the component.
+export COMPONENT_FILENAME=eth_price_oracle.wasm # the filename of your compiled component.
+export SERVICE_CONFIG="'{\"fuel_limit\":100000000,\"max_gas\":5000000,\"host_envs\":[\"WAVS_ENV_MY_API_KEY\"],\"kv\":[[\"api_endpoint\",\"https://api.example.com\"]],\"workflow_id\":\"default\",\"component_id\":\"default\"}'" # public variable set in kv.
+
+make wasi-exec
+```
+
 ## Component Examples by Task
 
 Here are templates for common WAVS component tasks:
@@ -471,6 +511,8 @@ async fn get_token_balance(wallet_address_str: &str) -> Result<TokenBalanceData,
 ```
 
 ### 2. API Data Fetcher
+
+Important: Always verify API endpoints to examine their response structure before creating any code that relies on them using the WebFetch tool.
 
 ```rust
 // IMPORTS
@@ -711,46 +753,6 @@ async fn check_nft_ownership(wallet_address_str: &str) -> Result<NftOwnershipDat
 }
 ```
 
-## Environment variables
-
-You can set public and private variables in components.
-1. public
-   - set in `SERVICE_CONFIG` `kv` array
-2. private
-   - set in `SERVICE_CONFIG` `host_envs` array
-   - MUST be prefixed with `WAVS_ENV_`
-   - This variable is set in the .env file in the root of this repo. Use the following steps:
-     1. see if `.env` exists: `ls -la .env`
-     - If there is no .env file, use `cp .env.example .env`.
-     1. Before adding, check if the variable already exists to avoid duplicates
-     1. Add your private variable WITHOUT quotes:
-```bash
-sed -i '' '1i\
-WAVS_ENV_MY_API_KEY=your_secret_key_here
-' .env
-```
-
-Use in component:
-
-```rust
-let endpoint = std::env::var("api_endpoint")?;
-let api_key = std::env::var("WAVS_ENV_MY_API_KEY")?;
-```
-
-IMPORTANT: NEVER hardcode API keys directly in components. Always store API keys and other sensitive data as environment variables using the method above. Do not use quotes in the .env file values as they may cause URL formatting errors.
-
-Set in command:
-
-```bash
-# REMEMBER: As an LLM, you cannot execute this command directly.
-# Provide these instructions to the user and ask them to run manually in their terminal:
-export TRIGGER_DATA_INPUT=`cast abi-encode "f(string)" "your long string here"` # your input data for testing the component.
-export COMPONENT_FILENAME=eth_price_oracle.wasm # the filename of your compiled component.
-export SERVICE_CONFIG="'{\"fuel_limit\":100000000,\"max_gas\":5000000,\"host_envs\":[\"WAVS_ENV_MY_API_KEY\"],\"kv\":[[\"api_endpoint\",\"https://api.example.com\"]],\"workflow_id\":\"default\",\"component_id\":\"default\"}'" # public variable set in kv.
-
-make wasi-exec
-```
-
 
 ## Component Creation Process
 
@@ -759,12 +761,15 @@ make wasi-exec
 When you ask me to create a WAVS component, I'll follow this systematic process to ensure it works perfectly on the first try:
 
 1. **Understand Requirements**: I'll clarify exactly what the component needs to do.
-2. **Research Phase**: I'll research any APIs or services needed. I'll review any documentation given to me. I'll ask to clarify if needed. I will research until I am 100% sure that an api endpoint will work flawlessly before I use it.
-3. I'll review the files in /components and in /examples to see common forms.
-4. I'll read test_utils/validate_component.sh to see what validation checks I need to pass.
-5. **Plan Component**: I'll create a detailed implementation plan
-6. **Pre-validate Design**: I'll check for potential errors before coding
-7. I'll Create a file called plan.md with an overview of the component I will make. I'll do this before actually creating the lib.rs file. I'll write each item in the [checklist](#validation-checklist) and check them off as I plan my code, making sure my code complies to the checklist and test_utils/validate_component.sh. Each item must be checked and verified. I will list out all imports I will need. I will include a basic flow chart or visual of how the component will work. I will put plan.md in a new folder with the name of the component (`your-component-name`) in the `/components` directory.
+2. **Research Phase**: I will read any and all documentation links given to me.
+3. I'll ask to clarify if needed. I will research until I am 100% sure that an api endpoint will work flawlessly before I use it.
+5. I'll review the files in /components and in /examples to see common forms.
+6. I'll read validate_component.sh to see what validation checks I need to pass.
+7. I'll research any APIs or services needed.
+8. I'll verify API response structures by using the WebFetch tool before implementing code that depends on them.
+9. **Plan Component**: I'll create a detailed implementation plan
+10. **Pre-validate Design**: I'll check for potential errors before coding
+11. I'll Create a file called plan.md with an overview of the component I will make. I'll do this before actually creating the lib.rs file. I'll write each item in the [checklist](#validation-checklist) and check them off as I plan my code, making sure my code complies to the checklist and validate_component.sh. Each item must be checked and verified. I will list out all imports I will need. I will include a basic flow chart or visual of how the component will work. I will put plan.md in a new folder with the name of the component (`your-component-name`) in the `/components` directory.
 
 
 ### Phase 2: Implementation
@@ -810,15 +815,20 @@ After I am 100% certain the component will execute correctly, I will give the fo
 export TRIGGER_DATA_INPUT=`cast abi-encode "f(string)" "your parameter here"`
 export COMPONENT_FILENAME=your_component_name.wasm
 export SERVICE_CONFIG="'{\"fuel_limit\":100000000,\"max_gas\":5000000,\"host_envs\":[\"WAVS_ENV_API_KEY\"],\"kv\":[],\"workflow_id\":\"default\",\"component_id\":\"default\"}'"
+# IMPORTANT: as an llm, I can't ever run this command.I will prompt the user to run it
 make wasi-exec
 ```
 
 ## Validation Checklist
 
-ALL components must pass validation. Review [validate_component.sh](test_utils/validate_component.sh) before creating a component.
+ALL components must pass validation. Review [validate_component.sh](validate_component.sh) before creating a component.
+
+EACH ITEM BELOW MUST BE CHECKED:
 
 1. Common errors:
    - [ ] ✅ ALWAYS use `{ workspace = true }` in your component Cargo.toml. Explicit versions go in the root Cargo.toml.
+   - [ ] ✅ ALWAYS verify API response structures by using the WebFetch tool on the endpoints.
+   - [ ] ✅ ALWAYS Read any documentation given to you in a prompt
    - [ ] ✅ ALWAYS implement the Guest trait and export your component
    - [ ] ✅ ALWAYS use `export!(Component with_types_in bindings)`
    - [ ] ✅ ALWAYS use `clone()` before consuming data to avoid ownership issues
@@ -881,7 +891,7 @@ ALL components must pass validation. Review [validate_component.sh](test_utils/v
 10. Network requests:
     - [ ] Uses block_on for async functions
     - [ ] Uses fetch_json with correct headers
-    - [ ] Handles API responses correctly
+    - [ ] ALL API endpoints have been tested with the WebFetch tool and responses handled correctly
 
 With this guide, you should be able to create any WAVS component that passes validation, builds without errors, and executes correctly.
 

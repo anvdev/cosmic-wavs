@@ -111,7 +111,7 @@ forge build
 forge test
 ```
 
-### Build WASI components
+## Build WASI components
 
 Now build the WASI components into the `compiled` output directory.
 
@@ -131,7 +131,7 @@ Now build the WASI components into the `compiled` output directory.
 WASI_BUILD_DIR=components/eth-price-oracle make wasi-build
 ```
 
-### Testing the Price Feed Component Locally
+## Testing the Price Feed Component Locally
 
 How to test the component locally for business logic validation before on-chain deployment. An ID of 1 for the oracle component is Bitcoin.
 
@@ -168,7 +168,7 @@ Result (utf8):
 > - Docker Desktop: Settings -> Resources -> Network -> 'Enable Host Networking'
 > - `brew install chipmk/tap/docker-mac-net-connect && sudo brew services start chipmk/tap/docker-mac-net-connect`
 
-### Start Environment
+## Start Environment
 
 Start an ethereum node (anvil), the WAVS service, and deploy [eigenlayer](https://www.eigenlayer.xyz/) contracts to the local network.
 
@@ -180,20 +180,21 @@ Start an ethereum node (anvil), the WAVS service, and deploy [eigenlayer](https:
 # make start-all
 cp .env.example .env
 
+# Create new operator
+cast wallet new-mnemonic --json > .docker/operator1.json
+export OPERATOR_MNEMONIC=`cat .docker/operator1.json | jq -r .mnemonic`
+export OPERATOR_PK=`cat .docker/operator1.json | jq -r .accounts[0].private_key`
+
 make start-all
 ```
 
-Wait for full local deployment, then grab values
+Wait for full local deployment to be ready
 
 ```bash docci-delay-after=2
 while [ ! -f .docker/start.log ]; do echo "waiting for start.log" && sleep 1; done
-
-export SERVICE_MANAGER_ADDRESS=$(jq -r .addresses.WavsServiceManager .nodes/avs_deploy.json)
-export PRIVATE_KEY=$(cat .nodes/deployer)
-export MY_ADDR=$(cast wallet address --private-key $PRIVATE_KEY)
 ```
 
-### Deploy Service Contracts
+## Deploy Service Contracts
 
 **Key Concepts:**
 
@@ -203,10 +204,13 @@ export MY_ADDR=$(cast wallet address --private-key $PRIVATE_KEY)
 `SERVICE_MANAGER_ADDR` is the address of the Eigenlayer service manager contract. It was deployed in the previous step. Then you deploy the trigger and submission contracts which depends on the service manager. The service manager will verify that a submission is valid (from an authorized operator) before saving it to the blockchain. The trigger contract is any arbitrary contract that emits some event that WAVS will watch for. Yes, this can be on another chain (e.g. an L2) and then the submission contract on the L1 *(Ethereum for now because that is where Eigenlayer is deployed)*.
 
 ```bash docci-delay-per-cmd=2
-forge create SimpleSubmit --json --broadcast -r http://127.0.0.1:8545 --private-key "${PRIVATE_KEY}" --constructor-args "${SERVICE_MANAGER_ADDRESS}" > .docker/submit.json
+export DEPLOYER_PK=$(cat .nodes/deployer)
+export SERVICE_MANAGER_ADDRESS=$(jq -r .addresses.WavsServiceManager .nodes/avs_deploy.json)
+
+forge create SimpleSubmit --json --broadcast -r http://127.0.0.1:8545 --private-key "${DEPLOYER_PK}" --constructor-args "${SERVICE_MANAGER_ADDRESS}" > .docker/submit.json
 export SERVICE_SUBMISSION_ADDR=`jq -r .deployedTo .docker/submit.json`
 
-forge create SimpleTrigger --json --broadcast -r http://127.0.0.1:8545 --private-key "${PRIVATE_KEY}" > .docker/trigger.json
+forge create SimpleTrigger --json --broadcast -r http://127.0.0.1:8545 --private-key "${DEPLOYER_PK}" > .docker/trigger.json
 export SERVICE_TRIGGER_ADDR=`jq -r .deployedTo .docker/trigger.json`
 ```
 
@@ -215,12 +219,41 @@ export SERVICE_TRIGGER_ADDR=`jq -r .deployedTo .docker/trigger.json`
 Deploy the compiled component with the contract information from the previous steps. Review the [makefile](./Makefile) for more details and configuration options.`TRIGGER_EVENT` is the event that the trigger contract emits and WAVS watches for. By altering `SERVICE_TRIGGER_ADDR` you can watch events for contracts others have deployed.
 
 ```bash docci-delay-per-cmd=2
-# Build your service JSON with optional overrides in the script
+# Build your service JSON
 COMPONENT_FILENAME=eth_price_oracle.wasm AGGREGATOR_URL=http://127.0.0.1:8001 sh ./script/build_service.sh
 
-# Deploy the service JSON to WAVS so it now watches and submits
-# the results based on the service json configuration.
-SERVICE_CONFIG_FILE=.docker/service.json make deploy-service
+# Deploy the service JSON to WAVS so it now watches and submits.
+#
+# If CREDENTIAL is not set then the default WAVS_CLI .env account will be used
+# You can `cast send ${WAVS_SERVICE_MANAGER} 'transferOwnership(address)'` to move it to another account.
+SERVICE_CONFIG_FILE=.docker/service.json CREDENTIAL=${DEPLOYER_PK} make deploy-service
+```
+
+
+## Register service specific operator
+
+Each service gets their own key path (hd_path). The first service starts at 1 and increments from there. Get the service ID
+
+```bash
+# hack: private key specific to this service
+# This is generated from the AVS keys submit mnemonic
+# this will be removed in the future. Then we can just --mnemonic-path the different index from source locally
+# (where WAVS /service-key returns just the index)
+# SERVICE_ID=`curl -s http://localhost:8000/app | jq -r .services[0].id`
+# PK=`curl -s http://localhost:8000/service-key/${SERVICE_ID} | jq -rc .secp256k1 | tr -d '[]'`
+# AVS_PRIVATE_KEY=`echo ${PK} | tr ',' ' ' | xargs printf "%02x" | tr -d '\n'`
+
+source .env
+AVS_PRIVATE_KEY=`cast wallet private-key --mnemonic-path "$WAVS_SUBMISSION_MNEMONIC" --mnemonic-index 1`
+
+# Register the operator with the WAVS service manager
+docker run --rm --network host --env-file .env -v ./.nodes:/root/.nodes --entrypoint /wavs/register.sh "ghcr.io/lay3rlabs/wavs-middleware:0.4.0-alpha.5" "$AVS_PRIVATE_KEY"
+
+# Verify registration
+docker run --rm --network host --env-file .env -v ./.nodes:/root/.nodes --entrypoint /wavs/list_operator.sh ghcr.io/lay3rlabs/wavs-middleware:0.4.0-alpha.5
+
+# Faucet funds to the aggregator account to post on chain
+cast send $(cast wallet address --private-key ${WAVS_AGGREGATOR_CREDENTIAL}) --rpc-url http://localhost:8545 --private-key ${DEPLOYER_PK} --value 1ether
 ```
 
 ## Trigger the Service
@@ -234,7 +267,7 @@ export COIN_MARKET_CAP_ID=1
 export SERVICE_TRIGGER_ADDR=`make get-trigger-from-deploy`
 # Execute on the trigger contract, WAVS will pick this up and submit the result
 # on chain via the operators.
-forge script ./script/Trigger.s.sol ${SERVICE_TRIGGER_ADDR} ${COIN_MARKET_CAP_ID} --sig 'run(string,string)' --rpc-url http://localhost:8545 --broadcast -v 4
+forge script ./script/Trigger.s.sol ${SERVICE_TRIGGER_ADDR} ${COIN_MARKET_CAP_ID} --sig 'run(string,string)' --rpc-url http://localhost:8545 --broadcast
 ```
 
 ## Show the result

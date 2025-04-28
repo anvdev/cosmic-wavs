@@ -218,6 +218,7 @@ let data_clone = data.clone();
 let result = process_data(&data_clone);
 ```
 
+
 ### 4. Network Requests
 
 ```rust
@@ -493,10 +494,14 @@ sol! {
 }
 
 // RESPONSE STRUCTURE - MUST DERIVE CLONE
+// IMPORTANT: Use #[serde(default)] and Option<T> for fields that might be missing or inconsistent
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ApiResponse {
-    field1: String,
-    field2: u64,
+    // Use Option<T> for fields that might be missing in some responses
+    #[serde(default)] 
+    field1: Option<String>,
+    #[serde(default)]
+    field2: Option<u64>,
     // other fields
 }
 
@@ -572,10 +577,13 @@ async fn fetch_api_data(param: &str) -> Result<ResultData, String> {
     let api_response: ApiResponse = fetch_json(req).await
         .map_err(|e| format!("Failed to fetch data: {}", e))?;
     
-    // Process and return data
+    // Process and return data - handle Option fields safely
+    let field1 = api_response.field1.unwrap_or_else(|| "unknown".to_string());
+    let field2 = api_response.field2.unwrap_or(0);
+    
     Ok(ResultData {
         input_param: param.to_string(),
-        result: format!("{}: {}", api_response.field1, api_response.field2),
+        result: format!("{}: {}", field1, field2),
         timestamp: get_current_timestamp(),
     })
 }
@@ -852,6 +860,7 @@ EACH ITEM BELOW MUST BE CHECKED:
     - [ ] Uses block_on for async functions
     - [ ] Uses fetch_json with correct headers
     - [ ] ALL API endpoints have been tested with curl and responses handled correctly
+    - [ ] Uses #[serde(default)] and Option<T> for fields that might be missing in API responses
 
 With this guide, you should be able to create any WAVS component that passes validation, builds without errors, and executes correctly.
 

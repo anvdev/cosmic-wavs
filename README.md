@@ -6,9 +6,6 @@ This template is based on the [WAVS Foundry Template](https://github.com/Lay3rLa
 > **Experimental Use Only**: This template is designed for experimentation with Claude Code and one-shot components. Due to inconsistencies in Claude Code's behavior, some components may have errors and may not work as expected in one-shot prompts. This template is not intended for production use. Use at your own risk and for experimental purposes only.
 
 
-1. 
-
-
 ## Setup
 
 1. Follow the instructions to set up an account and install Claude Code: [Claude Code installation](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview)

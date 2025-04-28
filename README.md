@@ -110,6 +110,38 @@ forge build
 forge test
 ```
 
+## Build Components with Claude Code
+
+1. In the root of your project, run the following command to start Claude Code:
+
+```sh
+claude
+```
+
+2. Enter your one-shot prompt. In this example, we're creating a component that can check how many times a Warpcast user has used the word EigenLayer in a post.
+
+```
+Let’s make a new component that takes the input of a warpcast username (like dabit3), counts the number of times they have mentioned EigenLayer, and returns that number and the user’s wallet address.
+
+
+Make sure you handle endpoint responses and cast data correctly:
+
+- https://hoyt.farcaster.xyz:2281/v1/userNameProofByName?name=dabit3
+- https://hoyt.farcaster.xyz:2281/v1/castsByFid?fid=235510
+```
+
+3. Review Claude's work and accept changes that Claude makes. Make sure to double check what Claude is doing and be safe about accepting changes.
+
+4. Claude will make a new component and files, and run validation tests on the component using the `make validate-component COMPONENT=your-component` command.
+
+5. Claude may need to make changes after running the Validation tests.
+
+
+
+
+
+
+
 ### Build WASI components
 
 Now build the WASI rust components into the `compiled` output directory.

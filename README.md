@@ -1,10 +1,29 @@
-# [WAVS](https://docs.wavs.xyz) Monorepo Template
+# [WAVS](https://docs.wavs.xyz) Claude Code Template
 
-**Template for getting started with developing WAVS applications**
+This template is based on the [WAVS Foundry Template](https://github.com/Lay3rLabs/wavs-foundry-template) with modifications for use with Claude Code. This is an experimental template for building one-shot components.
 
-A template for developing WebAssembly AVS applications using Rust and Solidity, configured for Windows *WSL*, Linux, and MacOS. The sample oracle service fetches the current price of a cryptocurrency from [CoinMarketCap](https://coinmarketcap.com) and saves it on chain.
+> [!WARNING]
+> **Experimental Use Only**: This template is designed for experimentation with Claude Code and one-shot components. Due to inconsistencies in Claude Code's behavior, some components may have errors and may not work as expected in one-shot prompts. This template is not intended for production use. Use at your own risk and for experimental purposes only.
 
-## System Requirements
+
+1. 
+
+
+## Setup
+
+1. Follow the instructions to set up an account and install Claude Code: [Claude Code installation](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview)
+
+2. Clone this repo:
+
+```sh
+git clone https://github.com/Lay3rLabs/WAVS-Claude-Template.git
+
+cd WAVS-Claude-Template
+```
+
+3. Follow all of the setup instructions in the next section:
+
+### System Requirements
 
 <details>
 <summary>Core (Docker, Compose, Make, JQ, Node v21+)</summary>
@@ -79,16 +98,6 @@ wkg config --default-registry wa.dev
 
 </details>
 
-## Create Project
-
-```bash
-# If you don't have foundry: `curl -L https://foundry.paradigm.xyz | bash && $HOME/.foundry/bin/foundryup`
-forge init --template Lay3rLabs/wavs-foundry-template my-wavs --branch 0.3
-```
-
-> [!TIP]
-> Run `make help` to see all available commands and environment variable overrides.
-
 ### Solidity
 
 Install the required packages to build the Solidity contracts. This project supports both [submodules](./.gitmodules) and [npm packages](./package.json).
@@ -130,7 +139,12 @@ Test run the component locally to validate the business logic works. An ID of 1 
 COIN_MARKET_CAP_ID=1 make wasi-exec
 ```
 
-## WAVS
+
+
+
+
+
+## Running WAVS locally
 
 > [!NOTE]
 > If you are running on a Mac with an ARM chip, you will need to do the following:

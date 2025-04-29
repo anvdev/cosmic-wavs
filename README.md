@@ -112,7 +112,7 @@ forge test
 
 ## Create Components with Claude Code
 
-After following all setup instructions and installing Claude Code, you ar5e ready to make a component!
+After following all setup instructions and installing Claude Code, you are ready to make a component!
 
 1. In the root of your project, run the following command to start Claude Code:
 
@@ -120,7 +120,7 @@ After following all setup instructions and installing Claude Code, you ar5e read
 claude
 ```
 
-2. Enter your one-shot prompt. In this example, we're creating a component that can check how many times a Warpcast user has used the word EigenLayer in a post.
+1. Enter your one-shot prompt. In this example, we're creating a component that can check how many times a Warpcast user has used the word EigenLayer in a post. You can see the finished component here: https://github.com/Lay3rLabs/WAVS-Claude-Template/tree/warpcast-eigenlayer-tracker
 
 ```
 Let's make a new component that takes the input of a warpcast username (like dabit3), counts the number of times they have mentioned EigenLayer, and returns that number and the user's wallet address.

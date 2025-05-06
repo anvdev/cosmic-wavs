@@ -196,13 +196,14 @@ mod solidity {
 
 ### 3. Data Structure Ownership
 
-ALWAYS derive `Clone` for API response data structures:
+ALWAYS derive `Clone` for API response data structures. If fields may be missing, also use `Option<T>`, `#[serde(default)]`, and `Default`:
 
 ```rust
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(default)]
 pub struct ResponseData {
-    field1: String,
-    field2: u64,
+    field1: Option<String>,
+    field2: Option<u64>,
     // other fields
 }
 ```
@@ -210,10 +211,10 @@ pub struct ResponseData {
 ALWAYS clone data before use to avoid ownership issues:
 
 ```rust
-// WRONG - Creates temporary that is dropped immediately
+// WRONG – creates a temporary that is dropped immediately
 let result = process_data(&data.clone());
 
-// CORRECT - Create variable to hold the cloned data
+// CORRECT – clone into a named variable
 let data_clone = data.clone();
 let result = process_data(&data_clone);
 ```
@@ -494,8 +495,8 @@ sol! {
 }
 
 // RESPONSE STRUCTURE - MUST DERIVE CLONE
-// IMPORTANT: Use #[serde(default)] and Option<T> for fields that might be missing or inconsistent
-#[derive(Debug, Serialize, Deserialize, Clone)]
+// IMPORTANT: Always Use #[serde(default)] and Option<T> for fields from external APIs. They might be missing or inconsistent
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct ApiResponse {
     // Use Option<T> for fields that might be missing in some responses
     #[serde(default)] 
@@ -858,8 +859,7 @@ EACH ITEM BELOW MUST BE CHECKED:
 11. Network requests:
     - [ ] Uses block_on for async functions
     - [ ] Uses fetch_json with correct headers
-    - [ ] ALL API endpoints have been tested with curl and responses handled correctly
-    - [ ] Uses #[serde(default)] and Option<T> for fields that might be missing in API responses
+    - [ ] ALL API endpoints have been tested with curl and responses are handled correctly in my component.
+    - [ ] Always use #[serde(default)] and Option<T> for fields from external APIs.
 
 With this guide, you should be able to create any WAVS component that passes validation, builds without errors, and executes correctly.
-

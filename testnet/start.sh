@@ -6,7 +6,7 @@ set -e
 GIT_ROOT=$(git rev-parse --show-toplevel)
 
 PORT=8545
-MIDDLEWARE_IMAGE=ghcr.io/lay3rlabs/wavs-middleware:0.4.0-alpha.5
+MIDDLEWARE_IMAGE=ghcr.io/lay3rlabs/wavs-middleware:0.4.0-beta.1
 LOG_FILE="$GIT_ROOT/.docker/start.log"
 export DOCKER_DEFAULT_PLATFORM=linux/amd64
 
@@ -21,7 +21,7 @@ fi
 
 for file in ${OPERATORS}; do
   source $file
-  OPERATOR_INDEX=$(echo $file | grep -oP '(?<=\.operator)\d+')
+  OPERATOR_INDEX=$(echo $file | awk -F'.operator' '{print $2}' | grep -o '^[0-9]*')
 
   ETH_ADDR=$(cast wallet address --mnemonic "${WAVS_SUBMISSION_MNEMONIC}")
   echo "Using Operator ${OPERATOR_INDEX} Address: ${ETH_ADDR}"

@@ -3,7 +3,7 @@
 This template is based on the [WAVS Foundry Template](https://github.com/Lay3rLabs/wavs-foundry-template) with modifications for use with Claude Code. This is an experimental template for building one-shot components.
 
 > [!WARNING]
-> **Experimental Use Only**: This template is designed for experimentation with Claude Code and one-shot components. Due to inconsistencies in Claude Code's behavior, some components may have errors and may not work as expected in one-shot prompts. This template is not intended for production use. Use at your own risk and for experimental purposes only.
+> **Experimental Use Only**: This template is designed for experimentation with Claude Code and one-shot components. Due to inconsistencies in Claude Code's behavior, some components may have errors and may not work as expected in one-shot prompts. Results may vary. This template is not intended for production use. Use at your own risk and for experimental purposes only.
 
 ## Video tutorial
 
@@ -194,6 +194,16 @@ This repo is designed to be used with short prompts for simple components. Howev
 ## Examples
 
 The [`/examples`](/examples/) directory contains multiple one-shot examples built by Claude. These serve as a knowledge base for Claude. Explore the examples for ideas, or try to build one of the examples yourself. Remember to delete the example that you want to build before prompting Claude, otherwise it may just copy it directly.
+
+## Troubleshooting
+
+- You can ask Claude to fix errors it may not be able to catch when executing components. Make sure to give Claude full context of the error.
+- LLMs can be unpredictable. Minimal prompts provide a lot of room for creativity/error. If Claude is not able to fix an error after trying, sometimes deleting the component, clearing Claude history with `/clear` and starting fresh can help.
+- Claude may try to edit the bindings.rs file to "fix" it. Claude never needs to do this.
+- Claude is supposed to provide you with the `make wasi-exec` command. Sometimes it will try to run this itself. It can't. Ask it to give you the command.
+- When copying and pasting the full `make wasi-exec` command, be careful with line breaks, especially in the `SERVICE_CONFIG`. You may need to reformat long lines to avoid break.
+
+
 
 ## Running WAVS locally
 

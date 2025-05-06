@@ -21,7 +21,7 @@ make setup
 ```
 
 ```bash
-npm --prefix ./components/js-eth-price-oracle/ install
+npm --prefix ./components/js-evm-price-oracle/ install
 ```
 
 ## Build Component
@@ -30,7 +30,7 @@ Build all wasi components from the root of the repo. You can also run this comma
 
 ```bash docci-output-contains="Successfully written"
 # Builds only this component, not all.
-WASI_BUILD_DIR=js-eth-price-oracle make wasi-build
+WASI_BUILD_DIR=js-evm-price-oracle make wasi-build
 ```
 
 ## Execute Component
@@ -38,7 +38,7 @@ WASI_BUILD_DIR=js-eth-price-oracle make wasi-build
 Run the component with the `wasi-exec` command in the root of the repo
 
 ```bash docci-output-contains="LTC"
-COMPONENT_FILENAME=js_eth_price_oracle.wasm COIN_MARKET_CAP_ID=2 make wasi-exec
+COMPONENT_FILENAME=js_evm_price_oracle.wasm COIN_MARKET_CAP_ID=2 make wasi-exec
 ```
 
 Build your smart contracts
@@ -86,9 +86,12 @@ Upload service
 
 ```bash docci-delay-per-cmd=2
 # Build your service JSON with optional overrides in the script
-COMPONENT_FILENAME=js_eth_price_oracle.wasm sh ./script/build_service.sh
+COMPONENT_FILENAME=js_evm_price_oracle.wasm sh ./script/build_service.sh
 
-SERVICE_CONFIG_FILE=.docker/service.json CREDENTIAL=${DEPLOYER_PK} make deploy-service
+# Upload service.json to IPFS
+ipfs_cid=`IPFS_ENDPOINT=http://127.0.0.1:5001 SERVICE_FILE=.docker/service.json make upload-to-ipfs`
+
+SERVICE_URL="http://127.0.0.1:8080/ipfs/${ipfs_cid}" CREDENTIAL=${DEPLOYER_PK} make deploy-service
 ```
 
 
@@ -98,18 +101,18 @@ Register service specific operator
 source .env
 AVS_PRIVATE_KEY=`cast wallet private-key --mnemonic-path "$WAVS_SUBMISSION_MNEMONIC" --mnemonic-index 1`
 
+# Faucet funds to the aggregator account to post on chain
+cast send $(cast wallet address --private-key ${WAVS_AGGREGATOR_CREDENTIAL}) --rpc-url http://localhost:8545 --private-key ${DEPLOYER_PK} --value 1ether
+
 # Register the operator with the WAVS service manager
 docker run --rm --network host --env-file .env -v ./.nodes:/root/.nodes --entrypoint /wavs/register.sh "ghcr.io/lay3rlabs/wavs-middleware:0.4.0-alpha.5" "$AVS_PRIVATE_KEY"
 
 # Verify registration
 docker run --rm --network host --env-file .env -v ./.nodes:/root/.nodes --entrypoint /wavs/list_operator.sh ghcr.io/lay3rlabs/wavs-middleware:0.4.0-alpha.5
-
-# Faucet funds to the aggregator account to post on chain
-cast send $(cast wallet address --private-key ${WAVS_AGGREGATOR_CREDENTIAL}) --rpc-url http://localhost:8545 --private-key ${DEPLOYER_PK} --value 1ether
 ```
 
 ```bash docci-delay-after=2
-# Request BTC from CMC
+# Request quote from CMC
 export COIN_MARKET_CAP_ID=2
 # Get the trigger address from previous Deploy forge script
 export SERVICE_TRIGGER_ADDR=`make get-trigger-from-deploy`

@@ -5,9 +5,9 @@
 A template for developing WebAssembly AVS applications using Rust and Solidity, configured for Windows *WSL*, Linux, and MacOS. The sample oracle service fetches the current price of a cryptocurrency from [CoinMarketCap](https://coinmarketcap.com) and saves it on chain via the operators.
 
 **Languages**
- * [Rust (this example)](./components/eth-price-oracle/)
- * [Go](./components/golang-eth-price-oracle/README.md)
- * [JS / TS](./components/js-eth-price-oracle/README.md)
+ * [Rust (this example)](./components/evm-price-oracle/)
+ * [Go](./components/golang-evm-price-oracle/README.md)
+ * [JS / TS](./components/js-evm-price-oracle/README.md)
 
 ## System Requirements
 
@@ -93,7 +93,7 @@ wkg config --default-registry wa.dev
 forge init --template Lay3rLabs/wavs-foundry-template my-wavs --branch main
 ```
 
-> [!TIP]
+> \[!TIP]
 > Run `make help` to see all available commands and environment variable overrides.
 
 ### Solidity
@@ -115,12 +115,12 @@ forge test
 
 Now build the WASI components into the `compiled` output directory.
 
-> [!WARNING]
+> \[!WARNING]
 > If you get: `error: no registry configured for namespace "wavs"`
 >
 > run, `wkg config --default-registry wa.dev`
 
-> [!WARNING]
+> \[!WARNING]
 > If you get: `failed to find the 'wasm32-wasip1' target and 'rustup' is not available`
 >
 > `brew uninstall rust` & install it from <https://rustup.rs>
@@ -128,7 +128,7 @@ Now build the WASI components into the `compiled` output directory.
 ```bash
 # This command only builds the rust component.
 # Remove `WASI_BUILD_DIR` to build all components.
-WASI_BUILD_DIR=components/eth-price-oracle make wasi-build
+WASI_BUILD_DIR=components/evm-price-oracle make wasi-build
 ```
 
 ## Testing the Price Feed Component Locally
@@ -159,7 +159,7 @@ Result (utf8):
 
 ## WAVS
 
-> [!NOTE]
+> \[!NOTE]
 > If you are running on a Mac with an ARM chip, you will need to do the following:
 > - Set up Rosetta: `softwareupdate --install-rosetta`
 > - Enable Rosetta (Docker Desktop: Settings -> General -> enable "Use Rosetta for x86_64/amd64 emulation on Apple Silicon")
@@ -177,7 +177,6 @@ Start an ethereum node (anvil), the WAVS service, and deploy [eigenlayer](https:
 #
 # This must remain running in your terminal. Use another terminal to run other commands.
 # You can stop the services with `ctrl+c`. Some MacOS terminals require pressing it twice.
-# make start-all
 cp .env.example .env
 
 # Create new operator
@@ -218,15 +217,18 @@ export SERVICE_TRIGGER_ADDR=`jq -r .deployedTo .docker/trigger.json`
 
 Deploy the compiled component with the contract information from the previous steps. Review the [makefile](./Makefile) for more details and configuration options.`TRIGGER_EVENT` is the event that the trigger contract emits and WAVS watches for. By altering `SERVICE_TRIGGER_ADDR` you can watch events for contracts others have deployed.
 
-```bash docci-delay-per-cmd=2
+```bash docci-delay-per-cmd=3
 # Build your service JSON
-COMPONENT_FILENAME=eth_price_oracle.wasm AGGREGATOR_URL=http://127.0.0.1:8001 sh ./script/build_service.sh
+COMPONENT_FILENAME=evm_price_oracle.wasm AGGREGATOR_URL=http://127.0.0.1:8001 sh ./script/build_service.sh
+
+# Upload service.json to IPFS
+ipfs_cid=`IPFS_ENDPOINT=http://127.0.0.1:5001 SERVICE_FILE=.docker/service.json make upload-to-ipfs`
 
 # Deploy the service JSON to WAVS so it now watches and submits.
 #
 # If CREDENTIAL is not set then the default WAVS_CLI .env account will be used
 # You can `cast send ${WAVS_SERVICE_MANAGER} 'transferOwnership(address)'` to move it to another account.
-SERVICE_CONFIG_FILE=.docker/service.json CREDENTIAL=${DEPLOYER_PK} make deploy-service
+SERVICE_URL="http://127.0.0.1:8080/ipfs/${ipfs_cid}" CREDENTIAL=${DEPLOYER_PK} make deploy-service
 ```
 
 
@@ -246,14 +248,14 @@ Each service gets their own key path (hd_path). The first service starts at 1 an
 source .env
 AVS_PRIVATE_KEY=`cast wallet private-key --mnemonic-path "$WAVS_SUBMISSION_MNEMONIC" --mnemonic-index 1`
 
-# Register the operator with the WAVS service manager
-docker run --rm --network host --env-file .env -v ./.nodes:/root/.nodes --entrypoint /wavs/register.sh "ghcr.io/lay3rlabs/wavs-middleware:0.4.0-alpha.5" "$AVS_PRIVATE_KEY"
-
-# Verify registration
-docker run --rm --network host --env-file .env -v ./.nodes:/root/.nodes --entrypoint /wavs/list_operator.sh ghcr.io/lay3rlabs/wavs-middleware:0.4.0-alpha.5
-
 # Faucet funds to the aggregator account to post on chain
 cast send $(cast wallet address --private-key ${WAVS_AGGREGATOR_CREDENTIAL}) --rpc-url http://localhost:8545 --private-key ${DEPLOYER_PK} --value 1ether
+
+# Register the operator with the WAVS service manager
+AVS_PRIVATE_KEY=${AVS_PRIVATE_KEY} make operator-register
+
+# Verify registration
+make operator-list
 ```
 
 ## Trigger the Service

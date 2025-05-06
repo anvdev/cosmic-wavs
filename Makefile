@@ -3,26 +3,26 @@
 # Check if user is in docker group to determine if sudo is needed
 SUDO := $(shell if groups | grep -q docker; then echo ''; else echo 'sudo'; fi)
 
+# Define common variables
+ANVIL_PRIVATE_KEY?=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+CARGO=cargo
+COIN_MARKET_CAP_ID?=1
+COMPONENT_FILENAME?=evm_price_oracle.wasm
+CREDENTIAL?=""
+DOCKER_IMAGE?=ghcr.io/lay3rlabs/wavs:apr-30-fix-general
+MIDDLEWARE_DOCKER_IMAGE?=ghcr.io/lay3rlabs/wavs-middleware:0.4.0-alpha.5
+IPFS_ENDPOINT?=http://127.0.0.1:5001
+RPC_URL?=http://localhost:8545
+SERVICE_FILE?=.docker/service.json
+SERVICE_SUBMISSION_ADDR?=`jq -r .deployedTo .docker/submit.json`
+SERVICE_TRIGGER_ADDR?=`jq -r .deployedTo .docker/trigger.json`
+WASI_BUILD_DIR ?= ""
+WAVS_CMD ?= $(SUDO) docker run --rm --network host $$(test -f .env && echo "--env-file ./.env") -v $$(pwd):/data ${DOCKER_IMAGE} wavs-cli
+WAVS_ENDPOINT?="http://localhost:8000"
+ENV_FILE?=.env
+
 # Default target is build
 default: build
-
-# Customize these variables
-COMPONENT_FILENAME?=eth_price_oracle.wasm
-SERVICE_CONFIG_FILE?=.docker/service.json
-
-# Define common variables
-CARGO=cargo
-# the directory to build, or "" for all
-WASI_BUILD_DIR ?= ""
-DOCKER_IMAGE?=ghcr.io/lay3rlabs/wavs:0.4.0-alpha.5
-WAVS_CMD ?= $(SUDO) docker run --rm --network host $$(test -f .env && echo "--env-file ./.env") -v $$(pwd):/data ${DOCKER_IMAGE} wavs-cli
-ANVIL_PRIVATE_KEY?=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-RPC_URL?=http://localhost:8545
-SERVICE_TRIGGER_ADDR?=`jq -r .deployedTo .docker/trigger.json`
-SERVICE_SUBMISSION_ADDR?=`jq -r .deployedTo .docker/submit.json`
-COIN_MARKET_CAP_ID?=1
-CREDENTIAL?=""
-WAVS_ENDPOINT?="http://localhost:8000"
 
 ## build: building the project
 build: _build_forge wasi-build
@@ -64,9 +64,7 @@ setup: check-requirements
 	@npm install
 
 ## start-all: starting anvil and WAVS with docker compose
-# running anvil out of compose is a temp work around for MacOS
 start-all: clean-docker setup-env
-#@rm --interactive=never .docker/*.json 2> /dev/null || true
 	@sh ./script/start_all.sh
 
 ## get-trigger-from-deploy: getting the trigger address from the script deploy
@@ -83,12 +81,13 @@ wavs-cli:
 
 ## upload-component: uploading the WAVS component | COMPONENT_FILENAME, WAVS_ENDPOINT
 upload-component:
-# TODO: move to $(WAVS_CMD)  upload-component ./compiled/${COMPONENT_FILENAME}
+# TODO: move to `$(WAVS_CMD) upload-component ./compiled/${COMPONENT_FILENAME} --wavs-endpoint ${WAVS_ENDPOINT}`
 	@wget --post-file=./compiled/${COMPONENT_FILENAME} --header="Content-Type: application/wasm" -O - ${WAVS_ENDPOINT}/upload | jq -r .digest
 
-## deploy-service: deploying the WAVS component service json | SERVICE_CONFIG_FILE, CREDENTIAL, WAVS_ENDPOINT
+SERVICE_URL?="http://127.0.0.1:8080/ipfs/service.json"
+## deploy-service: deploying the WAVS component service json | SERVICE_URL, CREDENTIAL, WAVS_ENDPOINT
 deploy-service:
-	@$(WAVS_CMD) deploy-service-raw --service `jq . -cr ${SERVICE_CONFIG_FILE}` $(if $(WAVS_ENDPOINT),--wavs-endpoint $(WAVS_ENDPOINT),) --log-level=info --data /data/.docker --home /data $(if $(CREDENTIAL),--eth-credential $(CREDENTIAL),)
+	@$(WAVS_CMD) deploy-service --service-url "$(SERVICE_URL)" --log-level=info --data /data/.docker --home /data $(if $(WAVS_ENDPOINT),--wavs-endpoint $(WAVS_ENDPOINT),) $(if $(CREDENTIAL),--evm-credential $(CREDENTIAL),)
 
 ## get-trigger: get the trigger id | SERVICE_TRIGGER_ADDR, RPC_URL
 get-trigger:
@@ -98,6 +97,27 @@ TRIGGER_ID?=1
 ## show-result: showing the result | SERVICE_SUBMISSION_ADDR, TRIGGER_ID, RPC_URL
 show-result:
 	@forge script ./script/ShowResult.s.sol ${SERVICE_SUBMISSION_ADDR} ${TRIGGER_ID} --sig 'data(string,uint64)' --rpc-url $(RPC_URL) --broadcast
+
+
+## upload-to-ipfs: uploading the a service config to IPFS | IPFS_ENDPOINT, SERVICE_FILE
+upload-to-ipfs:
+	@curl -s -X POST "${IPFS_ENDPOINT}/api/v0/add?pin=true" \
+		-H "Content-Type: multipart/form-data" \
+		-F file=@${SERVICE_FILE} | jq -r .Hash
+
+## operator-list: listing the AVS operators | ENV_FILE
+operator-list:
+	@docker run --rm --network host --env-file ${ENV_FILE} -v ./.nodes:/root/.nodes --entrypoint /wavs/list_operator.sh ${MIDDLEWARE_DOCKER_IMAGE}
+
+AVS_PRIVATE_KEY?=""
+## operator-register: listing the AVS operators | ENV_FILE, AVS_PRIVATE_KEY
+operator-register:
+	@if [ -z "${AVS_PRIVATE_KEY}" ]; then \
+		echo "Error: AVS_PRIVATE_KEY is not set. Please set it to your AVS private key."; \
+		exit 1; \
+	fi
+	@docker run --rm --network host --env-file ${ENV_FILE} -v ./.nodes:/root/.nodes --entrypoint /wavs/register.sh ${MIDDLEWARE_DOCKER_IMAGE} "${AVS_PRIVATE_KEY}"
+
 
 ## update-submodules: update the git submodules
 update-submodules:

@@ -23,7 +23,7 @@ sh ./build_service.sh
 FUEL_LIMIT=${FUEL_LIMIT:-1000000000000}
 MAX_GAS=${MAX_GAS:-5000000}
 FILE_LOCATION=${FILE_LOCATION:-".docker/service.json"}
-COMPONENT_FILENAME=${COMPONENT_FILENAME:-"eth_price_oracle.wasm"}
+COMPONENT_FILENAME=${COMPONENT_FILENAME:-"evm_price_oracle.wasm"}
 TRIGGER_EVENT=${TRIGGER_EVENT:-"NewTrigger(bytes)"}
 TRIGGER_CHAIN=${TRIGGER_CHAIN:-"local"}
 SUBMIT_CHAIN=${SUBMIT_CHAIN:-"local"}
@@ -32,7 +32,7 @@ AGGREGATOR_URL=${AGGREGATOR_URL:-""}
 WAVS_ENDPOINT=${WAVS_ENDPOINT:-"http://localhost:8000"}
 export DOCKER_DEFAULT_PLATFORM=linux/amd64
 
-BASE_CMD="docker run --rm --network host -w /data -v $(pwd):/data ghcr.io/lay3rlabs/wavs:0.4.0-alpha.5 wavs-cli service --json true --home /data --file /data/${FILE_LOCATION}"
+BASE_CMD="docker run --rm --network host -w /data -v $(pwd):/data ghcr.io/lay3rlabs/wavs:apr-30-fix-general wavs-cli service --json true --home /data --file /data/${FILE_LOCATION}"
 
 if [ -z "$SERVICE_MANAGER_ADDRESS" ]; then
     echo "SERVICE_MANAGER_ADDRESS is not set. Please set it to the address of the service manager."
@@ -62,10 +62,10 @@ echo "Service ID: ${SERVICE_ID}"
 WORKFLOW_ID=`$BASE_CMD workflow add | jq -r '.workflows | keys | .[0]'`
 echo "Workflow ID: ${WORKFLOW_ID}"
 
-$BASE_CMD workflow trigger --id ${WORKFLOW_ID} set-ethereum --address ${TRIGGER_ADDRESS} --chain-name ${TRIGGER_CHAIN} --event-hash ${TRIGGER_EVENT_HASH} > /dev/null
+$BASE_CMD workflow trigger --id ${WORKFLOW_ID} set-evm --address ${TRIGGER_ADDRESS} --chain-name ${TRIGGER_CHAIN} --event-hash ${TRIGGER_EVENT_HASH} > /dev/null
 
-# If no aggregator is set, use the default set-ethereum workflow
-SUB_CMD="set-ethereum"
+# If no aggregator is set, use the default
+SUB_CMD="set-evm"
 if [ -n "$AGGREGATOR_URL" ]; then
     SUB_CMD="set-aggregator --url ${AGGREGATOR_URL}"
 fi
@@ -79,7 +79,7 @@ $BASE_CMD workflow component --id ${COMPONENT_ID} time-limit --seconds 30 > /dev
 $BASE_CMD workflow component --id ${COMPONENT_ID} env --values WAVS_ENV_SOME_SECRET > /dev/null
 $BASE_CMD workflow component --id ${COMPONENT_ID} config --values 'key=value,key2=value2' > /dev/null
 
-$BASE_CMD manager set-ethereum ${SUBMIT_CHAIN} `cast --to-checksum ${SERVICE_MANAGER_ADDRESS}`
+$BASE_CMD manager set-evm --chain-name ${SUBMIT_CHAIN} --address `cast --to-checksum ${SERVICE_MANAGER_ADDRESS}`
 $BASE_CMD validate > /dev/null
 
 # inform aggregator if set

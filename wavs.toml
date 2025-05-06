@@ -20,6 +20,9 @@
 [default]
 log_level = ["info", "wavs=debug"]
 
+# The IPFS gateway URL used to access IPFS content over HTTP.
+# ipfs_gateway = "https://ipfs.io/ipfs/"
+
 # ----------------------------
 # Chain configurations
 # ----------------------------
@@ -27,48 +30,48 @@ log_level = ["info", "wavs=debug"]
 # == Ethereum chains ==
 
 # Mainnet
-[default.chains.eth.ethereum]
+[default.chains.evm.evmereum]
 chain_id = "1"
 ws_endpoint = "wss://eth.drpc.org"
 http_endpoint = "https://eth.drpc.org"
 
-[default.chains.eth.base]
+[default.chains.evm.base]
 chain_id = "8453"
 ws_endpoint = "wss://base.drpc.org"
 http_endpoint = "https://base.drpc.org"
 
-[default.chains.eth.optimism]
+[default.chains.evm.optimism]
 chain_id = "10"
 ws_endpoint = "wss://optimism.drpc.org"
 http_endpoint = "https://optimism.drpc.org"
 
-[default.chains.eth.arbitrum]
+[default.chains.evm.arbitrum]
 chain_id = "42161"
 ws_endpoint = "wss://arbitrum.drpc.org"
 http_endpoint = "https://arbitrum.drpc.org"
 
 # Local / Testnet
-[default.chains.eth.local]
+[default.chains.evm.local]
 chain_id = "31337"
 ws_endpoint = "ws://localhost:8545"
 http_endpoint = "http://localhost:8545"
 
-[default.chains.eth.local2]
+[default.chains.evm.local2]
 chain_id = "31338"
 ws_endpoint = "ws://localhost:8645"
 http_endpoint = "http://localhost:8645"
 
-[default.chains.eth.sepolia]
+[default.chains.evm.sepolia]
 chain_id = "11155111"
 ws_endpoint = "wss://ethereum-sepolia-rpc.publicnode.com"
 http_endpoint = "https://ethereum-sepolia-rpc.publicnode.com"
 
-[default.chains.eth.holesky]
+[default.chains.evm.holesky]
 chain_id = "17000"
 ws_endpoint = "wss://ethereum-holesky-rpc.publicnode.com"
 http_endpoint = "https://ethereum-holesky-rpc.publicnode.com"
 
-[default.chains.eth.holesky-fork]
+[default.chains.evm.holesky-fork]
 chain_id = "17000"
 ws_endpoint = "ws://localhost:8545"
 http_endpoint = "http://localhost:8545"
@@ -97,21 +100,21 @@ cors_allowed_origins = [
     "http://127.0.0.1:*",
 ]
 
-# The port on which the server will listen. Default is 8000
-# port = 9000
+# The port on which the server will listen.
+# port = 8000
 
 # The host to serve on. Default is localhost
 # host = "localhost"
 
 # The directory to store the data. Default is "/var/wavs"
-# data = "/var/wavs"
+data = "~/wavs"
 
 # Active chain names to watch for triggers
 active_trigger_chains = ["local"]
 
 # WAVS-specific chain overrides (if needed)
 # Example:
-# [wavs.chains.eth.local]
+# [wavs.chains.evm.local]
 # chain_id = "31337"
 # ws_endpoint = "ws://localhost:8545"
 # http_endpoint = "http://localhost:8545"
@@ -121,22 +124,21 @@ active_trigger_chains = ["local"]
 # ----------------------------
 [cli]
 # The directory to store the data. Default is "/var/wavs-cli"
-# data = "/var/wavs-cli"
+data = "~/wavs/cli"
 
-# WAVS endpoint
 # wavs_endpoint = "http://localhost:8000"
 
 # CLI-specific chain overrides
-[cli.chains.eth.local]
+[cli.chains.evm.local]
 aggregator_endpoint = "http://localhost:8001"
 
-[cli.chains.eth.local2]
+[cli.chains.evm.local2]
 aggregator_endpoint = "http://localhost:8001"
 
-[cli.chains.eth.sepolia]
+[cli.chains.evm.sepolia]
 aggregator_endpoint = "http://localhost:8001"
 
-[cli.chains.eth.holesky]
+[cli.chains.evm.holesky]
 aggregator_endpoint = "http://localhost:8001"
 
 # ----------------------------
@@ -144,7 +146,7 @@ aggregator_endpoint = "http://localhost:8001"
 # ----------------------------
 [aggregator]
 # The directory to store the data. Default is "/var/wavs-aggregator"
-# data = "/var/wavs-aggregator"
+data = "~/wavs/aggregator"
 
 cors_allowed_origins = [
     "https://lay3rlabs.github.io/*",
@@ -154,7 +156,7 @@ cors_allowed_origins = [
 
 # Aggregator-specific chain overrides (if needed)
 # Example:
-# [aggregator.chains.eth.local]
+# [aggregator.chains.evm.local]
 # chain_id = "31337"
 # ws_endpoint = "ws://localhost:8545"
 # http_endpoint = "http://localhost:8545"

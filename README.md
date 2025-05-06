@@ -5,6 +5,13 @@ This template is based on the [WAVS Foundry Template](https://github.com/Lay3rLa
 > [!WARNING]
 > **Experimental Use Only**: This template is designed for experimentation with Claude Code and one-shot components. Due to inconsistencies in Claude Code's behavior, some components may have errors and may not work as expected in one-shot prompts. This template is not intended for production use. Use at your own risk and for experimental purposes only.
 
+## Video tutorial
+
+Follow along with the video tutorial:
+
+[![Watch the video](/img/video.png)](https://youtu.be/jyl7kbie41w)
+
+You can see an example of the finished component [here](https://github.com/Lay3rLabs/WAVS-Claude-Template/tree/warpcast-eigen-counter/components/warpcast-eigen-counter).
 
 ## Setup
 

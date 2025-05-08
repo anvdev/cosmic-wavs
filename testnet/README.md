@@ -13,6 +13,8 @@ Make sure you have completed the system requirements setup from the main [README
 ```bash
 cd testnet/ || true
 
+export RPC_URL=https://ethereum-holesky-rpc.publicnode.com
+
 sh ./create-aggregator.sh
 
 sh ./create-operator.sh 1
@@ -39,10 +41,10 @@ while [ ! -f .docker/start.log ]; do echo "waiting for start.log" && sleep 1; do
 export DEPLOYER_PK=$(cat ./.nodes/deployer)
 export SERVICE_MANAGER_ADDRESS=$(jq -r .addresses.WavsServiceManager ./.nodes/avs_deploy.json)
 
-forge create SimpleSubmit --json --broadcast -r http://127.0.0.1:8545 --private-key "${DEPLOYER_PK}" --constructor-args "${SERVICE_MANAGER_ADDRESS}" > .docker/submit.json
+forge create SimpleSubmit --json --broadcast -r ${RPC_URL} --private-key "${DEPLOYER_PK}" --constructor-args "${SERVICE_MANAGER_ADDRESS}" > .docker/submit.json
 export SERVICE_SUBMISSION_ADDR=`jq -r .deployedTo .docker/submit.json`
 
-forge create SimpleTrigger --json --broadcast -r http://127.0.0.1:8545 --private-key "${DEPLOYER_PK}" > .docker/trigger.json
+forge create SimpleTrigger --json --broadcast -r ${RPC_URL} --private-key "${DEPLOYER_PK}" > .docker/trigger.json
 export SERVICE_TRIGGER_ADDR=`jq -r .deployedTo .docker/trigger.json`
 ```
 
@@ -52,11 +54,13 @@ export SERVICE_TRIGGER_ADDR=`jq -r .deployedTo .docker/trigger.json`
 cd $(git rev-parse --show-toplevel)
 
 # Start wavs
-docker compose -f testnet/docker-compose-multi.yml logs -f &
+docker compose -f testnet/docker-compose-multi.yml up &
 
 # Deploy the WASI component service & upload to each WAVS instance
 # (required until we can read components from upstream registry)
 export COMPONENT_FILENAME=evm_price_oracle.wasm
+export TRIGGER_CHAIN=holesky
+export SUBMIT_CHAIN=holesky
 WAVS_ENDPOINT="http://127.0.0.1:8000" AGGREGATOR_URL="http://127.0.0.1:8001" sh ./script/build_service.sh
 WAVS_ENDPOINT=http://127.0.0.1:9000 make upload-component
 
@@ -96,7 +100,8 @@ make operator-list
 ```bash
 # Trigger the service (request CMC ID price)
 export COIN_MARKET_CAP_ID=2
-forge script ./script/Trigger.s.sol ${SERVICE_TRIGGER_ADDR} ${COIN_MARKET_CAP_ID} --sig 'run(string,string)' --rpc-url http://localhost:8545 --broadcast
+export ANVIL_PRIVATE_KEY=${DEPLOYER_PK}
+forge script ./script/Trigger.s.sol ${SERVICE_TRIGGER_ADDR} ${COIN_MARKET_CAP_ID} --sig 'run(string,string)' --rpc-url ${RPC_URL} --broadcast
 
 TRIGGER_ID=`make get-trigger | grep "TriggerID:" | awk '{print $2}'`
 TRIGGER_ID=${TRIGGER_ID} make show-result

@@ -6,6 +6,8 @@ Components can be configured with two types of variables:
 
 ### Public variables: `kv`
 
+{/* todo: update with new info. this is outdated : `host::config_var(config_var)` where host is in the world bindings. set in config as kv */}
+
 These variables can be used for non-sensitive information that can be viewed publicly. These variables can be configured in the makefile and are set during service deployment. They are accessed using `std::env::var` in the component.
 
 To add public variables, modify the `"kv"` section in the `SERVICE_CONFIG` in your `Makefile`. The following example adds `max_retries`, `timeout_seconds`, and `api_endpoint` variables with values:
@@ -57,4 +59,6 @@ The following example shows how to access a private environment variable in a co
 ```rust
 let api_key = std::env::var("WAVS_ENV_MY_API_KEY")?;
 ```
+
+
 

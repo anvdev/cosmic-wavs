@@ -1,6 +1,13 @@
-## Triggers
+---
+title: Triggers
+---
+<!--docsignore
+import { Callout } from 'fumadocs-ui/components/callout';
+import { DocsPage } from 'fumadocs-ui/page';
+docsignore-->
 
-{/* todo: verify examples, add info on triggerdata and decode trigger data. Multi-chain services blurb goes here? add info on trigger data in components and link to inputs/outputs on component page (or move here?? dunno).  */}
+
+{/* todo: verify examples, add info on triggerdata and decode trigger data. Multi-chain services blurb goes here. add info on trigger data in components and link to inputs/outputs on component page (or move here?? dunno).  */}
 
 A trigger prompts a WAVS service to run. Operators listen for the trigger event specified by the service and execute the corresponding component off-chain. Triggers can be any onchain event emitted from any contract.
 
@@ -63,11 +70,11 @@ The [trigger contract in the WAVS foundry template](https://github.com/Lay3rLabs
 - When testing, the `wasi-exec` command in the [`Makefile`](https://github.com/Lay3rLabs/wavs-foundry-template/tree/v0.3.0/Makefile#L39-L43) passes input data when testing WAVS components via ``--input `cast format-bytes32-string $(COIN_MARKET_CAP_ID)` ``. This uses cast to format the `COIN_MARKET_CAP_ID` as a bytes32 string and simulates an Ethereum event during local execution.
 
 
-## Trigger Configuration
+## Trigger configuration
 
 Triggers define when and how the component should be executed. Each workflow needs a trigger to be set. They are set in the `trigger` field of the `service.json` file.
 
-### 1. EVM Event Trigger
+### EVM event trigger
 
 This trigger listens for specific events emitted by contracts on EVM-compatible chains, executing the component when a matching event is detected.
 
@@ -84,7 +91,7 @@ This trigger listens for specific events emitted by contracts on EVM-compatible 
 }
 ```
 
-### 2. Cosmos Event Trigger
+### Cosmos event trigger
 
 This trigger monitors events emitted by Cosmos smart contracts, executing your component when a matching event type is detected from the specified contract address.
 
@@ -101,7 +108,7 @@ This trigger monitors events emitted by Cosmos smart contracts, executing your c
 }
 ```
 
-### 3. Cron Trigger
+### Cron trigger
 
 Executes your component on a schedule defined by a cron expression, with optional start and end times to control the execution window.
 
@@ -113,7 +120,7 @@ Executes your component on a schedule defined by a cron expression, with optiona
       "schedule": "*/45 * * * * *",  // Cron expression
       "start_time": 1704067200000000000,  // Optional start time in nanoseconds since Unix epoch (2024-01-01T00:00:00Z)
       "end_time": 1735689599000000000     // Optional end time in nanoseconds since Unix epoch (2024-12-31T23:59:59Z)
-    }3
+    }
   }
 }
 
@@ -143,7 +150,20 @@ Executes your component on a schedule defined by a cron expression, with optiona
 // - `0 0 12 * * 1` - Noon every Monday
 ```
 
-### 4. Block Trigger
+[Crontab.guru](https://crontab.guru/) is a helpful tool for making cron expressions.
+
+<Callout title="Cron trigger latency" type="info">
+
+There may be slight variations in Cron trigger execution time between operators due to network latency and clock drift. Cron triggers are best suited for tasks that don't require precise synchronization between operators:
+- Triggering components that don't need exact synchronization.
+- Collecting data from external services with monotonic pagination.
+- Background tasks where eventual consistency is acceptable.
+
+If you need precise timing synchronization between operators, consider using [block-based triggers](#block-trigger) instead.
+
+</Callout>
+
+### Block trigger
 
 Executes your component at regular block intervals on a specified EVM or Cosmos chain, useful for chain-specific operations that need to run periodically.
 
@@ -159,6 +179,8 @@ Executes your component at regular block intervals on a specified EVM or Cosmos 
 }
 ```
 
+{/* todo: update this info when https://github.com/Lay3rLabs/WAVS/issues/612 is resolved */}
+
 The `chain-name` in your block trigger configuration is set in `wavs.toml` under the `[default.chains.evm.<chain_name>]` or `[default.chains.cosmos.<chain_name>]` section. It also needs to be added to the `active_trigger_chains` list in `wavs.toml`.
 
 ```toml
@@ -167,14 +189,3 @@ active_trigger_chains = ["<chain_name>"]
 ```
 
 
-### 5. Manual Trigger
-The Manual Trigger is a testing-only trigger that allows manual execution of your component, not intended for production use.
-
-```json
-{
-  "trigger": {
-    "type": "manual"
-  }
-}
-```
-Note: Manual trigger is for testing purposes only and not meant for production use.

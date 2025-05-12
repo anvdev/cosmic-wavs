@@ -1,77 +1,70 @@
 # Workflows
 
-A WAVS service is a collection of workflows that define the different execution paths in your service.
+A WAVS service is a collection of one or more workflows that define the different execution paths in your service.
 
 {/* todo: fill out section, verify content. Add examples of multi workflow and chained services. discuss shared config/manager in workflows, but not shared storage. */}
 
 
-Each workflow consists of three main components:
+Each workflow consists of three parts:
 
-1. **Trigger**: Defines what event initiates the workflow
-2. **Component**: The WASM component that processes the event
-3. **Submit**: Specifies where to send the results
-
-## Multi-workflow services
-
-A WAVS service can have one or multiple workflows. You can specify multiple workflows in the service manifest. Each workflow can have a different trigger, component, and submision logic.
-
-
-
-
-
-
-
-
-Each workflow execution is completely isolated with components running in separate WebAssembly environments. Each execution has its own memory space and components cannot directly access each other's memory or state.
+- **Trigger**: Defines what event initiates the workflow
+- **Component**: The WASM component that processes the event
+- **Submit**: Specifies where to send the results
 
 
 ## Workflow Structure
 
-
+Workflows are defined in the service manifest file, which contains the necessary information on which trigger, component, and submission logic are needed.
 
 ```json
-{
-  "trigger": {
-    "type": "evm",
-    "config": {
-      "address": "0x1234...",
-      "event_hash": "0xabcd...",
-      "chain_name": "ethereum"
-    }
-  },
-  "component": {
-    "source": {
-      "digest": "sha256:abc123..."
+// ... other parts of the service manifest
+"workflows": { //workflows are added here
+"0196c34d-003d-7412-a3f3-70f8ec664e12": {  // a unique workflow ID (default is a generated UUID v7)
+    "trigger": {  // Defines what starts the workflow
+        "cron": {  // Type of trigger (cron job)
+            "schedule": "0 * * * * *",  // Runs every minute at 0 seconds
+            "start_time": null,
+            "end_time": null
+        }
     },
-    "permissions": {
-      "allowed_http_hosts": "all",
-      "file_system": true
+    "component": { // the WASI component containing the business logic of the workflow
+        "source": {  // Where the component code comes from
+            "Digest": "65747b4b1a7fa98cab6abd9a81a6102068de77b1040b94de904112272b226f51"  // SHA-256 hash of the component's bytecode
+        },
+        "permissions": {  // What the component can access
+            "allowed_http_hosts": "all",  // Can make HTTP requests to any host
+            "file_system": true  // Can access the filesystem
+        },
+        "fuel_limit": null,  // Computational limits for the component
+        "time_limit_seconds": 1800,  // Can run for up to 30 minutes
+        "config": {  // Configuration passed to the component
+            "nft": "0xb5d4D4a87Cb07f33b5FAd6736D8F1EE7D255d9E9",  // NFT contract address
+            "reward_token": "0x34045B4b0cdfADf87B840bCF544161168c8ab85A"  // Reward token address
+        },
+        "env_keys": [  // Secret environment variables the component can access from .env
+            "WAVS_ENV_API_KEY",  // secret API key with prefix WAVS_ENV_
+        ]
     },
-    "fuel_limit": 1000000,
-    "time_limit_seconds": 30,
-    "config": {
-      "key1": "value1"
+    "submit": {  // Where results are sent
+        "aggregator": {  // Type of submission (aggregator)
+            "url": "http://127.0.0.1:8001"  // Local aggregator endpoint
+        }
     },
-    "env_keys": [
-      "WAVS_ENV_API_KEY"
+    "aggregators": [  // The final submission address that the aggregator will submit to
+        {
+            "evm": {  // EVM chain configuration
+                "chain_name": "local",  // Local Ethereum chain
+                "address": "0xd6f8ff0036d8b2088107902102f9415330868109",  // Contract address
+                "max_gas": 5000000  // Maximum gas limit for transactions
+            }
+        }
     ]
-  },
-  "submit": {
-    "type": "evm_contract",
-    "config": {
-      "chain_name": "ethereum",
-      "address": "0x5678...",
-      "max_gas": 500000
-    }
-  }
 }
+// other workflows can be added here...
+},
+
+// ... the rest of the service manifest
 ```
-
-
-
-
-
-
 
 ## Execution Model
 
@@ -186,3 +179,55 @@ Components in different workflows cannot directly communicate. To pass data betw
    - Restrict HTTP host access
    - Limit filesystem access
    - Use environment variables for sensitive data 
+
+
+## Multi-workflow services
+
+A WAVS service can have one or multiple workflows. You can specify multiple workflows as objects in the service manifest. Each workflow can have a different trigger, component, and submision logic.
+
+```json
+{
+  "workflows": {
+    "workflow-uuid-1": {
+      "trigger": { ... },
+      "component": { ... },
+      "submit": { ... }
+    },
+    "workflow-uuid-2": {
+      "trigger": { ... },
+      "component": { ... },
+      "submit": { ... }
+    }
+    // ... more workflows can be added here
+  }
+}
+```
+
+
+Each workflow execution is completely isolated with components running in separate WebAssembly environments. Each execution has its own memory space and components cannot directly access each other's memory or state.
+
+## Chaining workflows
+
+You can chain workflows together to create more complex execution flows. To have one workflow trigger another, simply set the event trigger of the second workflow to the onchain submission event of the first workflow.
+
+```json
+{
+  "workflows": {
+    "workflow-uuid-1": {
+      "trigger": { ... }, // trigger for first workflow
+      "component": { ... }, // component for first workflow
+      "submit": { ... } // submission logic for first workflow
+    },
+    "workflow-uuid-2": {
+      "trigger": { ... }, // trigger for second workflow is the onchain submission event of the first workflow
+      "component": { ... }, // component for second workflow
+      "submit": { ... } // submission logic for second workflow
+    }
+  }
+}
+```
+You can also chain different services together with this method by setting the trigger of the second service to the onchain submission event of the first service.
+
+## Multichain services
+
+WAVS enables multichain services by allowing contract event or block height triggers on Cosmos or EVM chains (with more coming soon). This architecture lets you create cross-chain services that monitor events or block heights on one chain and submit the results to Ethereum.

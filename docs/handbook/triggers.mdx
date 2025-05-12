@@ -79,16 +79,32 @@ Triggers define when and how the component should be executed. Each workflow nee
 This trigger listens for specific events emitted by contracts on EVM-compatible chains, executing the component when a matching event is detected.
 
 ```json
-{
+
   "trigger": {
-    "type": "evm",
-    "config": {
-      "address": "0x1234...",     // Contract address to monitor
-      "event_hash": "0x...",      // Event hash (32 bytes)
-      "chain_name": "ethereum"    // Chain to monitor
+    "evm_contract_event": {
+      "address": "0x00000000219ab540356cbb839cbe05303d7705fa", // Contract address to monitor
+      "chain_name": "ethereum-mainnet", // Chain to monitor
+      "event_hash": "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef" // Event hash (32 bytes)
     }
-  }
-}
+  },
+
+```
+
+Your evm chain information must be set in `wavs.toml` under the `[default.chains.evm.<chain_name>]` section:
+
+```toml wavs.toml
+# Local / Testnet
+[default.chains.evm.local]
+chain_id = "31337"
+ws_endpoint = "ws://localhost:8545"
+http_endpoint = "http://localhost:8545"
+poll_interval_ms = 7000
+```
+
+Your EVM chain credential must be set in your `.env` file:
+
+```env .env
+WAVS_CLI_EVM_CREDENTIAL="0x5ce146f435835b1762ed602088740d201b68fd94bf808f97fd04588f1a63c9ab"
 ```
 
 ### Cosmos event trigger
@@ -96,33 +112,53 @@ This trigger listens for specific events emitted by contracts on EVM-compatible 
 This trigger monitors events emitted by Cosmos smart contracts, executing your component when a matching event type is detected from the specified contract address.
 
 ```json
-{
   "trigger": {
-    "type": "cosmos",
-    "config": {
-      "address": "cosmos1...",    // Bech32 contract address
-      "event_type": "transfer",   // Event type to watch
-      "chain_name": "cosmoshub-4" // Chain to monitor set in wavs.toml
+    "cosmos_contract_event": {
+      "address": {
+        "Cosmos": {
+          "bech32_addr": "neutron1qlaq54uh9f52d3p66q77s6kh9k9ee3vasy8gkdkk3yvgezcs6zts0mkcv4", // Contract address to monitor
+          "prefix_len": 7 // Length of the Bech32 prefix (7 for Neutron)
+        }
+      },
+      "chain_name": "neutron", // Chain to monitor
+      "event_type": "send_nft" // Event type to watch
     }
-  }
-}
+  },
+```
+
+Your chain information must be set in `wavs.toml` under the `[default.chains.cosmos.<chain_name>]` section:
+
+```toml wavs.toml
+# == Cosmos chains ==
+
+[default.chains.cosmos.neutron]
+chain_id = "pion-1"
+bech32_prefix = "neutron"
+rpc_endpoint = "https://rpc-falcron.pion-1.ntrn.tech"
+grpc_endpoint = "http://grpc-falcron.pion-1.ntrn.tech:80"
+gas_price = 0.0053
+gas_denom = "untrn"
+```
+
+Your Cosmos mnemonic must be set in your `.env` file:
+
+```env .env
+WAVS_CLI_COSMOS_MNEMONIC="large slab plate twenty laundry illegal vacuum phone drum example topic reason"
 ```
 
 ### Cron trigger
 
-Executes your component on a schedule defined by a cron expression, with optional start and end times to control the execution window.
+Executes your component on a schedule defined by a cron expression, with optional start and end times to control the execution window. If no start or end time is provided, the component will start immediately and run indefinitely.
 
 ```json
-{
+
   "trigger": {
-    "type": "cron",
-    "config": {
-      "schedule": "*/45 * * * * *",  // Cron expression
-      "start_time": 1704067200000000000,  // Optional start time in nanoseconds since Unix epoch (2024-01-01T00:00:00Z)
-      "end_time": 1735689599000000000     // Optional end time in nanoseconds since Unix epoch (2024-12-31T23:59:59Z)
+    "cron": {
+      "schedule": "0 */5 * * * *",  // Every 5 minutes (at 0 seconds)
+      "start_time": 1704067200000000000,  // Optional start time in nanoseconds since Unix epoch (2024-01-01T00:00:00Z) (default: null)
+      "end_time": 1735689599000000000     // Optional end time in nanoseconds since Unix epoch (default: null)
     }
   }
-}
 
 // Cron Expression Format:
 // * * * * * *
@@ -135,19 +171,19 @@ Executes your component on a schedule defined by a cron expression, with optiona
 // └──────────── Second (0-59)
 //
 // Each field can be:
-// - A number: `5` (exact time)
-// - A range: `1-5` (1 through 5)
-// - A list: `1,3,5` (1, 3, and 5)
-// - A step: `*/5` (every 5 units)
-// - An asterisk: `*` (every unit)
+// - A number:    `5`      (exact time)
+// - A range:     `1-5`    (1 through 5)
+// - A list:      `1,3,5`  (1, 3, and 5)
+// - A step:      `*/5`    (every 5 units)
+// - An asterisk: `*`      (every unit)
 //
 // Common examples:
-// - `*/45 * * * * *` - Every 45 seconds
-// - `0 */5 * * * *` - Every 5 minutes
-// - `0 0 * * * *` - Every hour
-// - `0 0 12 * * *` - Every day at noon
-// - `0 0 12 1 * *` - Noon on the first day of every month
-// - `0 0 12 * * 1` - Noon every Monday
+// - `0 */5 * * * *`     - Every 5 minutes (at 0 seconds)
+// - `0 0 */6 * * *`     - Every 6 hours (at 0 minutes and 0 seconds)
+// - `0 0 0 * * *`       - Every day at midnight (00:00:00)
+// - `0 0 12 * * *`      - Every day at noon (12:00:00)
+// - `0 0 12 1 * *`      - Noon on the first day of every month
+// - `0 0 12 * * 1`      - Noon every Monday
 ```
 
 [Crontab.guru](https://crontab.guru/) is a helpful tool for making cron expressions.
@@ -168,15 +204,12 @@ If you need precise timing synchronization between operators, consider using [bl
 Executes your component at regular block intervals on a specified EVM or Cosmos chain, useful for chain-specific operations that need to run periodically.
 
 ```json
-{
   "trigger": {
-    "type": "block",
-    "config": {
-      "chain_name": "ethereum",  // Must match exactly what's in wavs.toml
-      "n_blocks": 10            // Must be a non-zero number
+    "block_interval": {
+      "ethereum-mainnet": "layer-hacknet", // Chain to monitor
+      "n_blocks": 10 // Number of blocks between triggers
     }
-  }
-}
+  },
 ```
 
 {/* todo: update this info when https://github.com/Lay3rLabs/WAVS/issues/612 is resolved */}
@@ -187,5 +220,4 @@ The `chain-name` in your block trigger configuration is set in `wavs.toml` under
 [wavs]
 active_trigger_chains = ["<chain_name>"]
 ```
-
 

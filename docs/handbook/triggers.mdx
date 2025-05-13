@@ -13,40 +13,52 @@ A trigger prompts a WAVS service to run. Operators listen for the trigger event 
 
 ### Trigger lifecycle
 
-1. When a service is deployed, it is configured with a trigger address and event, a wasi component, and a submission contract (optional).
+1. A service is deployed with a service.json manifest which contains information on the service and workflow logic (components, triggers, submission logic).
 
-2. Registered operators listen to chain logs. Each operator maintains lookup maps and verifies events against registered triggers.
+2. Operators maintain several specialized lookup maps to efficiently track and verify triggers. For EVM and Cosmos events, they map chain names, contract addresses, and event identifiers to trigger IDs. Block interval triggers are tracked by chain name with countdown timers, while cron triggers are managed in a priority queue ordered by execution time.
 
-3. When a trigger event is emitted, operators pick up the event and verify the event matches the registered trigger.
+3. When a trigger is detected, operators verify it against their lookup maps according to trigger type. If a match is found, a TriggerAction is created with the trigger configuration and event data.
 
-4. If a match is found, WAVS creates a `TriggerAction` that wraps the trigger event data:
+4. `TriggerAction` has 2 fields: `TriggerConfig` which contains the service, workflow, and trigger configuration, and `TriggerData`contains the trigger data based on the trigger type.
 
 ```rust
-TriggerAction {
-    // Service and workflow identification
-    config: TriggerConfig {
-       service_id: ServiceID,      // Generated during deployment
-        workflow_id: WorkflowID,    // Default or specified
-        trigger: Trigger::EthContractEvent {
-           address: Address,       // Contract address
-            chain_name: ChainName,  // Chain identifier
-            event_hash: ByteArray<32> // Event signature
-        }
+pub struct TriggerAction {
+    pub config: TriggerConfig,  // Contains service_id, workflow_id, and trigger type
+    pub data: TriggerData,      // Contains the actual trigger data
+}
+
+pub struct TriggerConfig {
+    pub service_id: ServiceID,
+    pub workflow_id: WorkflowID,
+    pub trigger: Trigger,
+}
+
+pub enum TriggerData {
+    CosmosContractEvent { //For Cosmos event triggers
+        contract_address: layer_climb_address::Address, /// The address of the contract that emitted the event
+        chain_name: ChainName, /// The name of the chain where the event was emitted
+        event: cosmwasm_std::Event, /// The data that was emitted by the contract
+        block_height: u64, /// The block height where the event was emitted
     },
-   // The actual event data
-    data: TriggerData::EthContractEvent {
-        contract_address: Address,  // Emitting contract
-        chain_name: ChainName,      // Source chain
-        log: LogData {             // Raw event data
-            topics: Vec<Vec<u8>>,  // Event signature + indexed params
-            data: Vec<u8>         // ABI-encoded event data
-        },
-        block_height: u64         // Block number
+    EvmContractEvent { //For EVM event triggers
+        contract_address: alloy_primitives::Address, /// The address of the contract that emitted the event
+        chain_name: ChainName, /// The name of the chain where the event was emitted
+        log: LogData, /// The raw event log
+        block_height: u64, /// The block height where the event was emitted
+    },
+    BlockInterval { //For block interval triggers
+        chain_name: ChainName, /// The name of the chain where the blocks are checked
+        block_height: u64, /// The block height where the event was emitted
+    },
+    Cron { //For cron triggers
+        trigger_time: Timestamp, /// The trigger time
     }
 }
 ```
 
 5. The TriggerAction is converted to a WASI-compatible format and passed to the component where it is decoded and processed.
+
+{/* todo: update this when template is finalized
 
 ### Developing triggers
 
@@ -68,7 +80,7 @@ The [trigger contract in the WAVS foundry template](https://github.com/Lay3rLabs
 - The `decode_trigger_event` function in [`/components/eth-price-oracle/src/trigger.rs`](https://github.com/Lay3rLabs/wavs-foundry-template/tree/v0.3.0/components/eth-price-oracle/src/trigger.rs#L11-L21) processes the trigger data and extracts the `trigger_id` and `data`.
 - The `run` function in [`/components/eth-price-oracle/src/lib.rs`](https://github.com/Lay3rLabs/wavs-foundry-template/tree/v0.3.0/components/eth-price-oracle/src/lib.rs#L13) calls `decode_trigger_event`, processes the extracted trigger data, and determines how to handle it.
 - When testing, the `wasi-exec` command in the [`Makefile`](https://github.com/Lay3rLabs/wavs-foundry-template/tree/v0.3.0/Makefile#L39-L43) passes input data when testing WAVS components via ``--input `cast format-bytes32-string $(COIN_MARKET_CAP_ID)` ``. This uses cast to format the `COIN_MARKET_CAP_ID` as a bytes32 string and simulates an Ethereum event during local execution.
-
+ */}
 
 ## Trigger configuration
 
@@ -76,7 +88,7 @@ Triggers define when and how the component should be executed. Each workflow nee
 
 ### EVM event trigger
 
-This trigger listens for specific events emitted by contracts on EVM-compatible chains, executing the component when a matching event is detected.
+This trigger listens for specific events emitted by contracts on EVM-compatible chains, executing the component when a matching event is detected. Event triggers pass raw log data to the component.
 
 ```json
 
@@ -109,7 +121,7 @@ WAVS_CLI_EVM_CREDENTIAL="0x5ce146f435835b1762ed602088740d201b68fd94bf808f97fd045
 
 ### Cosmos event trigger
 
-This trigger monitors events emitted by Cosmos smart contracts, executing your component when a matching event type is detected from the specified contract address.
+This trigger monitors events emitted by Cosmos smart contracts, executing your component when a matching event type is detected from the specified contract address. Cosmos event triggers pass the contract data that was emitted by the contract to the component.
 
 ```json
   "trigger": {
@@ -148,7 +160,7 @@ WAVS_CLI_COSMOS_MNEMONIC="large slab plate twenty laundry illegal vacuum phone d
 
 ### Cron trigger
 
-Executes your component on a schedule defined by a cron expression, with optional start and end times to control the execution window. If no start or end time is provided, the component will start immediately and run indefinitely.
+Executes your component on a schedule defined by a cron expression, with optional start and end times to control the execution window. If no start or end time is provided, the component will start immediately and run indefinitely. Cron triggers pass the trigger timestamp to the component.
 
 ```json
 
@@ -201,7 +213,7 @@ If you need precise timing synchronization between operators, consider using [bl
 
 ### Block trigger
 
-Executes your component at regular block intervals on a specified EVM or Cosmos chain, useful for chain-specific operations that need to run periodically.
+Executes your component at regular block intervals on a specified EVM or Cosmos chain, useful for chain-specific operations that need to run periodically. Block interval triggers pass the block height and chain name to the component.
 
 ```json
   "trigger": {

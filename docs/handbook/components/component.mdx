@@ -11,8 +11,9 @@ A basic component has three main parts:
 After being passed the `TriggerAction`, the component decodes it using the `decode_event_log_data!` macro from the [`wavs-wasi-chain`](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions) crate.
 
 
-## 1. Component implementation 
+## 1. Component implementation
 
+{/* todo: pick a really basic example to show component structure. */}
 ```rust
 #[allow(warnings)]
 mod bindings;
@@ -186,16 +187,18 @@ When building WASI components, keep in mind that the component can receive the t
 
 ### Data Processing Pattern
 
+{/* todo: update this section. */}
+
 The example below shows a basic generic pattern for processing input data and returning output. In the example, the `sol!` macro generates Rust types from Solidity definitions, adds ABI encoding/decoding methods, and handles type conversions (e.g., `uint64` → `u64`). ABI encoding/decoding converts Rust structs to bytes and vice versa. The `decode_event_log_data!` macro decodes the raw event log data and returns a Rust struct matching your Solidity event. This is used for on-chain events.
 
 
 ```rust
 // 1. Define your Solidity types using the `sol!` macro
 sol! {
-    event MyEvent(bytes data);  // Generic event with just data
+    event MyEvent(uint64 indexed triggerId, bytes data);
     struct MyResult {
-        bool success;
-        bytes result;  // Generic result data
+        uint64 triggerId;
+        bytes processedData;
     }
 }
 
@@ -210,8 +213,8 @@ impl Guest for Component {
                 
                 // Process the data
                 let result = MyResult {
-                    success: true,
-                    result: event.data  // Pass through the data as an example
+                    triggerId: event.triggerId,
+                    processedData: process_data(&event.data)?,
                 };
                 
                 // Encode for submission

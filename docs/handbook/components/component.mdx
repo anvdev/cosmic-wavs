@@ -10,80 +10,133 @@ A basic component has three main parts:
 
 After being passed the `TriggerAction`, the component decodes it using the `decode_event_log_data!` macro from the [`wavs-wasi-chain`](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions) crate.
 
+
+## 1. Component implementation 
+
 ```rust
-// Imports
 #[allow(warnings)]
 mod bindings;
 use alloy_sol_types::{sol, SolValue};
 use bindings::{export, wavs::worker::layer_types::{TriggerData, TriggerDataEvmContractEvent}, Guest, TriggerAction, WasmResponse};
 use wavs_wasi_utils::decode_event_log_data;
-use serde::{Deserialize, Serialize};
 
-// Solidity types for the incoming evm trigger event using the `sol!` macro
+// Solidity types for the incoming trigger event using the `sol!` macro
 sol! {
-    event MyEvent(uint64 indexed triggerId, bytes data);
+    event MyEvent(bytes data);  // Generic event with just data
     struct MyResult {
-        uint64 triggerId;
         bool success;
+        bytes result;  // Generic result data
     }
 }
 
+// Define the component
 struct Component;
 export!(Component with_types_in bindings);
 
 impl Guest for Component {
-    fn run(action: TriggerAction) -> std::result::Result<Option<WasmResponse>, String> {
-        // 1. Decode the trigger event
-        let (trigger_id, data) = match action.data {
+    fn run(action: TriggerAction) -> Result<Option<WasmResponse>, String> {
+        match action.data {
             TriggerData::EvmContractEvent(TriggerDataEvmContractEvent { log, .. }) => {
-                let event: MyEvent = decode_event_log_data!(log)?;
-                (event.triggerId, event.data.to_vec())
+                // 1. Decode the event
+                let event: MyEvent = decode_event_log_data!(log)
+                    .map_err(|e| format!("Failed to decode event: {}", e))?;
+                
+                // 2. Process data (your business logic goes here)
+                let result = MyResult {
+                    success: true,
+                    result: event.data
+                };
+                
+                // 3. Return encoded result
+                Ok(Some(WasmResponse {
+                    payload: result.abi_encode(),  // Encode the result for blockchain submission
+                    ordering: None                 // Optional ordering parameter for transaction sequencing
+                }))
             }
-            TriggerData::Raw(data) => (0, data.clone()),
-            _ => return Err("Unsupported trigger type".to_string()),
-        };
-
-        // 2. Process the data (your business logic goes here)
-        let result = MyResult {
-            triggerId: trigger_id,
-            success: true,
-        };
-
-        // 3. Return encoded result
-        Ok(Some(WasmResponse {
-            payload: result.abi_encode(),
-            ordering: None,
-        }))
-    }
-}
-
-// Example data structure for processing
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ProcessedData {
-    id: u64,
-    result: String,
-    timestamp: String,
-}
-
-// Helper enum for determining output destination
-enum Destination {
-    Ethereum,
-    CliOutput,
-}
-
-// Helper function to encode output for Ethereum submission
-fn encode_trigger_output(trigger_id: u64, output: impl AsRef<[u8]>) -> WasmResponse {
-    WasmResponse {
-        payload: solidity::DataWithId {
-            triggerId: trigger_id,
-            data: output.as_ref().to_vec().into(),
+            _ => Err("Unsupported trigger type".to_string())
         }
-        .abi_encode(),
-        ordering: None,
     }
 }
 
 ```
+
+### 2. Component Implementation (lib.rs)
+
+#### Basic Structure
+
+```rust
+// Required imports
+use alloy_sol_types::{sol, SolCall, SolValue};
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
+use wavs_wasi_chain::decode_event_log_data;
+use wstd::runtime::block_on;
+
+pub mod bindings; // Never edit bindings.rs!
+use crate::bindings::wavs::worker::layer_types::{TriggerData, TriggerDataEthContractEvent};
+use crate::bindings::{export, Guest, TriggerAction};
+
+// Example of using sol! macro to define blockchain types
+sol! {
+    event NewTrigger(uint64 triggerId, bytes data);  // Event emitted by the contract
+    struct TriggerInfo {                             // Struct for trigger data
+        uint64 triggerId;
+        bytes data;
+    }
+}
+
+// Define destination for output
+pub enum Destination {
+    Ethereum,
+    CliOutput,
+}
+
+// Component struct declaration 
+struct Component;
+export!(Component with_types_in bindings);
+
+// Main component implementation
+impl Guest for Component {
+    fn run(action: TriggerAction) -> std::result::Result<Option<Vec<u8>>, String> {
+        let (trigger_id, req, dest) = 
+            decode_trigger_event(action.data).map_err(|e| e.to_string())?;
+            
+        // 1. Decode input data
+        // 2. Process data
+        // 3. Return encoded output
+        
+        let output = match dest {
+            Destination::Ethereum => Some(encode_trigger_output(trigger_id, &result)),
+            Destination::CliOutput => Some(result),
+        };
+        Ok(output)
+    }
+}
+```
+
+#### Trigger Event Handling
+
+```rust
+pub fn decode_trigger_event(trigger_data: TriggerData) -> Result<(u64, Vec<u8>, Destination)> {
+    match trigger_data {
+        TriggerData::EthContractEvent(TriggerDataEthContractEvent { log, .. }) => {
+            let event: solidity::NewTrigger = decode_event_log_data!(log)?;
+            let trigger_info =
+                <solidity::TriggerInfo as SolValue>::abi_decode(&event._triggerInfo, false)?;
+            Ok((trigger_info.triggerId, trigger_info.data.to_vec(), Destination::Ethereum))
+        }
+        TriggerData::Raw(data) => Ok((0, data.clone(), Destination::CliOutput)),
+        _ => Err(anyhow::anyhow!("Unsupported trigger data type")),
+    }
+}
+
+pub fn encode_trigger_output(trigger_id: u64, output: impl AsRef<[u8]>) -> Vec<u8> {
+    solidity::DataWithId { triggerId: trigger_id, data: output.as_ref().to_vec().into() }
+        .abi_encode()
+}
+```
+
+
 
 Components must implement the `Guest` trait, which is the main interface between your component and the WAVS runtime. The `run` function is the entry point for processing triggers: it should receive the trigger data, decode it, process it according to your component's logic, and return the results. If you need to submit results to the blockchain, results need to be encoded using `abi_encode()`.
 
@@ -139,10 +192,10 @@ The example below shows a basic generic pattern for processing input data and re
 ```rust
 // 1. Define your Solidity types using the `sol!` macro
 sol! {
-    event MyEvent(uint64 indexed triggerId, bytes data);
+    event MyEvent(bytes data);  // Generic event with just data
     struct MyResult {
-        uint64 triggerId;
-        bytes processedData;
+        bool success;
+        bytes result;  // Generic result data
     }
 }
 
@@ -157,8 +210,8 @@ impl Guest for Component {
                 
                 // Process the data
                 let result = MyResult {
-                    triggerId: event.triggerId,
-                    processedData: process_data(&event.data)?,
+                    success: true,
+                    result: event.data  // Pass through the data as an example
                 };
                 
                 // Encode for submission

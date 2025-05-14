@@ -11,12 +11,13 @@ A basic component has three main parts:
 After being passed the `TriggerAction`, the component decodes it using the `decode_event_log_data!` macro from the [`wavs-wasi-chain`](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions) crate.
 
 ```rust
-
+// Imports
 #[allow(warnings)]
 mod bindings;
 use alloy_sol_types::{sol, SolValue};
-use bindings::{export, wavs::worker::layer_types::{TriggerData, TriggerDataEthContractEvent}, Guest, TriggerAction};
-use wavs_wasi_chain::decode_event_log_data;
+use bindings::{export, wavs::worker::layer_types::{TriggerData, TriggerDataEvmContractEvent}, Guest, TriggerAction, WasmResponse};
+use wavs_wasi_utils::decode_event_log_data;
+use serde::{Deserialize, Serialize};
 
 // Solidity types for the incoming evm trigger event using the `sol!` macro
 sol! {
@@ -27,31 +28,61 @@ sol! {
     }
 }
 
-// Define the component
 struct Component;
 export!(Component with_types_in bindings);
 
 impl Guest for Component {
-    fn run(action: TriggerAction) -> Result<Option<Vec<u8>>, String> {
-        match action.data {
-            TriggerData::EthContractEvent(TriggerDataEthContractEvent { log, .. }) => {
-                // 1. Decode the event
-                let event: MyEvent = decode_event_log_data!(log)
-                    .map_err(|e| format!("Failed to decode event: {}", e))?;
-                
-                // 2. Process data (your business logic goes here)
-                let result = MyResult {
-                    triggerId,
-                    success: true
-                };
-                
-                // 3. Return encoded result
-                Ok(Some(result.abi_encode()))
+    fn run(action: TriggerAction) -> std::result::Result<Option<WasmResponse>, String> {
+        // 1. Decode the trigger event
+        let (trigger_id, data) = match action.data {
+            TriggerData::EvmContractEvent(TriggerDataEvmContractEvent { log, .. }) => {
+                let event: MyEvent = decode_event_log_data!(log)?;
+                (event.triggerId, event.data.to_vec())
             }
-            _ => Err("Unsupported trigger type".to_string())
-        }
+            TriggerData::Raw(data) => (0, data.clone()),
+            _ => return Err("Unsupported trigger type".to_string()),
+        };
+
+        // 2. Process the data (your business logic goes here)
+        let result = MyResult {
+            triggerId: trigger_id,
+            success: true,
+        };
+
+        // 3. Return encoded result
+        Ok(Some(WasmResponse {
+            payload: result.abi_encode(),
+            ordering: None,
+        }))
     }
 }
+
+// Example data structure for processing
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ProcessedData {
+    id: u64,
+    result: String,
+    timestamp: String,
+}
+
+// Helper enum for determining output destination
+enum Destination {
+    Ethereum,
+    CliOutput,
+}
+
+// Helper function to encode output for Ethereum submission
+fn encode_trigger_output(trigger_id: u64, output: impl AsRef<[u8]>) -> WasmResponse {
+    WasmResponse {
+        payload: solidity::DataWithId {
+            triggerId: trigger_id,
+            data: output.as_ref().to_vec().into(),
+        }
+        .abi_encode(),
+        ordering: None,
+    }
+}
+
 ```
 
 Components must implement the `Guest` trait, which is the main interface between your component and the WAVS runtime. The `run` function is the entry point for processing triggers: it should receive the trigger data, decode it, process it according to your component's logic, and return the results. If you need to submit results to the blockchain, results need to be encoded using `abi_encode()`.
@@ -61,8 +92,36 @@ The `sol!` macro from `alloy_sol_types` is used to define Solidity types in Rust
 Bindings are automatically generated for any files in the `/components` and `/src` directories when the `make build` command is run.
 
 
-{/* todo: update section below. */}
 
+
+## Component definition
+
+A component is defined in a service's manifest JSON file in the workflow object.
+
+```json service.json
+// ... other parts of the service manifest
+    "component": { // the WASI component containing the business logic of the workflow
+        "source": {  // Where the component code comes from
+            "Digest": "65747b4b1a7fa98cab6abd9a81a6102068de77b1040b94de904112272b226f51"  // SHA-256 hash of the component's bytecode
+        },
+        "permissions": {  // What the component can access
+            "allowed_http_hosts": "all",  // Can make HTTP requests to any host
+            "file_system": true  // Can access the filesystem
+        },
+        "fuel_limit": null,  // Computational limits for the component
+        "time_limit_seconds": 1800,  // Can run for up to 30 minutes
+        "config": {  // Configuration passed to the component
+            "nft": "0xb5d4D4a87Cb07f33b5FAd6736D8F1EE7D255d9E9",  // NFT contract address
+            "reward_token": "0x34045B4b0cdfADf87B840bCF544161168c8ab85A"  // Reward token address
+        },
+        "env_keys": [  // Secret environment variables the component can access from .env
+            "WAVS_ENV_API_KEY",  // secret API key with prefix WAVS_ENV_
+        ]
+    },
+// ... the rest of the service manifest
+```
+
+{/* todo: update section below. */}
 ## Input and Output
 
 When building WASI components, keep in mind that the component can receive the trigger data in two ways:
@@ -117,37 +176,6 @@ impl Guest for Component {
 }
 ```
 
-In the template, encoding and decoding is handled in the `trigger.rs` file using a `Destination` enum to determine how to process and return data based on the trigger source. The `decode_trigger_event` function in `trigger.rs` determines the destination:
-
-- For `TriggerData::EthContractEvent`, it returns `Destination::Ethereum`
-- For `TriggerData::Raw` (used in testing), it returns `Destination::CliOutput`
-
-This allows the component to handle both production and testing scenarios appropriately.
-
-{/* todo: update all of the below. add below to it's own page? component becomes a directory on writing components ?  Add info on multi-language? */}
-
-
-## Logging
-
-Components can use logging to debug and track the execution of the component.
-
-**Logging in development**:
-
-Use `println!()` to write to stdout/stderr. This is visible when running `wasi-exec` locally.
-
-```rust lib.rs
-println!("Debug message: {:?}", data);
-```
-
-**Logging in production**
-
-For production, you can use a `host::log()` function which takes a `LogLevel` and writes its output via the tracing mechanism. Along with the string that the developer provides, it attaches additional context such as the `ServiceID`, `WorkflowID`, and component `Digest`.
-
-```rust lib.rs
-host::log(LogLevel::Info, "Production logging message");
-```
-
-
 ## Helpers and utilities
 
 ### `wavs-wasi-chain` crate
@@ -159,6 +187,7 @@ Learn more in the [crate documentation](https://docs.rs/wavs-wasi-chain/latest/w
 ### Sol! macro
 
 The `sol!` macro from `alloy-sol-macro` allows you to generate Rust types from Solidity interface files. This is useful for handling blockchain events and data structures in components.
+
 
 You can write Solidity definitions (interfaces, structs, enums, custom errors, events, and function signatures) directly inside the `sol! { ... }` macro invocation in your Rust code.
 
@@ -213,4 +242,30 @@ The macro reads a Solidity interface file and generates corresponding Rust types
 
 More documentation on the `sol!` macro can be found at: https://docs.rs/alloy-sol-macro/latest/alloy_sol_macro/macro.sol.html
 
+
+### `wavs-wasi-chain` crate
+
+The `wavs-wasi-chain` crate provides a set of helpful functions for making HTTP requests and interacting with the blockchain. It also provides a macro for decoding trigger data for use in the component.
+
+Learn more in the [crate documentation](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions).
+
+## Logging
+
+Components can use logging to debug and track the execution of the component.
+
+**Logging in development**:
+
+Use `println!()` to write to stdout/stderr. This is visible when running `wasi-exec` locally.
+
+```rust lib.rs
+println!("Debug message: {:?}", data);
+```
+
+**Logging in production**
+
+For production, you can use a `host::log()` function which takes a `LogLevel` and writes its output via the tracing mechanism. Along with the string that the developer provides, it attaches additional context such as the `ServiceID`, `WorkflowID`, and component `Digest`.
+
+```rust lib.rs
+host::log(LogLevel::Info, "Production logging message");
+```
 

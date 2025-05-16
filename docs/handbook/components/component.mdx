@@ -150,7 +150,7 @@ Bindings are automatically generated for any files in the `/components` and `/sr
 
 ## Component definition
 
-A component is defined in a service's manifest JSON file in the workflow object.
+A component is defined in a service.json file in the workflow object.
 
 ```json service.json
 // ... other parts of the service manifest
@@ -231,79 +231,6 @@ impl Guest for Component {
     }
 }
 ```
-
-## Helpers and utilities
-
-### `wavs-wasi-chain` crate
-
-The `wavs-wasi-chain` crate provides a set of helpful functions for making HTTP requests and interacting with the blockchain. It also provides a macro for decoding trigger data for use in the component.
-
-Learn more in the [crate documentation](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions).
-
-### Sol! macro
-
-The `sol!` macro from `alloy-sol-macro` allows you to generate Rust types from Solidity interface files. This is useful for handling blockchain events and data structures in components.
-
-
-You can write Solidity definitions (interfaces, structs, enums, custom errors, events, and function signatures) directly inside the `sol! { ... }` macro invocation in your Rust code.
-
-At compile time, the `sol!` macro parses that Solidity syntax and automatically generates the equivalent Rust types, structs, enums, and associated functions (like `abi_encode()` for calls or `abi_decode()` for return data/events) needed to interact with smart contracts based on those definitions.
-
-Required Dependencies:
-
-```toml
-[dependencies]
-alloy-sol-macro = { workspace = true }  # For Solidity type generation
-alloy-sol-types = { workspace = true }  # For ABI handling
-```
-
-Basic Pattern:
-
-```rust
-mod solidity {
-    use alloy_sol_macro::sol;
-    
-    // Generate types from Solidity file
-    sol!("../../src/interfaces/ITypes.sol");
-    
-    // Or define types inline
-    sol! {
-        struct TriggerInfo {
-            uint64 triggerId;
-            bytes data;
-        }
-        
-        event NewTrigger(TriggerInfo _triggerInfo);
-    }
-}
-```
-
-In the template, the `sol!` macro is used in the `trigger.rs` component file to generate Rust types from the `ITypes.sol` file.
-
-```rust trigger.rs
-mod solidity {
-    use alloy_sol_macro::sol;
-    pub use ITypes::*;
-
-    // The objects here will be generated automatically into Rust types.
-    // If you update the .sol file, you must re-run `cargo build` to see the changes.
-    sol!("../../src/interfaces/ITypes.sol");
-}
-```
-
-The macro reads a Solidity interface file and generates corresponding Rust types and encoding/decoding functions. In the example above, it reads `ITypes.sol` which defines:
-- `NewTrigger` event
-- `TriggerInfo` struct
-- `DataWithId` struct
-
-More documentation on the `sol!` macro can be found at: https://docs.rs/alloy-sol-macro/latest/alloy_sol_macro/macro.sol.html
-
-
-### `wavs-wasi-chain` crate
-
-The `wavs-wasi-chain` crate provides a set of helpful functions for making HTTP requests and interacting with the blockchain. It also provides a macro for decoding trigger data for use in the component.
-
-Learn more in the [crate documentation](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions).
 
 ## Logging
 

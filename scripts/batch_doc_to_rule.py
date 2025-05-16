@@ -14,6 +14,10 @@ def get_project_root() -> Path:
     # Assuming the script is in scripts/ directory
     return Path(__file__).parent.parent
 
+def get_scripts_dir() -> Path:
+    """Get the scripts directory."""
+    return Path(__file__).parent
+
 def get_doc_files(components_dir: str) -> List[Path]:
     """Get all .mdx files from the components directory."""
     components_path = Path(components_dir)
@@ -81,7 +85,7 @@ def main():
     args = parser.parse_args()
 
     # Load environment variables from .env file
-    env_path = get_project_root() / args.env_file
+    env_path = get_scripts_dir() / args.env_file
     load_dotenv(env_path)
 
     # Get API key from args, environment, or .env file

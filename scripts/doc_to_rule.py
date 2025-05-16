@@ -8,6 +8,30 @@ import openai
 from typing import Optional
 from dotenv import load_dotenv
 
+def clean_triple_backticks(content: str) -> str:
+    """Remove triple backticks from the start and end of the file while preserving code block backticks."""
+    # Remove leading triple backticks if they exist
+    if content.startswith('```'):
+        content = content[3:]
+    
+    # Remove trailing triple backticks if they exist
+    if content.endswith('```'):
+        content = content[:-3]
+    
+    return content
+
+def clean_leading_blank_lines(content: str) -> str:
+    """Remove any blank lines at the start of the content."""
+    lines = content.splitlines()
+    # Find the first non-empty line
+    start_idx = 0
+    for i, line in enumerate(lines):
+        if line.strip():
+            start_idx = i
+            break
+    # Return content starting from the first non-empty line
+    return '\n'.join(lines[start_idx:])
+
 def read_file(file_path: str) -> str:
     """Read the content of a file."""
     try:
@@ -48,7 +72,14 @@ def convert_doc_to_rule(doc_content: str, api_key: str) -> str:
 
     client = openai.OpenAI(api_key=api_key)
     
-    cursor_rules_structure = """# Cursor Rules
+    cursor_rules_structure = """# Cursor Rules Location
+
+How to add new cursor rules to the project
+
+1. Always place rule files in PROJECT_ROOT/.cursor/rules/:
+    .cursor/rules/
+    ├── your-rule-name.mdc
+    ├── another-rule.mdc
 
 2. Follow the naming convention:
     - Use kebab-case for filenames
@@ -70,11 +101,10 @@ def convert_doc_to_rule(doc_content: str, api_key: str) -> str:
 
 5. Cursor rules have the following structure:
 
-```
 ---
 description: Short description of the rule's purpose
-globs: optional/path/pattern/**/*
-alwaysApply: false
+globs: **/*.rs
+alwaysApply: true
 ---
 # Rule Title
 
@@ -102,7 +132,6 @@ function badExample() {
 For more information:
 - [Official Documentation](https://docs.example.com)
 - [API Reference](https://api.example.com)
-```
 """
 
     prompt = f"""Convert the following documentation into a Cursor rule file following this structure:
@@ -112,8 +141,8 @@ For more information:
 Remember to be very concise. this is for llms to read.
 
 Important formatting rules:
-1. Use full markdown links at the end (e.g. [Link Text](https://url.com)), not @ references
-2. Do not add triple backticks at the start or end of the file. Remove any that are present at the beginning or end of the file.
+1. Use full markdown links at the end (e.g. [Link Text](https://url.com))
+2. Do not add triple backticks at the start or end of the file
 3. Keep code blocks within the content only
 4. Preserve all code examples and their formatting
 5. Maintain the logical structure of the documentation
@@ -133,7 +162,11 @@ Here's the documentation to convert:
         temperature=0.3,
     )
     
-    return response.choices[0].message.content
+    # Clean up the content
+    content = response.choices[0].message.content
+    content = clean_triple_backticks(content)
+    content = clean_leading_blank_lines(content)
+    return content
 
 def main():
     parser = argparse.ArgumentParser(description='Convert documentation to Cursor rule files')

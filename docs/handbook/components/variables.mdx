@@ -2,6 +2,38 @@
 
 ## Environment Variables
 
+
+
+
+
+```json service.json
+// ... other parts of the service manifest
+//  "workflows": {
+//   "workflow-example": {
+//    "trigger": { ... }, the trigger for the workflow
+        "component": { // the WASI component containing the business logic of the workflow
+            "source": {  // Where the component code comes from
+            "Digest": "65747b4b1a7fa98cab6abd9a81a6102068de77b1040b94de904112272b226f51"  // SHA-256 hash of the component's bytecode
+        },
+        "permissions": {  // What the component can access
+            "allowed_http_hosts": "all",  // Can make HTTP requests to any host
+            "file_system": true  // Can access the filesystem
+        },
+        "fuel_limit": null,  // Computational limits for the component
+        "time_limit_seconds": 1800,  // Can run for up to 30 minutes
+        "config": {  // Configuration variables passed to the component
+            "nft": "0xb5d4D4a87Cb07f33b5FAd6736D8F1EE7D255d9E9",  // NFT contract address
+            "reward_token": "0x34045B4b0cdfADf87B840bCF544161168c8ab85A"  // Reward token address
+        },
+        "env_keys": [  // Secret environment variables the component can access from .env
+            "WAVS_ENV_API_KEY",  // secret API key with prefix WAVS_ENV_
+        ]
+    },
+//    "submit": { ... } // submission logic for the workflow
+// ... the rest of the service manifest
+```
+
+
 Components can be configured with two types of variables:
 
 ### Public variables: `kv`

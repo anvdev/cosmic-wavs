@@ -1,96 +1,74 @@
-{/* todo: update with new info. this is outdated */}
+---
+title: Variables
+---
+<!--docsignore
+import { Callout } from 'fumadocs-ui/components/callout';
+import { DocsPage } from 'fumadocs-ui/page';
+docsignore-->
 
 ## Environment Variables
 
-
-
-
-
-```json service.json
-// ... other parts of the service manifest
-//  "workflows": {
-//   "workflow-example": {
-//    "trigger": { ... }, the trigger for the workflow
-        "component": { // the WASI component containing the business logic of the workflow
-            "source": {  // Where the component code comes from
-            "Digest": "65747b4b1a7fa98cab6abd9a81a6102068de77b1040b94de904112272b226f51"  // SHA-256 hash of the component's bytecode
-        },
-        "permissions": {  // What the component can access
-            "allowed_http_hosts": "all",  // Can make HTTP requests to any host
-            "file_system": true  // Can access the filesystem
-        },
-        "fuel_limit": null,  // Computational limits for the component
-        "time_limit_seconds": 1800,  // Can run for up to 30 minutes
-        "config": {  // Configuration variables passed to the component
-            "nft": "0xb5d4D4a87Cb07f33b5FAd6736D8F1EE7D255d9E9",  // NFT contract address
-            "reward_token": "0x34045B4b0cdfADf87B840bCF544161168c8ab85A"  // Reward token address
-        },
-        "env_keys": [  // Secret environment variables the component can access from .env
-            "WAVS_ENV_API_KEY",  // secret API key with prefix WAVS_ENV_
-        ]
-    },
-//    "submit": { ... } // submission logic for the workflow
-// ... the rest of the service manifest
-```
-
+{/* todo: verify this section before release. Add instructions on flags for the wasi-exec command to pass config variables */}
 
 Components can be configured with two types of variables:
 
-### Public variables: `kv`
+### Public variables
 
-{/* todo: update with new info. this is outdated : `host::config_var(config_var)` where host is in the world bindings. set in config as kv */}
+These variables can be used for non-sensitive information that can be viewed publicly. These variables are set in the `config` field of a service manifest. All config values are stored as strings, even for numbers.
 
-These variables can be used for non-sensitive information that can be viewed publicly. These variables can be configured in the makefile and are set during service deployment. They are accessed using `std::env::var` in the component.
+To add public variables:
 
-To add public variables, modify the `"kv"` section in the `SERVICE_CONFIG` in your `Makefile`. The following example adds `max_retries`, `timeout_seconds`, and `api_endpoint` variables with values:
+1. Add the public variables to the `config` field in the service manifest:
 
-```bash
-# makefile
-SERVICE_CONFIG ?= '{"fuel_limit":100000000,"max_gas":5000000,"host_envs":[],"kv":[["max_retries","3"],["timeout_seconds","30"],["api_endpoint","https://api.example.com"]],"workflow_id":"default","component_id":"default"}'
+```json
+"component": {
+    "config": {
+        "api_endpoint": "https://api.example.com",  // accessible via host::config_var()
+        "max_retries": "3"  // Config values are always strings
+    }
+}
 ```
 
-Then use these variables in your component:
+2. Access them in the component using `host::config_var()`:
 
 ```rust
-let max_retries = std::env::var("max_retries")?;
-let timeout = std::env::var("timeout_seconds")?;
-let endpoint = std::env::var("api_endpoint")?;
+let value = host::config_var("api_endpoint");
 ```
 
-### Private variables: `host_envs`
+### Environment keys
 
-Private environment variables (`host_envs`) can be used for sensitive data like API keys. These variables are set by operators in their environment and are not viewable by anyone. These variables must be prefixed with `WAVS_ENV_`. Each operator must set these variables in their environment before deploying the service. Only variables listed in `host_envs` will be available to the component.
+Environment keys are private and can be used for sensitive data like API keys. These variables are set by operators in their environment and are not viewable by anyone. These variables must be prefixed with `WAVS_ENV_`. Each operator must set these variables in their environment before deploying the service. WAVS validates that all environment variables are set before allowing the service to run.
 
-To add private variables to your .env file, copy the `.env.example` file to `.env`:
+To add private variables:
+
+1. Create a new `.env` file in WAVS template:
 
 ```bash
 # copy the example file
 cp .env.example .env
 ```
 
-Then set the environment variable in your `.env` file:
+Variables can also be set in your `~/.bashrc`, `~/.zshrc`, or `~/.profile` files.
+
+2. Set the environment variable in your `.env` file:
 
 ```bash
 # .env file
 WAVS_ENV_MY_API_KEY=your_secret_key_here
 ```
 
-Variables can also be set in your `~/.bashrc` , `~/.zshrc` , or `~/.profile` files.
+3. Add the environment key to the `env_keys` array in the service manifest:
 
-Then modify `"host_envs"` in the `SERVICE_CONFIG` section of your `Makefile`. The following example adds `WAVS_ENV_MY_API_KEY` to the `host_envs` array. Remember to add the `WAVS_ENV_` prefix to the variable name:
-
-```bash
-# makefile
-SERVICE_CONFIG ?= '{"fuel_limit":100000000,"max_gas":5000000,"host_envs":["WAVS_ENV_MY_API_KEY"],"kv":[],"workflow_id":"default","component_id":"default"}'
+```json
+"component": {
+    "env_keys": [
+        "WAVS_ENV_API_KEY"  // Environment variables the component can access. Must be prefixed with WAVS_ENV_
+    ]
+}
 ```
 
-This configuration is used during local testing with `make wasi-exec` and will also be applied when your service is deployed.
-
-The following example shows how to access a private environment variable in a component:
+4. Access the environment key from a component:
 
 ```rust
 let api_key = std::env::var("WAVS_ENV_MY_API_KEY")?;
 ```
-
-
-

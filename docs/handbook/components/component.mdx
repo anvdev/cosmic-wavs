@@ -9,23 +9,25 @@ docsignore-->
 {/* todo: verify code examples on this page */}
 WASI components contain the main logic of a WAVS service. Components can be written in several programming languages and which are compiled to WebAssembly (WASM) bytecode where they can be executed offchain in the WAVS runtime.
 
+## Component languages
+
+WAVS enables developers to write components in different programming languages.
+
+The examples in this documentation are mainly written in Rust, but there are also examples of components written in the following languages:
+
+{/* todo: link to examples */}
+-  [Go example component](link)
+-  [JavaScript example component](link)
+
+## Component structure
+
 A basic component has three main parts:
 
 - Decoding incoming trigger data.
 - Processing the data (this is the custom business logic of your component).
 - Encoding and returning the result for submission (if applicable).
 
-## Compatible languages
-
-WAVS enables developers to write components in different programming languages.
-
-Although the examples in this documentation are written in Rust, there are also examples of components written in the following languages:
-
-{/* todo: link to examples */}
--  [Go example component](link)
--  [JavaScript example component](link)
-
-## Trigger inputs
+### Trigger inputs
 
 When building WASI components, keep in mind that components can receive the trigger data in two ways:
 
@@ -71,7 +73,7 @@ The component decodes the incoming event trigger data using the `decode_event_lo
 
 The `sol!` macro from `alloy-sol-macro` is usedto define Solidity types in Rust. This macro reads a Solidity interface file and generates corresponding Rust types and encoding/decoding functions. For more information, visit the [Utilities and crates page](./utilities#sol-macro).
 
-## Component logic
+### Component logic
 
 Components must implement the `Guest` trait, which is the main interface between your component and the WAVS runtime.
 
@@ -108,7 +110,7 @@ impl Guest for Component {
 
 Components can contain any compatible logic, including [blockchain interactions](./blockchain-interactions), [network requests](./network-requests) , off-chain computations, and more. To learn about the types of components that WAVS is best suited for, visit the [design considerations](../design-considerations) page.
 
-### Logging in a component
+#### Logging in a component
 
 Components can use logging to debug and track the execution of the component.
 
@@ -128,7 +130,7 @@ For production, you can use a `host::log()` function which takes a `LogLevel` an
 host::log(LogLevel::Info, "Production logging message");
 ```
 
-### 3. Component output
+### Component output
 
 After processing data in the `run` function, the component can encode the output data for submission back to Ethereum. In the template example, this is done using the `encode_trigger_output` function in the trigger.rs file.
 

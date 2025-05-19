@@ -6,11 +6,10 @@ import { Callout } from 'fumadocs-ui/components/callout';
 import { DocsPage } from 'fumadocs-ui/page';
 docsignore-->
 
+{/* todo: verify these examples */}
 Components can make network requests to external APIs using the [`wavs-wasi-utils` crate](https://docs.rs/wavs-wasi-utils/latest/wavs_wasi_utils/index.html).
 
-Since WASI components run in a synchronous environment but network requests are asynchronous, you can use `block_on` from the `wstd` crate to bridge this gap. The `block_on` function allows you to run async code within a synchronous context, which is essential for making HTTP requests in WAVS components.
-
-To learn how to use private environment variables like API keys in a component, see the [Private Variables](#private-variables-host_envs) section.
+To learn how to use variables like API keys in a component, visit the [Variables page](./variables).
 
 ### Dependencies
 
@@ -23,6 +22,8 @@ wstd = "0.5.3"                     # Runtime utilities (includes block_on)
 serde = { version = "1.0.219", features = ["derive"] }  # Serialization
 serde_json = "1.0.140"             # JSON handling
 ```
+
+Since WASI components run in a synchronous environment but network requests are asynchronous, you can use `block_on` from the `wstd` crate to bridge this gap. The `block_on` function allows you to run async code within a synchronous context, which is essential for making HTTP requests in WAVS components.
 
 ### Making HTTP Requests
 

@@ -16,7 +16,7 @@ The `decode_event_log_data` macro is a utility for decoding Ethereum event logs 
 
 The `sol!` macro from `alloy-sol-macro` allows you to generate Rust types from Solidity interface files.
 
-You can write Solidity definitions (interfaces, structs, enums, custom errors, events, and function signatures) directly inside the `sol! { ... }` macro invocation in your Rust code.
+You can write Solidity definitions (interfaces, structs, enums, custom errors, events, and function signatures) directly inside the `sol!` macro invocation in your Rust code.
 
 At compile time, the `sol!` macro parses that Solidity syntax and automatically generates the equivalent Rust types, structs, enums, and associated functions (like `abi_encode()` for calls or `abi_decode()` for return data/events) needed to interact with smart contracts based on those definitions.
 

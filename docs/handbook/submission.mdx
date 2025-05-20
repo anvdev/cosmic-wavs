@@ -6,12 +6,15 @@ import { Callout } from 'fumadocs-ui/components/callout';
 import { DocsPage } from 'fumadocs-ui/page';
 docsignore-->
 
-{/* todo: update info on submission. add info on aggregator. mention submission can be used to trigger when chaining.  */}
+{/*  todo: verify this info. do we need to add info on eigenlayer here? */}
 
+This page describes the submission and aggregator services used to submit results from a workflow to a submission contract on an EVM chain.
 
 ## Submit definition
 
-The `submit` section in a service definition specifies where the results of a workflow are sent. The `aggregator` type sends results to an aggregator service, which validates the results and submits them to a target contract on an EVM chain.
+The `submit` field in a service.json file specifies the submission logic for a service. The `aggregator` type sends results to an aggregator service, which validates the results and submits them to a target contract on an EVM chain.
+
+{/* todo: add info onsubmit::none? */}
 
 ```json service.json
     "submit": {  // Where results are sent
@@ -23,7 +26,7 @@ The `submit` section in a service definition specifies where the results of a wo
         {
             "evm": {  // EVM chain configuration
                 "chain_name": "local",  // Local Ethereum chain
-                "address": "0xd6f8ff0036d8b2088107902102f9415330868109",  // Contract address
+                "address": "0xd6f8ff0036d8b2088107902102f9415330868109",  // Submission contract address
                 "max_gas": 5000000  // Maximum gas limit for transactions
             }
         }
@@ -34,6 +37,11 @@ The `submit` section in a service definition specifies where the results of a wo
 
 A service handler or submission contract handles the logic for verifying the submission of a component's output to the blockchain. The only requirement for a submission contract is that it must implement the `handleSignedEnvelope()` function using the `IWavsServiceHandler` interface to validate data and signatures using the service manager. This interface is defined in the `@wavs` package: https://www.npmjs.com/package/@wavs/solidity?activeTab=code
 
+<Callout title="Chaining workflows" type="info">
+
+Workflows can be chained together by setting the trigger event of one workflow to the submission event of another workflow. For more information on chaining workflows, see the [Workflows page](./workflows).
+
+</Callout>
 
 ## Template submission example
 
@@ -83,7 +91,8 @@ contract SimpleSubmit is ITypes, IWavsServiceHandler {
 
 ## Aggregator
 
-The aggregator is....
+{/* todo: verify this is correct */}
+The aggregator is used to collect and validate responses from multiple operators before submitting them to the blockchain. It acts as an intermediary that receives signed responses from operators, validates each operator's ECDSA signature, aggregates signatures when enough operators have responded, and submits the aggregated data to the target contract.
 
 ## Aggregator submission flow
 
@@ -97,7 +106,4 @@ The aggregator is....
    - Combines the ECDSA signatures from all packets into a single SignatureData structure
    - Validates the combined ECDSA signatures on-chain through the service manager contract
 6. If validation succeeds, the aggregator sends the operator ECDSA signatures and payload result data as a single transaction to the `handleSignedEnvelope()` function on the submit contract specified in the service's manifest.
-7. The `handleSignedEnvelope()` function validates the data and ECDSA signatures using the service manager contract, which verifies:
-   - The signatures are valid ECDSA signatures
-   - The signers are authorized operators
-   - There is sufficient operator weight to meet the threshold
+7. The `handleSignedEnvelope()` function validates the data and signatures via the service manager contract.

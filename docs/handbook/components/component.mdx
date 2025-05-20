@@ -16,20 +16,20 @@ WAVS enables developers to write components in different programming languages.
 The examples in this documentation are mainly written in Rust, but there are also examples of components written in the following languages:
 
 {/* todo: link to examples */}
--  [Go example component](link)
--  [JavaScript example component](link)
+-  [Go example](link)
+-  [JavaScript example](link)
 
 ## Component structure
 
 A basic component has three main parts:
 
-- Decoding incoming trigger data.
+- Decoding incoming [trigger data](../triggers#trigger-lifecycle).
 - Processing the data (this is the custom business logic of your component).
 - Encoding and returning the result for submission (if applicable).
 
 ### Trigger inputs
 
-When building WASI components, keep in mind that components can receive the trigger data in two ways:
+When building WASI components, keep in mind that components can receive the [trigger data](../triggers#trigger-lifecycle) in two ways:
 
 1. **On-chain events**: When triggered by an EVM event, the data comes through the `TriggerAction` with `TriggerData::EvmContractEvent`.
 

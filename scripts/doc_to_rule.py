@@ -156,7 +156,7 @@ Here's the documentation to convert:
     response = client.chat.completions.create(
         model="gpt-4-turbo-preview",
         messages=[
-            {"role": "system", "content": "You are a technical documentation expert who specializes in converting documentation into concise Cursor rule files. You follow the exact structure provided in the prompt and make the content as direct and concise as possible. Use as few words as possible to convey meaning. For references, always use full markdown links like [Link Text](https://url.com) - never use @ references. Never add triple backticks (```) at the start or end of the file. Preserve all code examples and their formatting."},
+            {"role": "system", "content": "You are a technical documentation expert who specializes in converting documentation into concise Cursor rule files. You follow the exact structure provided in the prompt and make the content as direct and concise as possible. do not be overly wordy. For references, always use full markdown links like [Link Text](https://url.com) - never use @ references. Never add triple backticks (```) at the start or end of the file. Preserve all code examples and their formatting."},
             {"role": "user", "content": prompt}
         ],
         temperature=0.3,

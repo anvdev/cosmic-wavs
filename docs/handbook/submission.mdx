@@ -1,45 +1,103 @@
 ---
-title: Submission
+title: Submission and aggregator
 ---
 <!--docsignore
 import { Callout } from 'fumadocs-ui/components/callout';
 import { DocsPage } from 'fumadocs-ui/page';
 docsignore-->
 
-
 {/* todo: update info on submission. add info on aggregator. mention submission can be used to trigger when chaining.  */}
 
-## Submission and aggregator
 
-A service handler or submission contract handles the logic for submitting a component's output to the blockchain. A submission contract must implement the `handleSignedData()` function using the `IWavsServiceHandler` interface. This interface is defined in the `@wavs` package: https://www.npmjs.com/package/@wavs/solidity?activeTab=code
+## Submit definition
 
-In the template, the [submission contract](https://github.com/Lay3rLabs/wavs-foundry-template/tree/v0.3.0/src/contracts/WavsSubmit.sol) uses the `handleSignedData()` function to validate the operator's signature and store the processed data from the component. The `DataWithId` struct must match the output format from the component. Each trigger has a unique ID that links the data to its source.
+The `submit` section in a service definition specifies where the results of a workflow are sent. The `aggregator` type sends results to an aggregator service, which validates the results and submits them to a target contract on an EVM chain.
 
-Template submission example:
+```json service.json
+    "submit": {  // Where results are sent
+        "aggregator": {  // Type of submission (aggregator)
+            "url": "http://127.0.0.1:8001"  // Local aggregator endpoint
+        }
+    },
+    "aggregators": [  // The final submission address that the aggregator will submit to
+        {
+            "evm": {  // EVM chain configuration
+                "chain_name": "local",  // Local Ethereum chain
+                "address": "0xd6f8ff0036d8b2088107902102f9415330868109",  // Contract address
+                "max_gas": 5000000  // Maximum gas limit for transactions
+            }
+        }
+    ]
+```
 
-```solidity
-function handleSignedData(bytes calldata _data, bytes calldata _signature) external {
-    // 1. Validate the operator's signature by calling the `validate` function on the `_serviceManager` contract
-    _serviceManager.validate(_data, _signature);
+## Submission contract
 
-    // 2. Decode the data into a DataWithId struct defined in the `ITypes` interface
-    DataWithId memory dataWithId = abi.decode(_data, (DataWithId));
+A service handler or submission contract handles the logic for verifying the submission of a component's output to the blockchain. The only requirement for a submission contract is that it must implement the `handleSignedEnvelope()` function using the `IWavsServiceHandler` interface to validate data and signatures using the service manager. This interface is defined in the `@wavs` package: https://www.npmjs.com/package/@wavs/solidity?activeTab=code
 
-    // 3. Store the result in state
-    _signatures[dataWithId.triggerId] = _signature;      // 1. Store operator signature
-    _datas[dataWithId.triggerId] = dataWithId.data;      // 2. Store the data
-    _validTriggers[dataWithId.triggerId] = true;         // 3. Mark trigger as valid
+
+## Template submission example
+
+{/* todo: update link below  */}
+The [template submission contract](https://github.com/Lay3rLabs/wavs-foundry-template/tree/v0.3.0/src/contracts/WavsSubmit.sol) uses the `handleSignedEnvelope()` function to validate operator signatures and store the processed data from the component. The `DataWithId` struct must match the output format from the component. In the template, each trigger has a unique ID that links the data to its source.
+
+Below is a simplified version of the template submission contract:
+
+```solidity WavsSubmit.sol
+import {IWavsServiceManager} from "@wavs/interfaces/IWavsServiceManager.sol";
+import {IWavsServiceHandler} from "@wavs/interfaces/IWavsServiceHandler.sol";
+import {ITypes} from "interfaces/ITypes.sol";
+
+// Contract must implement IWavsServiceHandler to receive data
+// ITypes provides the DataWithId struct and other type definitions
+contract SimpleSubmit is ITypes, IWavsServiceHandler {
+
+    /// @notice Service manager instance - used to validate incoming data and signatures
+    IWavsServiceManager private _serviceManager;
+
+    /**
+     * @notice Initialize the contract with a service manager
+     * @param serviceManager The service manager instance that will validate data
+     */
+    constructor(IWavsServiceManager serviceManager) {
+        _serviceManager = serviceManager;
+    }
+
+    /// @inheritdoc IWavsServiceHandler
+    /// @notice Main entry point for receiving and processing data
+    /// @param envelope Contains the event ID and the actual data payload
+    /// @param signatureData Contains operator signatures for validation
+    function handleSignedEnvelope(Envelope calldata envelope, SignatureData calldata signatureData) external {
+        // First validate the data and signatures through the service manager
+        // This ensures the data is properly signed by authorized operators
+        _serviceManager.validate(envelope, signatureData);
+
+        // Decode the payload into your expected data structure
+        // The payload format must match what your component outputs
+        DataWithId memory dataWithId = abi.decode(envelope.payload, (DataWithId));
+        
+        // At this point, you can safely process the validated data
+        // Add your custom logic here to handle the data
+    }
 }
 ```
 
-Note: submission contracts are not required for a WAVS service. If you don't need to submit data back to the blockchain, you can modify the makefile `deploy-service` command to use the `--submit none` flag when deploying the service:
+## Aggregator
 
-```bash
-deploy-service:
-	@$(WAVS_CMD) deploy-service --log-level=info --data /data/.docker --home /data \
-	--component "/data/compiled/${COMPONENT_FILENAME}" \
-	--trigger-event-name "${TRIGGER_EVENT}" \
-	--trigger-address "${SERVICE_TRIGGER_ADDR}" \
-	--service-config ${SERVICE_CONFIG} \
-  --submit none
-```
+The aggregator is....
+
+## Aggregator submission flow
+
+1. An operator runs a component which returns a `WasmResponse` containing:
+   - `payload`: The result data
+   - `ordering`: Optional ordering information
+2. The operator creates an Envelope containing the result data and signs it with their ECDSA private key, creating an ECDSA signature.
+3. A Packet containing the envelope, ECDSA signature, and route information (service ID and workflow ID) is created and sent to the aggregator's `/packet` endpoint.
+4. The aggregator validates the packet's ECDSA signature by recovering the operator's address and adds it to a queue of packets with the same trigger event and service ID.
+5. When enough packets accumulate to meet the threshold (determined by the service manager contract), the aggregator:
+   - Combines the ECDSA signatures from all packets into a single SignatureData structure
+   - Validates the combined ECDSA signatures on-chain through the service manager contract
+6. If validation succeeds, the aggregator sends the operator ECDSA signatures and payload result data as a single transaction to the `handleSignedEnvelope()` function on the submit contract specified in the service's manifest.
+7. The `handleSignedEnvelope()` function validates the data and ECDSA signatures using the service manager contract, which verifies:
+   - The signatures are valid ECDSA signatures
+   - The signers are authorized operators
+   - There is sufficient operator weight to meet the threshold

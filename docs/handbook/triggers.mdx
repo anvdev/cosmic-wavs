@@ -56,7 +56,7 @@ pub enum TriggerData {
 }
 ```
 
-5. The TriggerAction is converted to a WASI-compatible format and passed to the component where it is decoded and processed.
+5. The TriggerAction is converted to a WASI-compatible format and passed to the component where it is decoded and processed. The component decodes the incoming event trigger data using the `decode_event_log_data!` macro from the [`wavs-wasi-utils` crate](https://docs.rs/wavs-wasi-utils/latest/wavs_wasi_utils/macro.decode_event_log_data.html). Visit the [components page](./components/component) for more information on decoding and processing trigger data in your component.
 
 {/* todo: update this when template is finalized
 
@@ -113,7 +113,7 @@ http_endpoint = "http://localhost:8545"
 poll_interval_ms = 7000
 ```
 
-Your EVM chain credential must be set in your `.env` file:
+You'll need to set your EVM chain credential in your `.env` file to establish a connection for monitoring the EVM chain:
 
 ```env .env
 WAVS_CLI_EVM_CREDENTIAL="0x5ce146f435835b1762ed602088740d201b68fd94bf808f97fd04588f1a63c9ab"
@@ -152,7 +152,7 @@ gas_price = 0.0053
 gas_denom = "untrn"
 ```
 
-Your Cosmos mnemonic must be set in your `.env` file:
+Your Cosmos mnemonic must be set in your `.env` file to establish a connection for monitoring the Cosmos chain:
 
 ```env .env
 WAVS_CLI_COSMOS_MNEMONIC="large slab plate twenty laundry illegal vacuum phone drum example topic reason"

@@ -1,6 +1,10 @@
 ---
 title: Utilities and crates
 ---
+<!--docsignore
+import { Callout } from 'fumadocs-ui/components/callout';
+import { DocsPage } from 'fumadocs-ui/page';
+docsignore-->
 
 {/* todo: verify content. Should we merge this into blockchain interactions? it may get too long. */}
 
@@ -16,7 +20,7 @@ The `decode_event_log_data` macro is a utility for decoding Ethereum event logs 
 
 The `sol!` macro from `alloy-sol-macro` allows you to generate Rust types from Solidity interface files.
 
-You can write Solidity definitions (interfaces, structs, enums, custom errors, events, and function signatures) directly inside the `sol! { ... }` macro invocation in your Rust code.
+You can write Solidity definitions (interfaces, structs, enums, custom errors, events, and function signatures) directly inside the `sol!` macro invocation in your Rust code.
 
 At compile time, the `sol!` macro parses that Solidity syntax and automatically generates the equivalent Rust types, structs, enums, and associated functions (like `abi_encode()` for calls or `abi_decode()` for return data/events) needed to interact with smart contracts based on those definitions.
 
@@ -111,4 +115,21 @@ let total_supply = contract.totalSupply().call().await?;
 let owner = contract.ownerOfTokenByIndex(index).call().await?;
 ```
 
-Learn more in the [wavs-wasi-utils documentation](https://docs.rs/wavs-wasi-utils/latest/wavs_wasi_utils/).
+### Alloy Ecosystem Crates
+
+The Alloy ecosystem provides a comprehensive set of crates for Ethereum development:
+
+- [`alloy-primitives`](https://docs.rs/alloy-primitives/latest/alloy_primitives/): Core Ethereum types (`Address`, `U256`, `Bytes`, etc.)
+- [`alloy-provider`](https://docs.rs/alloy-provider/latest/alloy_provider/): Ethereum node interaction (RPC, WebSocket, batching)
+- [`alloy-network`](https://docs.rs/alloy-network/latest/alloy_network/): Network types and chain-specific functionality
+- [`alloy-sol-types`](https://docs.rs/alloy-sol-types/latest/alloy_sol_types/): ABI handling and type generation
+
+### Utility Crates
+
+Essential utility crates for WAVS components:
+
+- [`wstd`](https://docs.rs/wstd/latest/wstd/): WASI standard library with `block_on` for async operations
+- [`serde`](https://docs.rs/serde/latest/serde/)/[`serde_json`](https://docs.rs/serde_json/latest/serde_json/): Data serialization and JSON handling
+- [`anyhow`](https://docs.rs/anyhow/latest/anyhow/): Error handling and propagation
+
+

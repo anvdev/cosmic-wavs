@@ -92,13 +92,13 @@ This trigger listens for specific events emitted by contracts on EVM-compatible 
 
 ```json
 
-  "trigger": {
-    "evm_contract_event": {
-      "address": "0x00000000219ab540356cbb839cbe05303d7705fa", // Contract address to monitor
-      "chain_name": "ethereum-mainnet", // Chain to monitor
-      "event_hash": "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef" // Event hash (32 bytes)
-    }
-  },
+"trigger": {
+  "evm_contract_event": {
+    "address": "0x00000000219ab540356cbb839cbe05303d7705fa", // Contract address to monitor
+    "chain_name": "ethereum-mainnet", // Chain to monitor
+    "event_hash": "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef" // Event hash (32 bytes)
+  }
+}
 
 ```
 
@@ -216,12 +216,14 @@ If you need precise timing synchronization between operators, consider using [bl
 Executes your component at regular block intervals on a specified EVM or Cosmos chain, useful for chain-specific operations that need to run periodically. Block interval triggers pass the block height and chain name to the component.
 
 ```json
-  "trigger": {
-    "block_interval": {
-      "ethereum-mainnet": "layer-hacknet", // Chain to monitor
-      "n_blocks": 10 // Number of blocks between triggers
-    }
-  },
+"trigger": {
+  "block_interval": {
+    "chain_name": "ethereum-mainnet",
+    "n_blocks": 10,
+    "start_block": null,  // Optional blockheight to start
+    "end_block": null     // Optional blockheight to end
+  }
+}
 ```
 
 {/* todo: update this info when https://github.com/Lay3rLabs/WAVS/issues/612 is resolved */}

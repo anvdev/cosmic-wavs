@@ -48,4 +48,3 @@ services:
       - "8080:8080"
       - "5001:5001"
     command: ["daemon", "--offline"]
-

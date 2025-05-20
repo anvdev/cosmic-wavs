@@ -76,7 +76,7 @@ rustup target add wasm32-wasip2
 # Install required cargo components
 # https://github.com/bytecodealliance/cargo-component#installation
 cargo install cargo-binstall
-cargo binstall cargo-component warg-cli wkg --locked --no-confirm --force
+cargo binstall cargo-component wasm-tools warg-cli wkg --locked --no-confirm --force
 
 # Configure default registry
 # Found at: $HOME/.config/wasm-pkg/config.toml
@@ -172,9 +172,26 @@ Result (utf8):
 
 Start an ethereum node (anvil), the WAVS service, and deploy [eigenlayer](https://www.eigenlayer.xyz/) contracts to the local network.
 
+### Enable Telemetry (optional)
+
+Before starting the services, you can enable telemetry for monitoring and debugging purposes. Follow these steps:
+
+1. Set Log Level:
+  - Open the `.env` file.
+  - Set the `log_level` variable for wavs to debug to ensure detailed logs are captured.
+
+2. If you are running the docker compose manually, include telemetry images by pointing to a particular file:
+```bash docci-background docci-delay-after=2
+docker-compose -f docker-compose.yml -f docker-compose.telemetry.yml up
+```
+Otherwise, it is already included in the start scripts.
+
+> \[!NOTE]
+To see details on how to access both traces and metrics, please check out [Telemetry Documentation](telemetry.md).
+
+### Start the backend
+
 ```bash docci-background docci-delay-after=15
-# Start the backend
-#
 # This must remain running in your terminal. Use another terminal to run other commands.
 # You can stop the services with `ctrl+c`. Some MacOS terminals require pressing it twice.
 cp .env.example .env

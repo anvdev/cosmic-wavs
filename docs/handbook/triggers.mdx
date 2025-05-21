@@ -1,5 +1,6 @@
 ---
 title: Triggers
+description: Setting up and managing WAVS service triggers
 ---
 <!--docsignore
 import { Callout } from 'fumadocs-ui/components/callout';
@@ -7,7 +8,7 @@ import { DocsPage } from 'fumadocs-ui/page';
 docsignore-->
 
 
-{/* todo: verify examples, add info on triggerdata and decode trigger data. Multi-chain services blurb goes here. add info on trigger data in components and link to inputs/outputs on component page (or move here?? dunno).  */}
+{/* todo: verify all code examples. link to appropriate pages. */}
 
 A trigger prompts a WAVS service to run. Operators listen for the trigger event specified by the service and execute the corresponding component off-chain. Triggers can be any onchain event emitted from any contract.
 
@@ -58,29 +59,6 @@ pub enum TriggerData {
 
 5. The TriggerAction is converted to a WASI-compatible format and passed to the component where it is decoded and processed. The component decodes the incoming event trigger data using the `decode_event_log_data!` macro from the [`wavs-wasi-utils` crate](https://docs.rs/wavs-wasi-utils/latest/wavs_wasi_utils/macro.decode_event_log_data.html). Visit the [components page](./components/component) for more information on decoding and processing trigger data in your component.
 
-{/* todo: update this when template is finalized
-
-### Developing triggers
-
-WAVS doesn't interpret the contents of event triggers. Instead, it passes the raw log data to components, which can decode and process the data according to their specific needs.
-
-To configure a trigger for a service, you'll need to specify:
-
-- The event signature/name that identifies which specific event should trigger the service. This can either be a hex-encoded event signature or an event name.
-- The contract address where the event will be emitted from.
-
-In the template, the trigger event is set in the `Makefile` as `TRIGGER_EVENT ?= NewTrigger(bytes)` and the trigger address of the example trigger contract is automatically populated during deployment. To change the trigger event or address, you can manually [update the `Makefile` variables](#customizing-makefile-variables) and redeploy the service.
-
-When a WAVS component receives this trigger, it uses the `decode_event_log_data!` macro from the [`wavs-wasi-chain`](https://docs.rs/wavs-wasi-chain/latest/wavs_wasi_chain/all.html#functions) crate to decode the event data for processing.
-
-The [trigger contract in the WAVS foundry template](https://github.com/Lay3rLabs/wavs-foundry-template/blob/v0.3.0/src/contracts/WavsTrigger.sol) is a simple example that takes generic bytes and passes them to the component. The flow for triggers is located in several places in the template:
-
-- The trigger contract in [`src/WavsTrigger.sol`](https://github.com/Lay3rLabs/wavs-foundry-template/tree/v0.3.0/src/contracts/WavsTrigger.sol) defines how triggers are created and emitted on-chain.
-- The trigger script in [`/script/Trigger.s.sol`](https://github.com/Lay3rLabs/wavs-foundry-template/tree/v0.3.0/script/Trigger.s.sol#L15) calls the `addTrigger` function with the `coinMarketCapID`.
-- The `decode_trigger_event` function in [`/components/eth-price-oracle/src/trigger.rs`](https://github.com/Lay3rLabs/wavs-foundry-template/tree/v0.3.0/components/eth-price-oracle/src/trigger.rs#L11-L21) processes the trigger data and extracts the `trigger_id` and `data`.
-- The `run` function in [`/components/eth-price-oracle/src/lib.rs`](https://github.com/Lay3rLabs/wavs-foundry-template/tree/v0.3.0/components/eth-price-oracle/src/lib.rs#L13) calls `decode_trigger_event`, processes the extracted trigger data, and determines how to handle it.
-- When testing, the `wasi-exec` command in the [`Makefile`](https://github.com/Lay3rLabs/wavs-foundry-template/tree/v0.3.0/Makefile#L39-L43) passes input data when testing WAVS components via ``--input `cast format-bytes32-string $(COIN_MARKET_CAP_ID)` ``. This uses cast to format the `COIN_MARKET_CAP_ID` as a bytes32 string and simulates an Ethereum event during local execution.
- */}
 
 ## Trigger configuration
 

@@ -1,5 +1,6 @@
 ---
 title: Component overview
+description: Understanding WAVS service components and their structure
 ---
 <!--docsignore
 import { Callout } from 'fumadocs-ui/components/callout';
@@ -7,11 +8,11 @@ import { DocsPage } from 'fumadocs-ui/page';
 docsignore-->
 
 {/* todo: verify code examples on this page */}
-WASI components contain the main logic of a WAVS service. Components can be written in several programming languages and which are compiled to WebAssembly (WASM) bytecode where they can be executed offchain in the WAVS runtime.
+Service components contain the main business logic of a WAVS service.
 
 ## Component languages
 
-WAVS enables developers to write components in different programming languages.
+WAVS enables developers to write components in different programming languages. These languages are compiled to WebAssembly (WASM) bytecode where they can be executed offchain in the WAVS runtime.
 
 The examples in this documentation are mainly written in Rust, but there are also examples of components written in the following languages:
 
@@ -108,7 +109,7 @@ impl Guest for Component {
 }
 ```
 
-Components can contain any compatible logic, including [blockchain interactions](./blockchain-interactions), [network requests](./network-requests) , off-chain computations, and more. To learn about the types of components that WAVS is best suited for, visit the [design considerations](../design-considerations) page.
+Components can contain any compatible logic, including [blockchain interactions](./blockchain-interactions), [network requests](./network-requests) , off-chain computations, and more. To learn about the types of components that WAVS is best suited for, visit the [design considerations](../../design) page.
 
 #### Logging in a component
 

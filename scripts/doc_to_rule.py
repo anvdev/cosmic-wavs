@@ -66,40 +66,15 @@ def validate_doc_content(content: str) -> bool:
     return True
 
 def convert_doc_to_rule(doc_content: str, api_key: str) -> str:
-    """Convert documentation content to a Cursor rule file using OpenAI API."""
+    """Convert documentation content to a rule file using OpenAI API."""
     if not validate_doc_content(doc_content):
         raise ValueError("Invalid documentation content")
 
     client = openai.OpenAI(api_key=api_key)
-    
-    cursor_rules_structure = """# Cursor Rules Location
 
-How to add new cursor rules to the project
+    cursor_rules_structure = """
 
-1. Always place rule files in PROJECT_ROOT/.cursor/rules/:
-    .cursor/rules/
-    ├── your-rule-name.mdc
-    ├── another-rule.mdc
-
-2. Follow the naming convention:
-    - Use kebab-case for filenames
-    - Always use .mdc extension
-    - Make names descriptive of the rule's purpose
-
-3. Directory structure:
-    PROJECT_ROOT/
-    ├── .cursor/
-    │   └── rules/
-    │       ├── your-rule-name.mdc
-    │       └── ...
-    └── ...
-
-4. Never place rule files:
-    - In the project root
-    - In subdirectories outside .cursor/rules
-    - In any other location
-
-5. Cursor rules have the following structure:
+rulefile structure:
 
 ---
 description: Short description of the rule's purpose
@@ -134,11 +109,12 @@ For more information:
 - [API Reference](https://api.example.com)
 """
 
-    prompt = f"""Convert the following documentation into a Cursor rule file following this structure:
+    prompt = f"""Convert the following documentation into a rule file following this structure:
 
 {cursor_rules_structure}
 
-Remember to be very concise. this is for llms to read.
+
+Remember to be very concise. This is for llms to read.
 
 Important formatting rules:
 1. Use full markdown links at the end (e.g. [Link Text](https://url.com))
@@ -156,7 +132,7 @@ Here's the documentation to convert:
     response = client.chat.completions.create(
         model="gpt-4-turbo-preview",
         messages=[
-            {"role": "system", "content": "You are a technical documentation expert who specializes in converting documentation into concise Cursor rule files. You follow the exact structure provided in the prompt and make the content as direct and concise as possible. do not be overly wordy. For references, always use full markdown links like [Link Text](https://url.com) - never use @ references. Never add triple backticks (```) at the start or end of the file. Preserve all code examples and their formatting."},
+            {"role": "system", "content": "You are a technical documentation expert who specializes in converting documentation into concise rule files for llms to follow. You read documentation and summarize its content into rulefiles that are direct and concise. For references, always use full markdown links like [Link Text](https://url.com). Never add triple backticks (```) at the start or end of the file. Make sure to preserve all code examples and their formatting."},
             {"role": "user", "content": prompt}
         ],
         temperature=0.3,

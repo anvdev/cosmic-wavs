@@ -6,7 +6,7 @@ import { Callout } from 'fumadocs-ui/components/callout';
 import { DocsPage } from 'fumadocs-ui/page';
 docsignore-->
 
-{/*  todo: verify this info. do we need to add info on eigenlayer here? */}
+{/*  todo: verify all code on this page. do we need to add info on eigenlayer here? */}
 
 This page describes the submission and aggregator services used to submit results from a workflow to a submission contract on an EVM chain.
 
@@ -14,7 +14,7 @@ This page describes the submission and aggregator services used to submit result
 
 The `submit` field in a service.json file specifies the submission logic for a service. The `aggregator` type sends results to an aggregator service, which validates the results and submits them to a target contract on an EVM chain.
 
-{/* todo: add info onsubmit::none? */}
+
 
 ```json service.json
     "submit": {  // Where results are sent
@@ -32,6 +32,8 @@ The `submit` field in a service.json file specifies the submission logic for a s
         }
     ]
 ```
+{/* todo: add more info onsubmit::none? */}
+Submit can also be set to `none` if the service does not need to submit results to a contract. The component will still run, but the results will not be submitted.
 
 ## Submission contract
 
@@ -91,7 +93,7 @@ contract SimpleSubmit is ITypes, IWavsServiceHandler {
 
 ## Aggregator
 
-{/* todo: verify this is correct */}
+{/* todo: verify this is correct. link to design page. */}
 The aggregator is used to collect and validate responses from multiple operators before submitting them to the blockchain. It acts as an intermediary that receives signed responses from operators, validates each operator's ECDSA signature, aggregates signatures when enough operators have responded, and submits the aggregated data to the target contract.
 
 ## Aggregator submission flow

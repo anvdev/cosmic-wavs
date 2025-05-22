@@ -144,9 +144,35 @@ Here's the documentation to convert:
     content = clean_leading_blank_lines(content)
     return content
 
+def process_file(input_file: str, output_dir: str, api_key: str) -> None:
+    """Process a single documentation file and convert it to a rule file."""
+    try:
+        doc_content = read_file(input_file)
+    except Exception as e:
+        print(f"Error reading input file {input_file}: {e}")
+        return
+
+    try:
+        rule_content = convert_doc_to_rule(doc_content, api_key)
+    except Exception as e:
+        print(f"Error converting documentation in {input_file}: {e}")
+        return
+
+    # Generate output filename
+    input_path = Path(input_file)
+    output_filename = input_path.stem.replace('_', '-').lower() + '.mdc'
+    output_path = os.path.join(output_dir, output_filename)
+
+    # Write rule file
+    try:
+        write_file(output_path, rule_content)
+        print(f"Successfully created rule file: {output_path}")
+    except Exception as e:
+        print(f"Error writing rule file for {input_file}: {e}")
+
 def main():
     parser = argparse.ArgumentParser(description='Convert documentation to Cursor rule files')
-    parser.add_argument('input_file', help='Path to the input documentation file')
+    parser.add_argument('input_dir', help='Path to the input documentation directory')
     parser.add_argument('--output-dir', default='.cursor/rules', help='Output directory for rule files')
     parser.add_argument('--api-key', help='OpenAI API key (or set OPENAI_API_KEY env var)')
     parser.add_argument('--env-file', default=os.path.join(os.path.dirname(__file__), '.env'), help='Path to .env file')
@@ -161,32 +187,14 @@ def main():
         print("Error: OpenAI API key not provided. Use --api-key, set OPENAI_API_KEY environment variable, or add it to your .env file.")
         sys.exit(1)
 
-    # Read input file
-    try:
-        doc_content = read_file(args.input_file)
-    except Exception as e:
-        print(f"Error reading input file: {e}")
-        sys.exit(1)
+    # Create output directory if it doesn't exist
+    os.makedirs(args.output_dir, exist_ok=True)
 
-    # Convert documentation to rule file
-    try:
-        rule_content = convert_doc_to_rule(doc_content, api_key)
-    except Exception as e:
-        print(f"Error converting documentation: {e}")
-        sys.exit(1)
-
-    # Generate output filename
-    input_path = Path(args.input_file)
-    output_filename = input_path.stem.replace('_', '-').lower() + '.mdc'
-    output_path = os.path.join(args.output_dir, output_filename)
-
-    # Write rule file
-    try:
-        write_file(output_path, rule_content)
-        print(f"Successfully created rule file: {output_path}")
-    except Exception as e:
-        print(f"Error writing rule file: {e}")
-        sys.exit(1)
+    # Process all .mdx files in the input directory and its subdirectories
+    input_dir = Path(args.input_dir)
+    for mdx_file in input_dir.rglob('*.mdx'):
+        print(f"\nProcessing {mdx_file}...")
+        process_file(str(mdx_file), args.output_dir, api_key)
 
 if __name__ == '__main__':
     main() 

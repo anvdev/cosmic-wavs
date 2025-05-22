@@ -19,11 +19,11 @@ def get_scripts_dir() -> Path:
     return Path(__file__).parent
 
 def get_doc_files(components_dir: str) -> List[Path]:
-    """Get all .mdx files from the components directory."""
+    """Get all .mdx files from the components directory and its subdirectories."""
     components_path = Path(components_dir)
     if not components_path.is_absolute():
         components_path = get_project_root() / components_path
-    return list(components_path.glob('*.mdx'))
+    return list(components_path.rglob('*.mdx'))
 
 def process_docs(
     components_dir: str,
@@ -71,7 +71,7 @@ def process_docs(
 
 def main():
     parser = argparse.ArgumentParser(description='Convert multiple documentation files to Cursor rule files')
-    parser.add_argument('--components-dir', default='docs/handbook/components', 
+    parser.add_argument('--components-dir', default='docs/handbook', 
                       help='Directory containing documentation files')
     parser.add_argument('--output-dir', default='.cursor/rules', 
                       help='Output directory for rule files')

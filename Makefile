@@ -3,8 +3,8 @@
 # Check if user is in docker group to determine if sudo is needed
 SUDO := $(shell if groups | grep -q docker; then echo ''; else echo 'sudo'; fi)
 
-# Default target is build
-default: build
+# Default target is help
+default: help
 
 # Customize these variables
 COMPONENT_FILENAME ?= eth_price_oracle.wasm

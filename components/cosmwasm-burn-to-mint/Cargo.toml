@@ -1,5 +1,5 @@
 [package]
-name = "ens-domain-resolver"
+name = "cosmwasm-burn-to-mint"
 edition.workspace = true
 version.workspace = true
 authors.workspace = true
@@ -9,6 +9,7 @@ repository.workspace = true
 [dependencies]
 # Core dependencies (always needed)
 wit-bindgen-rt = {workspace = true}
+
 wavs-wasi-chain = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -16,8 +17,25 @@ alloy-sol-macro = { workspace = true }
 wstd = { workspace = true }
 alloy-sol-types = { workspace = true }
 anyhow = { workspace = true }
+tonic = { workspace = true }
+
+
+
+# eigenlayer crates
+eigen-crypto-bls = { workspace = true }
+sha2 = { workspace = true }
+
+# cosmwasm crates
+cosmos-sdk-proto = { workspace = true }
+cosmwasm-std = { workspace = true }
+cw-infuser =  {  git  = "https://github.com/permissionlessweb/cw-infuser", features = ["library"]}
+btsg-utils =  {  git  = "https://github.com/permissionlessweb/bs-nfts",  branch="feat/wavs",ref = "37902fbf5851a11fd83564f4dfa021b2abf7ed32", package = "btsg-auth"}
+cw-infusions =  { package = "cw-infusions", git  = "https://github.com/permissionlessweb/cw-infuser"}
+
+ 
 
 # Add for blockchain interactions
+layer-climb = { workspace = true }
 alloy-primitives = { workspace = true }
 alloy-provider = { workspace = true }
 alloy-rpc-types = { workspace = true }
@@ -34,5 +52,5 @@ strip = true
 lto = true
 
 [package.metadata.component]
-package = "component:ens-domain-resolver"
+package = "component:cosmwasm-burn-to-mint"
 target = "wavs:worker/layer-trigger-world@0.3.0"

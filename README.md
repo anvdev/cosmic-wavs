@@ -1,20 +1,41 @@
-# [WAVS](https://docs.wavs.xyz) Claude Code Template
+# [Cosmos-WAVS] 
+ -->
 
-This template is based on the [WAVS Foundry Template](https://github.com/Lay3rLabs/wavs-foundry-template) with modifications for use with Claude Code. This is an experimental template for building one-shot components.
 
 > [!WARNING]
-> **Experimental Use Only**: This template is designed for experimentation with Claude Code and one-shot components. Due to inconsistencies in Claude Code's behavior, some components may have errors and may not work as expected in one-shot prompts. Results may vary. This template is not intended for production use. Use at your own risk and for experimental purposes only.
+> **Experimental Use Only**: This template is designed for experimentation. Results may vary. This template is not intended for production use. Use at your own risk and for experimental purposes only.
+Repo template: https://github.com/Lay3rLabs/wavs-foundry-template
 
-## Video tutorial
+
+
+## Goals
+- Track cosmwasm nft burn events emitted from Cosmos Chain
+- Authentication action to perform via Wavs operator keys
+- Broadcast authorized action to Cosmos Chain
+
+
+## WAVS Actions To Explore
+1. Operator Fee Allocations:
+    - Smart contract logic allocation of fees routed to contract owner for operator incentives
+2. Proof of Task - Aggregated Operator Key Signatures For Action Authorization:
+    - **Action Authorization**: Query & Write to smart contract state on Cosmos via action occuring on Eth Or Btc
+3. Execution Service Method:
+    - Determining which operator broadcast the gls & actions to perform
+4. TODO: Caching of Failed Transactions: 
+
+
+ 
+
+<!-- ## Video tutorial
 
 Follow along with the video tutorial:
 
 [![Watch the video](/img/video.png)](https://youtu.be/jyl7kbie41w)
 
-You can see an example of the finished component [here](https://github.com/Lay3rLabs/WAVS-Claude-Template/tree/warpcast-eigen-counter/components/warpcast-eigen-counter).
+You can see an example of the finished component [here](https://github.com/Lay3rLabs/WAVS-Claude-Template/tree/warpcast-eigen-counter/components/warpcast-eigen-counter). -->
 
 ## Setup
-
+<!-- 
 1. Follow the instructions to set up an account and install Claude Code: [Claude Code installation](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview)
 
 2. Clone this repo:
@@ -25,7 +46,7 @@ git clone https://github.com/Lay3rLabs/WAVS-Claude-Template.git
 cd WAVS-Claude-Template
 ```
 
-3. Follow all of the setup instructions in the next section:
+3. Follow all of the setup instructions in the next section: -->
 
 ### System Requirements
 
@@ -116,7 +137,7 @@ forge build
 # Run the solidity tests
 forge test
 ```
-
+<!-- 
 ## Create Components with Claude Code
 
 After following all setup instructions and installing Claude Code, you are ready to make a component!
@@ -143,9 +164,11 @@ Make sure you handle endpoint responses and cast data correctly:
 
 4. Claude will make a new component and files, and run validation tests on the component using the `make validate-component COMPONENT=your-component` command.
 
-5. Claude may need to make changes after running the Validation tests. After making changes, Claude will build the component using the `make wasi-build` command.
+5. Claude may need to make changes after running the Validation tests. After making changes, Claude will build the component using the `make wasi-build` command. -->
 
-6. After successfully building your component, it's time to test it. The following command can be used to test your component logic without deploying WAVS. Make sure to replace the placeholders with the correct inputs.
+### Testing 
+
+ After successfully building your component, it's time to test it. The following command can be used to test your component logic without deploying WAVS. Make sure to replace the placeholders with the correct inputs.
 
 ```sh
 # This is the input data passed to your component
@@ -157,7 +180,7 @@ export SERVICE_CONFIG="'{\"fuel_limit\":100000000,\"max_gas\":5000000,\"host_env
 # IMPORTANT: Claude can't run this command without system permission. It is always best for the user to run this command.
 make wasi-exec
 ```
-
+<!-- 
 Claude may try to run the `make wasi-exec` command themselves. You should prompt Claude to give you the command instead, as Claude can't run it without permissions.
 
 > [!WARNING]
@@ -168,12 +191,12 @@ Claude may try to run the `make wasi-exec` command themselves. You should prompt
 > [!WARNING]
 > If you get: `failed to find the 'wasm32-wasip1' target and 'rustup' is not available`
 >
-> `brew uninstall rust` & install it from <https://rustup.rs>
+> `brew uninstall rust` & install it from <https://rustup.rs> -->
 
 
-7. Your component should execute. If there are any errors, share them with Claude for troubleshooting.
+<!-- 7. Your component should execute. If there are any errors, share them with Claude for troubleshooting. -->
 
-## Tips for working with Claude
+<!-- ## Tips for working with Claude
 
 - While this repo contains a [claude.md](/claude.md) file with enough context for creating simple components, Claude Code may inevitably run into problems.
 - Feel free to update [claude.md](/claude.md) for your specific purposes or if you run into regular errors.
@@ -201,7 +224,7 @@ The [`/examples`](/examples/) directory contains multiple one-shot examples buil
 - LLMs can be unpredictable. Minimal prompts provide a lot of room for creativity/error. If Claude is not able to fix an error after trying, sometimes deleting the component, clearing Claude history with `/clear` and starting fresh can help.
 - Claude may try to edit the bindings.rs file to "fix" it. Claude never needs to do this.
 - Claude is supposed to provide you with the `make wasi-exec` command. Sometimes it will try to run this itself. It can't. Ask it to give you the command.
-- When copying and pasting the full `make wasi-exec` command, be careful with line breaks, especially in the `SERVICE_CONFIG`. You may need to reformat long lines to avoid break.
+- When copying and pasting the full `make wasi-exec` command, be careful with line breaks, especially in the `SERVICE_CONFIG`. You may need to reformat long lines to avoid break. -->
 
 
 

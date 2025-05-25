@@ -1,0 +1,90 @@
+---
+description: Guide on building and managing workflows for WAVS services.
+globs: **/*.rs
+alwaysApply: true
+---
+# Building and Managing WAVS Service Workflows
+
+WAVS services are composed of workflows that define execution paths. Each workflow includes a trigger, a WASM component, and a submission endpoint.
+
+## Workflow Components
+
+- **Trigger**: Initiates the workflow.
+- **Component**: Processes the event.
+- **Submit**: Specifies the submission endpoint.
+
+## Defining Workflows
+
+Workflows are specified in the service manifest JSON file. Here's an example:
+
+```json
+"workflows": {
+  "0196c34d-003d-7412-a3f3-70f8ec664e12": {
+    "trigger": {
+      "cron": {
+        "schedule": "0 * * * * *"
+      }
+    },
+    "component": {
+      "source": {
+        "Digest": "65747b4b1a7fa98cab6abd9a81a6102068de77b1040b94de904112272b226f51"
+      },
+      "permissions": {
+        "allowed_http_hosts": "all",
+        "file_system": true
+      },
+      "config": {
+        "nft": "0xb5d4D4a87Cb07f33b5FAd6736D8F1EE7D255d9E9",
+        "reward_token": "0x34045B4b0cdfADf87B840bCF544161168c8ab85A"
+      }
+    },
+    "submit": {
+      "aggregator": {
+        "url": "http://127.0.0.1:8001"
+      }
+    }
+  }
+}
+```
+
+## Multi-workflow Services
+
+Services can contain multiple workflows, each with unique triggers, components, and submissions. They share the same service manager and operator set.
+
+```json
+{
+  "workflows": {
+    "workflow-uuid-1": { ... },
+    "workflow-uuid-2": { ... }
+  }
+}
+```
+
+## Workflow Isolation
+
+Each workflow runs in an isolated WebAssembly environment to ensure security and independence.
+
+## Sharing State
+
+To share data between workflows, submit data to an external system with one workflow and read from it with another.
+
+## Chaining Workflows
+
+Workflows can be chained by setting the trigger of one workflow to the submission event of another.
+
+```json
+{
+  "workflows": {
+    "workflow-uuid-1": { ... },
+    "workflow-uuid-2": { ... }
+  }
+}
+```
+
+## Multichain Services
+
+WAVS supports multichain services by allowing triggers based on contract events or block heights across different blockchain platforms.
+
+For more detailed information on WAVS workflows:
+- [WAVS Design Considerations](../design)
+- [Trigger Documentation](./triggers)

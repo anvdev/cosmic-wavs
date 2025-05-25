@@ -1,0 +1,122 @@
+---
+description: Guide on setting up and managing triggers for the WAVS service.
+globs: **/*.rs
+alwaysApply: true
+---
+# WAVS Service Triggers
+
+Triggers are essential for the WAVS service, prompting it to execute based on specified on-chain events. This guide covers the trigger lifecycle, configuration, and types.
+
+## Trigger Lifecycle
+
+1. **Deployment**: A service is deployed with a `service.json` manifest detailing the service, workflow logic, and triggers.
+2. **Tracking**: Operators track triggers using lookup maps for EVM and Cosmos events, mapping details to trigger IDs. Block interval and cron triggers are tracked differently, using countdown timers and a priority queue, respectively.
+3. **Verification**: Upon detecting a trigger, operators verify it against their maps. A `TriggerAction` is created if a match is found.
+4. **TriggerAction Structure**: Contains `TriggerConfig` and `TriggerData`, detailing the service, workflow, trigger configuration, and the actual trigger data.
+
+```rust
+pub struct TriggerAction {
+    pub config: TriggerConfig,
+    pub data: TriggerData,
+}
+
+pub struct TriggerConfig {
+    pub service_id: ServiceID,
+    pub workflow_id: WorkflowID,
+    pub trigger: Trigger,
+}
+
+pub enum TriggerData {
+    CosmosContractEvent {
+        contract_address: layer_climb_address::Address,
+        chain_name: ChainName,
+        event: cosmwasm_std::Event,
+        block_height: u64,
+    },
+    EvmContractEvent {
+        contract_address: alloy_primitives::Address,
+        chain_name: ChainName,
+        log: LogData,
+        block_height: u64,
+    },
+    BlockInterval {
+        chain_name: ChainName,
+        block_height: u64,
+    },
+    Cron {
+        trigger_time: Timestamp,
+    }
+}
+```
+
+5. **Processing**: The `TriggerAction` is passed to the component in a WASI-compatible format for decoding and processing.
+
+## Trigger Configuration
+
+Triggers are defined in the `trigger` field of the `service.json` file, specifying when and how components should execute.
+
+### EVM Event Trigger
+
+Listens for specific events on EVM-compatible chains.
+
+```json
+"trigger": {
+  "evm_contract_event": {
+    "address": "0x00000000219ab540356cbb839cbe05303d7705fa",
+    "chain_name": "ethereum-mainnet",
+    "event_hash": "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+  }
+}
+```
+
+### Cosmos Event Trigger
+
+Monitors events from Cosmos smart contracts.
+
+```json
+"trigger": {
+  "cosmos_contract_event": {
+    "address": {
+      "Cosmos": {
+        "bech32_addr": "neutron1qlaq54uh9f52d3p66q77s6kh9k9ee3vasy8gkdkk3yvgezcs6zts0mkcv4",
+        "prefix_len": 7
+      }
+    },
+    "chain_name": "neutron",
+    "event_type": "send_nft"
+  }
+}
+```
+
+### Cron Trigger
+
+Executes components based on a cron schedule.
+
+```json
+"trigger": {
+  "cron": {
+    "schedule": "0 */5 * * * *",
+    "start_time": 1704067200000000000,
+    "end_time": 1735689599000000000
+  }
+}
+```
+
+### Block Trigger
+
+Runs components at regular block intervals on specified chains.
+
+```json
+"trigger": {
+  "block_interval": {
+    "chain_name": "ethereum-mainnet",
+    "n_blocks": 10
+  }
+}
+```
+
+**Note on Cron Trigger Latency**: Variations in execution time may occur due to network latency and clock drift. Cron triggers are suitable for tasks that can tolerate slight timing discrepancies.
+
+For more information:
+- [Crontab.guru](https://crontab.guru/) for cron expressions.
+- [WAVS WASI Utils Crate Documentation](https://docs.rs/wavs-wasi-utils/latest/wavs_wasi_utils/macro.decode_event_log_data.html) for decoding event log data.

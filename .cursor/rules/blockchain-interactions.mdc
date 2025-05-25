@@ -1,0 +1,100 @@
+---
+description: Guide on how to interact with blockchains and smart contracts from WAVS components using Rust.
+globs: **/*.rs
+alwaysApply: true
+---
+# Blockchain Interactions in WAVS Components
+
+This document outlines the necessary steps and configurations for interacting with Ethereum and other EVM-compatible blockchains from WAVS components. It includes dependency setup, chain configuration, and examples of querying an NFT balance.
+
+## Dependencies
+
+To interact with Ethereum blockchains, include the following dependencies in your `Cargo.toml`:
+
+```toml
+[dependencies]
+wit-bindgen-rt = { workspace = true, features = ["bitflags"] }
+wavs-wasi-utils = "=0.4.0-beta.2"
+wstd = "0.5.3"
+alloy-sol-macro = { version = "1.1.0", features = ["json"] }
+alloy-sol-types = "1.1.0"
+alloy-network = "0.15.10"
+alloy-provider = { version = "0.15.10", default-features = false, features = ["rpc-api"] }
+alloy-rpc-types = "0.15.10"
+alloy-contract = "0.15.10"
+anyhow = "1.0.98"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+```
+
+## Chain Configuration
+
+Define chain configurations in `wavs.toml` to specify RPC endpoints and chain IDs:
+
+```toml
+[default.chains.evm.local]
+chain_id = "31337"
+ws_endpoint = "ws://localhost:8545"
+http_endpoint = "http://localhost:8545"
+poll_interval_ms = 7000
+
+[default.chains.evm.evmereum]
+chain_id = "1"
+ws_endpoint = "wss://eth.drpc.org"
+http_endpoint = "https://eth.drpc.org"
+```
+
+## Accessing Configuration and Provider
+
+Use WAVS host bindings to access chain configurations and create a provider for Ethereum interactions:
+
+```rust
+use crate::bindings::host::get_evm_chain_config;
+use alloy_network::Ethereum;
+use alloy_provider::RootProvider;
+use wavs_wasi_utils::evm::new_evm_provider;
+
+let chain_config = get_evm_chain_config("local")?;
+let provider: RootProvider<Ethereum> = new_evm_provider::<Ethereum>(
+    chain_config.http_endpoint.unwrap()
+)?;
+```
+
+## Example: Querying NFT Balance
+
+To query an ERC721 NFT contract for a given owner address:
+
+```rust
+use crate::bindings::host::get_evm_chain_config;
+use alloy_network::Ethereum;
+use alloy_provider::RootProvider;
+use alloy_sol_types::sol;
+use wavs_wasi_utils::evm::{
+    alloy_primitives::{Address, U256},
+    new_evm_provider,
+};
+use wstd::runtime::block_on;
+
+sol! {
+    interface IERC721 {
+        function balanceOf(address owner) external view returns (uint256);
+    }
+}
+
+pub fn query_nft_ownership(address: Address, nft_contract: Address) -> Result<bool, String> {
+    block_on(async move {
+        let chain_config = get_evm_chain_config("local").unwrap();
+        let provider: RootProvider<Ethereum> = new_evm_provider::<Ethereum>(
+            chain_config.http_endpoint.unwrap()
+        );
+        let contract = IERC721::new(nft_contract, &provider);
+        let balance = contract.balanceOf(address).call().await?;
+        
+        Ok(balance > U256::ZERO)
+    })
+}
+```
+
+For more detailed information and additional resources:
+- [wavs-wasi-utils documentation](https://docs.rs/wavs-wasi-utils/latest/wavs_wasi_utils/)
+- [Alloy documentation](https://docs.rs/alloy/latest/alloy/)

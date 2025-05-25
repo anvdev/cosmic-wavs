@@ -1,0 +1,132 @@
+---
+description: Guide on creating and structuring components for WAVS service with examples in Rust.
+globs: **/*.rs
+alwaysApply: true
+---
+# Component Overview for WAVS Service
+
+Service components are crucial for the WAVS service, encapsulating the main business logic and interacting with the WAVS runtime through WebAssembly (WASM) bytecode. This guide covers the languages, structure, and examples for creating components.
+
+## Component Languages
+
+WAVS supports multiple programming languages for component development, compiled to WASM for execution. Examples primarily use Rust, with additional samples in Go and JavaScript.
+
+- [Go example](link)
+- [JavaScript example](link)
+
+## Component Structure
+
+Components generally follow a three-part structure:
+
+1. Decode incoming trigger data.
+2. Process the data with custom business logic.
+3. Encode and return the result for submission, if applicable.
+
+### Trigger Inputs
+
+Components can receive trigger data either from on-chain events or local testing. The handling of these inputs varies as shown in the `trigger.rs` example:
+
+```rust
+// In trigger.rs
+
+pub fn decode_trigger_event(trigger_data: TriggerData) -> Result<(u64, Vec<u8>, Destination)> {
+    match trigger_data {
+        TriggerData::EvmContractEvent(TriggerDataEvmContractEvent { log, .. }) => {
+            let event: solidity::NewTrigger = decode_event_log_data!(log)?;
+            let trigger_info = solidity::TriggerInfo::abi_decode(&event._triggerInfo)?;
+            Ok((trigger_info.triggerId, trigger_info.data.to_vec(), Destination::Ethereum))
+        },
+        TriggerData::Raw(data) => Ok((0, data.clone(), Destination::CliOutput)),
+        _ => Err(anyhow::anyhow!("Unsupported trigger data type")),
+    }
+}
+```
+
+### Component Logic
+
+Implement the `Guest` trait for your component, with `run` as the entry point for your logic:
+
+```rust
+// In lib.rs
+impl Guest for Component {
+    fn run(action: TriggerAction) -> Result<Option<WasmResponse>, String> {
+        let (trigger_id, req, dest) = decode_trigger_event(action.data)?;
+        
+        let res = block_on(async move {
+            let resp_data = get_price_feed(id).await?;
+            serde_json::to_vec(&resp_data)
+        })?;
+
+        let output = match dest {
+            Destination::Ethereum => Some(encode_trigger_output(trigger_id, &res)),
+            Destination::CliOutput => Some(WasmResponse { 
+                payload: res.into(), 
+                ordering: None 
+            }),
+        };
+        Ok(output)
+    }
+}
+```
+
+#### Logging
+
+For development, use `println!()` for debugging. In production, use `host::log()` for structured logging with context.
+
+```rust
+// Development logging
+println!("Debug message: {:?}", data);
+
+// Production logging
+host::log(LogLevel::Info, "Production logging message");
+```
+
+### Component Output
+
+Encode the output data for submission back to Ethereum using the `encode_trigger_output` function:
+
+```rust
+pub fn encode_trigger_output(trigger_id: u64, output: impl AsRef<[u8]>) -> WasmResponse {
+    WasmResponse {
+        payload: solidity::DataWithId {
+            triggerId: trigger_id,
+            data: output.as_ref().to_vec().into(),
+        }
+        .abi_encode(),
+        ordering: None,
+    }
+}
+```
+
+## Component Definition
+
+Define components in the `service.json` file within the workflow object:
+
+```json
+{
+  "component": {
+    "source": {
+      "Digest": "65747b4b1a7fa98cab6abd9a81a6102068de77b1040b94de904112272b226f51"
+    },
+    "permissions": {
+      "allowed_http_hosts": "all",
+      "file_system": true
+    },
+    "fuel_limit": null,
+    "time_limit_seconds": 1800,
+    "config": {
+      "Variable_1": "0xb5d4D4a87Cb07f33b5FAd6736D8F1EE7D255d9E9",
+      "variable_2": "0x34045B4b0cdfADf87B840bCF544161168c8ab85A"
+    },
+    "env_keys": [
+      "WAVS_ENV_API_KEY"
+    ]
+  }
+}
+```
+
+For detailed information on component configuration and keys, refer to the [variables page](./variables).
+
+For more information:
+- [WAVS WASI Utils Crate Documentation](https://docs.rs/wavs-wasi-utils/latest/wavs_wasi_utils/macro.decode_event_log_data.html)
+- [Utilities and Crates Documentation](./utilities#sol-macro)

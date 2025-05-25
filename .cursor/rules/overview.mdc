@@ -1,0 +1,40 @@
+---
+description: Overview of the WAVS handbook structure and contents for building WAVS services.
+globs: **/*.rs
+alwaysApply: true
+---
+# WAVS Handbook Overview
+
+This document serves as a guide to the WAVS handbook, detailing the structure and contents necessary for understanding and building WAVS AVS (Autonomous Virtual Services).
+
+## Getting Started
+
+- Follow the [Oracle component tutorial](/tutorial/1-overview) for an introduction to WAVS service development.
+
+## Handbook Contents
+
+### Core Concepts
+- **How it Works**: Provides insight into the WAVS AVS architecture and its components.
+- **Design**: Discusses design principles and considerations for WAVS services.
+
+### Services
+- **Service Definition**: Explains the structure of WAVS services and their definition in the service manifest.
+- **Workflows**: Describes how workflows orchestrate service execution, including triggers and submissions.
+- **Triggers**: Covers the various event types that can initiate services.
+- **Submission and Aggregator**: Details the process of submitting results to the blockchain.
+
+### Components
+- **Component Overview**: Outlines component structure, lifecycle, and how to process data and handle triggers.
+- **Variables**: Discusses configuring components with variables.
+- **Utilities and Crates**: Introduces utilities and crates available for component development.
+- **Blockchain Interactions**: Explains interacting with blockchains and smart contracts.
+- **Network Requests**: Guides on making HTTP requests to external APIs.
+
+### Development
+- **Template**: Offers a starting point with the WAVS template, including structure and customization.
+- **Makefile Commands**: Provides commands for building, deploying, and managing WAVS services.
+
+Each section is designed to equip developers with the knowledge and tools needed to build robust WAVS services. Start with the Service section to grasp the basics, then delve into other sections as needed.
+
+For more information:
+- [Oracle component tutorial](/tutorial/1-overview)

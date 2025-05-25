@@ -1,0 +1,19 @@
+---
+description: CLI commands for WAVS development
+globs: **/Makefile
+alwaysApply: true
+---
+# Makefile Commands for WAVS Development
+
+This rule file provides the necessary command to access the help menu for WAVS development via the Makefile.
+
+To view all available commands for WAVS development, use the following command in your terminal:
+
+```bash
+make help
+```
+
+This command will display a list of all the commands available in the Makefile that are relevant to WAVS development. It's a quick way to get an overview of the tools and commands at your disposal for managing and developing the WAVS project.
+
+For more information:
+- No additional links provided.

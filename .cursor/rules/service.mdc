@@ -1,0 +1,81 @@
+---
+description: Explains the structure and purpose of the service.json manifest and the service manager contract in WAVS AVS.
+globs: **/*.rs
+alwaysApply: true
+---
+# Service Manifest and Manager Overview
+
+A service in WAVS AVS comprises smart contracts, operators, and off-chain components, all defined within a `service.json` manifest. This manifest outlines the service's configuration, including workflows, components, and submission details. It's stored on IPFS or an HTTP/HTTPS server, with its URL set in the service manager contract for system access upon deployment.
+
+## Service Manifest (`service.json`)
+
+The `service.json` file contains detailed information about the service, such as ID, name, workflows, components, and the service manager contract. Below is an example structure of a service manifest:
+
+```json
+{
+    "id": "example-service-123",
+    "name": "Example WAVS Service",
+    "workflows": {
+        "default": {
+            "trigger": {
+                "evm_contract_event": {
+                    "chain_name": "ethereum",
+                    "address": "0x1234567890123456789012345678901234567890",
+                    "event_hash": "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+                }
+            },
+            "component": {
+                "source": {
+                    "digest": "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+                },
+                "permissions": {
+                    "allowed_http_hosts": "all",
+                    "file_system": true
+                },
+                "fuel_limit": 1000000,
+                "time_limit_seconds": 30,
+                "config": {
+                    "api_key": "your-api-key",
+                    "endpoint": "https://api.example.com",
+                    "timeout": "30s"
+                },
+                "env_keys": [
+                    "WAVS_ENV_API_KEY",
+                    "WAVS_ENV_SECRET"
+                ]
+            },
+            "submit": {
+                "aggregator": {
+                    "url": "http://127.0.0.1:8001"
+                }
+            },
+            "aggregators": [
+                {
+                    "evm": {
+                        "chain_name": "ethereum",
+                        "address": "0xfedcba9876543210fedcba9876543210fedcba98",
+                        "max_gas": 1000000
+                    }
+                }
+            ]
+        }
+    },
+    "status": "active",
+    "manager": {
+        "evm": {
+            "chain_name": "ethereum",
+            "address": "0xabcdef1234567890abcdef1234567890abcdef12"
+        }
+    }
+}
+```
+
+## Service Manager Contract
+
+The service manager contract is pivotal in defining the registered operators for a service, assigning weights to these operators, and ensuring that submissions meet a required threshold or quorum. It also maintains the service URI, linking operators to the service, and validates signatures from these operators before processing data through the service handler contract.
+
+For more information:
+- [Workflows](./workflows)
+- [Triggers](./triggers)
+- [Components](./components/component)
+- [Submission and aggregator](./submission)

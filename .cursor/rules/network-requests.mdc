@@ -1,0 +1,91 @@
+---
+description: Guide on making HTTP requests in WAVS components using wavs-wasi-utils crate.
+globs: **/*.rs
+alwaysApply: true
+---
+# Network Requests in WAVS Components
+
+This guide covers how to make HTTP requests from WAVS components using the `wavs-wasi-utils` crate, including setting up dependencies, making GET and POST requests, and handling responses.
+
+### Dependencies Setup
+
+Add the following dependencies to your `Cargo.toml` to get started:
+
+```toml
+[dependencies]
+wavs-wasi-utils = "=0.4.0-beta.2"
+wstd = "0.5.3"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+```
+
+Use `block_on` from `wstd` for running async code in a synchronous WASI environment.
+
+### Making HTTP Requests
+
+`wavs-wasi-utils` provides functions for GET and POST requests and fetching responses:
+
+- **GET Request**: `http_request_get(url)`
+- **POST Request with JSON**: `http_request_post_json(url, data)`
+- **POST Request with Form Data**: `http_request_post_form(url, data)`
+- **Fetch JSON Response**: `fetch_json(request)`
+- **Fetch String Response**: `fetch_string(request)`
+- **Fetch Bytes Response**: `fetch_bytes(request)`
+
+### Examples
+
+**GET Request with Headers**:
+
+```rust
+use wstd::runtime::block_on;
+use wstd::http::HeaderValue;
+use wavs_wasi_utils::http::{fetch_json, http_request_get};
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ApiResponse {}
+
+async fn make_request() -> Result<ApiResponse, String> {
+    let url = "https://api.example.com/endpoint";
+    let mut req = http_request_get(&url).map_err(|e| e.to_string())?;
+    req.headers_mut().insert("Accept", HeaderValue::from_static("application/json"));
+    req.headers_mut().insert("Content-Type", HeaderValue::from_static("application/json"));
+    req.headers_mut().insert("User-Agent", HeaderValue::from_static("Mozilla/5.0"));
+    let json: ApiResponse = fetch_json(req).await.map_err(|e| e.to_string())?;
+    Ok(json)
+}
+
+fn process_data() -> Result<ApiResponse, String> {
+    block_on(async { make_request().await })?
+}
+```
+
+**POST Request with JSON Data**:
+
+```rust
+use wstd::runtime::block_on;
+use wavs_wasi_utils::http::{fetch_json, http_request_post_json};
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize)]
+struct PostData {
+    key1: String,
+    key2: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct PostResponse {}
+
+async fn make_post_request() -> Result<PostResponse, String> {
+    let url = "https://api.example.com/endpoint";
+    let post_data = PostData { key1: "value1".to_string(), key2: 42 };
+    let response: PostResponse = fetch_json(http_request_post_json(&url, &post_data)?).await.map_err(|e| e.to_string())?;
+    Ok(response)
+}
+
+fn process_data() -> Result<PostResponse, String> {
+    block_on(async { make_post_request().await })?
+}
+```
+
+For detailed information on making network requests in WAVS components, refer to the [wavs-wasi-utils documentation](https://docs.rs/wavs-wasi-utils/latest/wavs_wasi_utils/).

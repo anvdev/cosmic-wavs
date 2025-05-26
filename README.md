@@ -175,34 +175,7 @@ forge build
 # Run the solidity tests
 forge test
 ```
-<!-- 
-## Create Components with Claude Code
-
-After following all setup instructions and installing Claude Code, you are ready to make a component!
-
-1. In the root of your project, run the following command to start Claude Code:
-
-```sh
-claude
-```
-
-1. Enter your one-shot prompt. In this example, we're creating a component that can check how many times a Warpcast user has used the word EigenLayer in a post. You can see an example of the finished component [here](https://github.com/Lay3rLabs/WAVS-Claude-Template/tree/warpcast-eigen-counter/components/warpcast-eigen-counter).
-
-```
-Let's make a new component that takes the input of a warpcast username (like dabit3), counts the number of times they have mentioned EigenLayer, and returns that number and the user's wallet address.
-
-
-Make sure you handle endpoint responses and cast data correctly:
-
-- https://hoyt.farcaster.xyz:2281/v1/userNameProofByName?name=dabit3
-- https://hoyt.farcaster.xyz:2281/v1/castsByFid?fid=235510
-```
-
-3. Claude will start creating your component. Review Claude's work and accept changes that Claude makes. Make sure to double check what Claude is doing and be safe about accepting changes.
-
-4. Claude will make a new component and files, and run validation tests on the component using the `make validate-component COMPONENT=your-component` command.
-
-5. Claude may need to make changes after running the Validation tests. After making changes, Claude will build the component using the `make wasi-build` command. -->
+ 
 
 ### Testing 
 
@@ -218,53 +191,7 @@ export SERVICE_CONFIG="'{\"fuel_limit\":100000000,\"max_gas\":5000000,\"host_env
 # IMPORTANT: Claude can't run this command without system permission. It is always best for the user to run this command.
 make wasi-exec
 ```
-<!-- 
-Claude may try to run the `make wasi-exec` command themselves. You should prompt Claude to give you the command instead, as Claude can't run it without permissions.
-
-> [!WARNING]
-> If you get: `error: no registry configured for namespace "wavs"`
->
-> run, `wkg config --default-registry wa.dev`
-
-> [!WARNING]
-> If you get: `failed to find the 'wasm32-wasip1' target and 'rustup' is not available`
->
-> `brew uninstall rust` & install it from <https://rustup.rs> -->
-
-
-<!-- 7. Your component should execute. If there are any errors, share them with Claude for troubleshooting. -->
-
-<!-- ## Tips for working with Claude
-
-- While this repo contains a [claude.md](/claude.md) file with enough context for creating simple components, Claude Code may inevitably run into problems.
-- Feel free to update [claude.md](/claude.md) for your specific purposes or if you run into regular errors.
-- Claude can sometimes try to over-engineer its fixes for errors. If you feel it is not being productive, delete the component, clear claude with `/clear`, and try again. You may need to adjust your prompt.
-- If you are building a complex component, it may be helpful to have Claude build a simple component first and then expand upon it.
-- Claude may try to fix warnings unnecessarily. You can Tell Claude to ignore minor warnings and any errors found in bindings.rs (it is auto-generated).
-
-### Prompting
-
-This repo is designed to be used with short prompts for simple components. However, often times, Claude will do better with more context.
-
-- Provide relevant documentation (preferably as an `.md` file or other ai-digestible content).
-- Provide endpoints.
-- You may need to provide API response structure if Claude is just not understanding responses.
-- Be specific about what you want Claude to build.
-- Be patient.
-
-## Examples
-
-The [`/examples`](/examples/) directory contains multiple one-shot examples built by Claude. These serve as a knowledge base for Claude. Explore the examples for ideas, or try to build one of the examples yourself. Remember to delete the example that you want to build before prompting Claude, otherwise it may just copy it directly.
-
-## Troubleshooting
-
-- You can ask Claude to fix errors it may not be able to catch when executing components. Make sure to give Claude full context of the error.
-- LLMs can be unpredictable. Minimal prompts provide a lot of room for creativity/error. If Claude is not able to fix an error after trying, sometimes deleting the component, clearing Claude history with `/clear` and starting fresh can help.
-- Claude may try to edit the bindings.rs file to "fix" it. Claude never needs to do this.
-- Claude is supposed to provide you with the `make wasi-exec` command. Sometimes it will try to run this itself. It can't. Ask it to give you the command.
-- When copying and pasting the full `make wasi-exec` command, be careful with line breaks, especially in the `SERVICE_CONFIG`. You may need to reformat long lines to avoid break. -->
-
-
+ 
 
 ## Running WAVS locally
 
@@ -321,7 +248,7 @@ TRIGGER_EVENT="NewTrigger(bytes)" make deploy-service
 Anyone can now call the [trigger contract](./src/contracts/WavsTrigger.sol) which emits the trigger event WAVS is watching for from the previous step. WAVS then calls the service and saves the result on-chain.
 
 ```bash
-export TRIGGER_DATA_INPUT=dabit3
+export TRIGGER_DATA_INPUT=merch
 export SERVICE_TRIGGER_ADDR=`make get-trigger-from-deploy`
 forge script ./script/Trigger.s.sol ${SERVICE_TRIGGER_ADDR} ${TRIGGER_DATA_INPUT} --sig "run(string,string)" --rpc-url http://localhost:8545 --broadcast -v 4
 ```

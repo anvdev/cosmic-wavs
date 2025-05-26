@@ -1,15 +1,13 @@
+use alloy_primitives::hex;
 // Required imports
-use alloy_sol_types::{sol, SolCall, SolValue};
+use alloy_sol_types::{sol, SolValue};
 use anyhow::Result;
-use ark_bls12_381::{Bls12_381, Fr, G1Affine, G2Affine};
-use bindings::host::get_eth_chain_config;
-use commonware_cryptography::bls12381::PrivateKey;
+use commonware_codec::extensions::DecodeExt;
 use commonware_cryptography::{Bls12381, Signer};
 use cosmwasm_std::{to_base64, to_json_binary};
 use cw_infusions::wavs::WavsBundle;
-use eigen_crypto_bls::{BlsKeyPair, Signature};
 use layer_climb::prelude::*;
-use layer_climb::proto::tx::{AuthInfo, BroadcastMode, Fee, ModeInfo, SignerInfo, Tx, TxBody};
+use layer_climb::proto::tx::{AuthInfo, BroadcastMode, Fee, TxBody};
 use layer_climb::proto::{Any, MessageExt};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -274,8 +272,6 @@ async fn process_burn_event(
         gas_denom,
     };
 
-    // generate SHA256 sum, sign hash of msg with bls key
-    let bls_key_pair = BlsKeyPair::new(WAVS_BLS_PRIVATE_KEY.into())?;
     // get operator signing key
     let mnemonic = std::env::var(WAVS_SECP256k1_MNEMONIC)
         .expect("Missing 'WAVS_SECP256k1_MNEMONIC' in environment.");
@@ -285,7 +281,6 @@ async fn process_burn_event(
     // create signing client: TODO: make use of bls12 pubkeys for signing implementation
     let cosm_signing_client: SigningClient =
         SigningClient::new(chain_config.clone(), op_secp256k1_signing_key, None).await?;
-
     let cosm_guery = cosm_signing_client.querier.clone();
 
     // TODO: get cw-infuser contracts & params registered when creating the service
@@ -327,13 +322,30 @@ async fn process_burn_event(
         }
         .to_bytes()?,
     };
+
     // - create sha256sum bytes that are being signed by operators for aggregated approval.
     // Current implementation signs single msgs for authorization,
     let msg_digest: [u8; 32] =
         Sha256::digest(wavs_action_msg.to_bytes()?).to_vec().try_into().unwrap();
-    let signature = bls_key_pair.sign_message(&msg_digest);
 
-    signatures.push(signature.g1_point().g1().to_string().into_bytes());
+    // Import the bls12-381 private key
+    let bls_key_pair = match <Bls12381 as commonware_cryptography::Signer>::PrivateKey::decode(
+        hex::decode(WAVS_BLS_PRIVATE_KEY.as_bytes())?.as_ref(),
+    ) {
+        Ok(key) => key,
+        Err(e) => {
+            return Err(e.into());
+        }
+    };
+
+    // Create a signer from the imported key
+    let mut imported_signer = <Bls12381 as commonware_cryptography::Signer>::from(bls_key_pair)
+        .expect("broken private key");
+
+    let namespace = Some(&b"demo"[..]);
+    let signature = imported_signer.sign(namespace, &msg_digest);
+
+    signatures.push(signature.to_vec());
     cosmic_wavs_actions.push(wavs_action_msg);
 
     // push signature
@@ -365,7 +377,7 @@ async fn process_burn_event(
     let signer_info = cosmos_sdk_proto::cosmos::tx::v1beta1::SignerInfo {
         public_key: Some(Any {
             type_url: "/cosmos.crypto.bls12_381.PubKey".into(),
-            value: bls_key_pair.public_key().g1().to_string().into_bytes(),
+            value: imported_signer.public_key().to_vec(),
         }),
         mode_info: None,
         sequence: 0,
@@ -376,7 +388,6 @@ async fn process_burn_event(
         .tx_builder()
         .simulate_gas(signer_info.clone(), smart_account.account_number, &wavs_broadcast_msg)
         .await?;
-    signer_infos.push(signer_info);
 
     let fee = Fee {
         amount: vec![Coin { denom: "ubtsg".into(), amount: 100u64.to_string() }],
@@ -384,6 +395,8 @@ async fn process_burn_event(
         payer: "".to_string(), // wavs operated account
         granter: "".to_string(),
     };
+
+    signer_infos.push(signer_info);
 
     //  SIGN_MODE_DIRECT
     let wavs_request = cosmos_sdk_proto::cosmos::tx::v1beta1::Tx {
@@ -400,13 +413,14 @@ async fn process_burn_event(
         .broadcast_tx_bytes(wavs_request.to_bytes()?, BroadcastMode::Sync)
         .await?;
 
+    // form object to use with  other operators
     let service_res = WavsBlsCosmosActionAuth {
         base64_msg_hash: to_base64(msg_digest),
         msg: vec![],
-        signature: signature.g1_point().g1().to_string(),
-        pubkey_g2: bls_key_pair.public_key_g2().g2().to_string(),
+        signature: signature.to_string(),
+        pubkey_g2: imported_signer.public_key().to_string(),
     };
-    
+
     if res.code() != 0 {
         return Ok(ServiceResponse {
             message: "Infusion record failuter".to_string(),

@@ -77,6 +77,11 @@ jobs:
     - name: build contracts
       run: forge build
 
+    # todo: e2e workflow
+    # x/smart-account cosmos-network: run cargo bin command in script library to deploy simulation network (Docker image download)
+    # cosmwasm contracts: deploy cw-infuser & btsg-accounts framework via cargo bin commands (cw-orchestrator)
+    # wavs registration: register account with smart-contract authenticator, and account with wavs-privlidges
+
     # `strings | grep BTC` verifies the output contains BTC from the price oracle example
     - name: wasi build and local exec
       run: |

@@ -1,6 +1,9 @@
 
 
 ## 1. Spin up Network With Smart Account 
+git clone -b feat/rs-bitsong https://github.com/permissionlessweb/go-bitsong
+
+
 
 ## 2. Spin up Avs Service
 

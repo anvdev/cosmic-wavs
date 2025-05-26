@@ -6,30 +6,42 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-
-
 env_logger = { version = "0.11.3", default-features = false }
 anyhow = "1.0.79"
 dotenv = "0.15.0"
-reqwest                      = { version = "0.11.9" }
+reqwest = { version = "0.11.9" }
 clap = "4.5.23"
 tokio = "1.39.3"
-prost-types                  = "0.12.6"
-log                          = "0.4.22"
+prost-types = "0.13.5"
+log  = "0.4.22"
+hex = { version = "0.4", features = ["serde"] }
 
-#  cosmos 
-cosmrs = "0.15.0"
-cosmos-sdk-proto = "0.24.0"
-cosmwasm-schema            = { workspace = true }
+# cosmos 
+cosmrs  = { workspace = true }
+cosmos-sdk-proto   = { workspace = true }
+cosmwasm-schema  = { workspace = true }
 cosmwasm-std   = { workspace = true }
 cosmwasm-crypto  = { version = "2.1.4",  default-features = false }
-cw721 = "0.18.0"
-cw-orch = { version = "0.24.1", features = ["daemon"] }
-cw-orch-clone-testing = "0.6.4"
-# cw-infuser = {version = "0.4.2", path = "../contracts/cw-infuser" }
-# cw-infusions = {  path = "../packages/cw-infusions" }
-sg721 = "^3.3"
-sg721-base = "^3.3"
+cw-orch = { version = "0.28.0", features = ["daemon"] }
+abstract-cw-multi-test = { version = "2.2.4" }
+
+commonware-cryptography = { workspace = true }
+commonware-codec = { workspace = true }
+
+# cw-infusion demo crates
+cw721 = { library =  "cw721", git = "https://github.com/public-awesome/cw-nfts", ref = "a5abe476c1028b2563f995adab184b86e3fc03ff" }
+cw721-base = {  git = "https://github.com/public-awesome/cw-nfts", ref = "a5abe476c1028b2563f995adab184b86e3fc03ff",features = ["library"] }
+
+cw-infuser-scripts   = { path = "../../../cw-infuser2/scripts"}
+btsg-account-scripts = { path = "../../../BITSONG/bs-accounts/scripts"}
+cw-infuser           = { path = "../../../cw-infuser2/contracts/cw-infuser", features=["library"]}
+
+btsg-nft-scripts = {library = "btsg-nft-scripts", git = "https://github.com/permissionlessweb/bs-nfts", branch = "feat/wavs" }
+# btsg-account-scripts = {library = "btsg-account-scripts", git = "https://github.com/permissionlessweb/bs-accounts", branch = "cleanup" }
+# cw-infuser = {git = "https://github.com/permissionlessweb/cw-infuser", branch = "feat/wavs", features =["library"] }
+# cw-infuser-scripts = { library = "cw-infuser-scripts", git = "https://github.com/permissionlessweb/cw-infuser", branch = "feat/wavs" }
+
+cw-infusions = { library = "cw-infusions",git = "https://github.com/permissionlessweb/cw-infuser", branch = "feat/wavs" }
 
 # eth 
 

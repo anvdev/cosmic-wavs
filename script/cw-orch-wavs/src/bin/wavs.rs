@@ -6,6 +6,7 @@ use cw_orch::{
     daemon::{DaemonBuilder, TxSender},
     prelude::*,
 };
+use cw_orch_wavs::networks::{BITSONG_MAINNET, BITSONG_TESTNET, LOCAL_NETWORK1};
 use tokio::runtime::Runtime;
 
 /// MsgAddAuthenticatorRequest defines the Msg/AddAuthenticator request type.
@@ -65,14 +66,13 @@ fn deploy_wavs(network: ChainInfoOwned) -> anyhow::Result<()> {
     // rt.block_on(assert_wallet_balance(vec![network.clone()]));
 
     let urls = network.grpc_urls.to_vec();
-    for url in urls {
-        rt.block_on(ping_grpc(&url))?;
-    }
+    // for url in urls {
+    //     rt.block_on(ping_grpc(&url))?;
+    // }
 
     let chain =
         DaemonBuilder::new(network.clone()).handle(rt.handle()).mnemonic(MNEMONIC).build()?;
 
-    let suite = BtsgAccountSuite::deploy_on(chain.clone(), chain.sender().address())?;
     // deploy cw-infuser
 
     // register custom authenticator to account

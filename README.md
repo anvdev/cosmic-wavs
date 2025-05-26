@@ -1,11 +1,19 @@
-# [Cosmos-WAVS] 
- -->
+# Cosmic-WAVS
 
+<div align="center">
+
+[![Bannger](/imgs/readme-banner.png)](https://youtu.be/jyl7kbie41w)
+
+</div>
+
+ 
+<div align="center">
 
 > [!WARNING]
 > **Experimental Use Only**: This template is designed for experimentation. Results may vary. This template is not intended for production use. Use at your own risk and for experimental purposes only.
 Repo template: https://github.com/Lay3rLabs/wavs-foundry-template
 
+</div>
 
 
 ## Goals
@@ -13,24 +21,54 @@ Repo template: https://github.com/Lay3rLabs/wavs-foundry-template
 - Authentication action to perform via Wavs operator keys
 - Broadcast authorized action to Cosmos Chain
 
+## Design 
 
-## WAVS Actions To Explore
-1. Operator Fee Allocations:
-    - Smart contract logic allocation of fees routed to contract owner for operator incentives
-2. Proof of Task - Aggregated Operator Key Signatures For Action Authorization:
-    - **Action Authorization**: Query & Write to smart contract state on Cosmos via action occuring on Eth Or Btc
-3. Execution Service Method:
-    - Determining which operator broadcast the gls & actions to perform
-4. TODO: Caching of Failed Transactions: 
+### wavs + x/smart-accounts  
+ For this implemenetation, WAVS services will use authentication capabilities provided by the x/smart-account module to perform on chain actions. This is implemented by 
+registration of an smart-contract authenticator to a secp256k1 key account. Our bls12-381 compatible account authentication 
+example can be found here [btsg-wavs](), and is used to allow a set of operator for a given AVS instance authenticate actions for this account to perform.
 
+Infusions AVS will check for a specific wasm event, in order to perform custom logic in reaction to these events.
 
- 
+### custom AVS logic
+
+Here we design our AVS to perform custom logic. This demo has logic that filters any new burn event that has occured on the chain the cw-infusion contract is deployed on,in order to trigger its custom filtering workflow:
+```rs
+
+```
+
+We can also implement custom logic to determine any msgs that the AVS should perform:
+```
+
+```
+For this demo, any burn event will trigger the AVS to check if any infusion in the cw-infuser address paired to it has the specific nft collection as an eligible collection.
+
+If there are none,no messages are formed, otherwise a message to update the global contract state is signed via the preferred Ecdsa authorization method.
+```
+
+```
+
+We still need to handle error responses, in order to resubmit transactions via governance override.
+We still need to implement aggregated consensus if there are more than one operator.
+
+## Cw-Orch-Wavs
+All-in-one scripting library for deploying & testing
+
+## Demo Requirements & Actions
+- 1 Cosmos Chain: Cosmwasm + Smart Account enabled
+    - deploy cw-infuser, cw721-base, & cw-wavs
+    - register wavs-managed-account with custom authenticator
+- 1 Ethereum Chain: 
+    - deploy core eignlayer contracts
+- 1 Wavs Operator:
+    - deploy & register
+
 
 <!-- ## Video tutorial
 
 Follow along with the video tutorial:
 
-[![Watch the video](/img/video.png)](https://youtu.be/jyl7kbie41w)
+
 
 You can see an example of the finished component [here](https://github.com/Lay3rLabs/WAVS-Claude-Template/tree/warpcast-eigen-counter/components/warpcast-eigen-counter). -->
 

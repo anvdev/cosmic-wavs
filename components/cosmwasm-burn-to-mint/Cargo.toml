@@ -23,8 +23,10 @@ tonic = { workspace = true }
 
 # eigenlayer crates
 eigen-crypto-bls = { workspace = true }
+commonware-cryptography = { workspace = true }
 sha2 = { workspace = true }
-
+ark-bls12-381 = { workspace = true }
+ 
 # cosmwasm crates
 cosmos-sdk-proto = { workspace = true }
 cosmwasm-std = { workspace = true }

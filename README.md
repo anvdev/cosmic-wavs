@@ -338,18 +338,14 @@ Each service gets their own key path (hd_path). The first service starts at 1 an
 
 ```bash
 export SERVICE_ID=`curl -s http://localhost:8000/app | jq -r '.services[0].id'`
-export HD_INDEX=`curl -s http://localhost:8000/service-key/${SERVICE_ID} | jq -rc .secp256k1.hd_index | tr -d '[]'`
-
-source infra/wavs-1/.env
-AVS_PRIVATE_KEY=`cast wallet private-key --mnemonic-path "$WAVS_SUBMISSION_MNEMONIC" --mnemonic-index ${HD_INDEX}`
-OPERATOR_ADDRESS=`cast wallet address ${AVS_PRIVATE_KEY}`
+export OPERATOR_ADDRESS=`curl -s http://localhost:8000/service-key/${SERVICE_ID} | jq -rc '.secp256k1.evm_address'`
 
 # Register the operator with the WAVS service manager
-export WAVS_SERVICE_MANAGER_ADDRESS=`jq -r '.addresses.WavsServiceManager' .nodes/avs_deploy.json`
+export SERVICE_MANAGER_ADDRESS=`jq -r '.addresses.WavsServiceManager' .nodes/avs_deploy.json`
 DELEGATION=0.001ether AVS_PRIVATE_KEY=${AVS_PRIVATE_KEY} make V=1 operator-register
 
 # Verify registration
-WAVS_SERVICE_MANAGER_ADDRESS=${WAVS_SERVICE_MANAGER_ADDRESS} make operator-list
+SERVICE_MANAGER_ADDRESS=${SERVICE_MANAGER_ADDRESS} make operator-list
 ```
 
 ## Trigger the Service

@@ -247,7 +247,6 @@ docker run --rm --network host --env-file .env -v ./.nodes:/root/.nodes ghcr.io/
 ```bash docci-delay-per-cmd=2
 export RPC_URL=`sh ./script/get-rpc.sh`
 export DEPLOYER_PK=$(cat .nodes/deployer)
-
 export SERVICE_MANAGER_ADDRESS=$(jq -r '.addresses.WavsServiceManager' .nodes/avs_deploy.json)
 
 forge create SimpleSubmit --json --broadcast -r ${RPC_URL} --private-key "${DEPLOYER_PK}" --constructor-args "${SERVICE_MANAGER_ADDRESS}" > .docker/submit.json
@@ -277,14 +276,12 @@ export PKG_NAMESPACE=`sh ./script/get-wasi-namespace.sh`
 # local or wa.dev depending on DEPLOY_ENV in .env
 sh script/upload-to-wasi-registry.sh
 
-# Build your service JSON
-export AGGREGATOR_URL=http://127.0.0.1:8001
-
 # Testnet: set values (default: local if not set)
 # export TRIGGER_CHAIN=holesky
 # export SUBMIT_CHAIN=holesky
 
 # Package not found with wa.dev? -- make sure it is public
+export AGGREGATOR_URL=http://127.0.0.1:8001
 REGISTRY=${REGISTRY} sh ./script/build_service.sh
 ```
 
@@ -300,10 +297,10 @@ export ipfs_cid=`SERVICE_FILE=${SERVICE_FILE} make upload-to-ipfs`
 
 # LOCAL: http://127.0.0.1:8080
 # TESTNET: https://gateway.pinata.cloud/
-export IPFS_GATEWAY=$(sh script/get-ipfs-gateway.sh)
+export IPFS_GATEWAY="$(sh script/get-ipfs-gateway.sh)/ipfs/"
 
 export IPFS_URI="ipfs://${ipfs_cid}"
-curl "${IPFS_GATEWAY}/ipfs/${ipfs_cid}"
+curl "${IPFS_GATEWAY}${ipfs_cid}"
 
 cast send ${SERVICE_MANAGER_ADDRESS} 'setServiceURI(string)' "${IPFS_URI}" -r ${RPC_URL} --private-key ${DEPLOYER_PK}
 ```
@@ -313,7 +310,7 @@ cast send ${SERVICE_MANAGER_ADDRESS} 'setServiceURI(string)' "${IPFS_URI}" -r ${
 ```bash
 sh ./script/create-aggregator.sh 1
 
-IPFS_GATEWAY=${IPFS_GATEWAY}/ipfs/ sh ./infra/aggregator-1/start.sh
+IPFS_GATEWAY=${IPFS_GATEWAY} sh ./infra/aggregator-1/start.sh
 
 wget -q --header="Content-Type: application/json" --post-data="{\"uri\": \"${IPFS_URI}\"}" ${AGGREGATOR_URL}/register-service -O -
 ```
@@ -323,13 +320,11 @@ wget -q --header="Content-Type: application/json" --post-data="{\"uri\": \"${IPF
 ```bash
 sh ./script/create-operator.sh 1
 
-# [!] UPDATE PROPER VALUES FOR TESTNET HERE (`wavs.toml`: ipfs_gateway)
-
-IPFS_GATEWAY=${IPFS_GATEWAY}/ipfs/ sh ./infra/wavs-1/start.sh
+IPFS_GATEWAY=${IPFS_GATEWAY} sh ./infra/wavs-1/start.sh
 
 # Deploy the service JSON to WAVS so it now watches and submits.
 # 'opt in' for WAVS to watch (this is before we register to Eigenlayer)
-WAVS_ENDPOINT=http://127.0.0.1:8000 SERVICE_URL=${IPFS_URI} IPFS_GATEWAY=${IPFS_GATEWAY}/ipfs/ make deploy-service
+WAVS_ENDPOINT=http://127.0.0.1:8000 SERVICE_URL=${IPFS_URI} IPFS_GATEWAY=${IPFS_GATEWAY} make deploy-service
 ```
 
 ## Register service specific operator
@@ -338,7 +333,10 @@ Each service gets their own key path (hd_path). The first service starts at 1 an
 
 ```bash
 export SERVICE_ID=`curl -s http://localhost:8000/app | jq -r '.services[0].id'`
-export OPERATOR_ADDRESS=`curl -s http://localhost:8000/service-key/${SERVICE_ID} | jq -rc '.secp256k1.evm_address'`
+export HD_INDEX=`curl -s http://localhost:8000/service-key/${SERVICE_ID} | jq -rc '.secp256k1.hd_index'`
+
+source infra/wavs-1/.env
+export AVS_PRIVATE_KEY=`cast wallet private-key --mnemonic-path "$WAVS_SUBMISSION_MNEMONIC" --mnemonic-index ${HD_INDEX}`
 
 # Register the operator with the WAVS service manager
 export SERVICE_MANAGER_ADDRESS=`jq -r '.addresses.WavsServiceManager' .nodes/avs_deploy.json`

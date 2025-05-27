@@ -45,14 +45,15 @@ cat > "${AGG_LOC}/start.sh" << EOF
 #!/bin/bash
 cd \$(dirname "\$0") || exit 1
 
-IMAGE=ghcr.io/lay3rlabs/wavs:b45bee6
+IMAGE=ghcr.io/lay3rlabs/wavs:local-may-27-agg-load
 INSTANCE=wavs-aggregator-${AGGREGATOR_INDEX}
+IPFS_GATEWAY=\${IPFS_GATEWAY:-"https://ipfs.io/ipfs/"}
 
 docker kill \${INSTANCE} > /dev/null 2>&1 || true
 docker rm \${INSTANCE} > /dev/null 2>&1 || true
 
 docker run -d --name \${INSTANCE} --network host -p 8001:8001 --stop-signal SIGKILL --env-file .env --user 1000:1000 -v .:/wavs \\
-  \${IMAGE} wavs-aggregator --log-level debug --host 0.0.0.0 --port 8001
+  \${IMAGE} wavs-aggregator --log-level debug --host 0.0.0.0 --port 8001 --ipfs-gateway \${IPFS_GATEWAY}
 EOF
 
 cp wavs.toml ${AGG_LOC}/wavs.toml

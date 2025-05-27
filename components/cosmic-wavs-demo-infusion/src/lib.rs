@@ -1,26 +1,31 @@
-use alloy_primitives::hex;
+use alloy_primitives::hex::{self};
 // Required imports
 use alloy_sol_types::{sol, SolValue};
 use anyhow::Result;
-use commonware_codec::extensions::DecodeExt;
-use commonware_cryptography::{Bls12381, Signer};
+use serde::{Deserialize, Serialize};
+
 use cosmwasm_std::{to_base64, to_json_binary};
 use cw_infusions::wavs::WavsBundle;
+
 use layer_climb::prelude::*;
-use layer_climb::proto::tx::{AuthInfo, BroadcastMode, Fee, TxBody};
-use layer_climb::proto::{Any, MessageExt};
-use serde::{Deserialize, Serialize};
+use layer_climb::proto::{
+    tx::{AuthInfo, BroadcastMode, Fee, TxBody},
+    Any, MessageExt,
+};
+
+use commonware_codec::extensions::DecodeExt;
+use commonware_cryptography::{Bls12381, Signer};
 use sha2::{Digest, Sha256};
+
 use wavs_wasi_chain::decode_event_log_data;
 use wstd::runtime::block_on;
+
 pub mod bindings; // Never edit bindings.rs!
 use crate::bindings::host::get_cosmos_chain_config;
 use crate::bindings::wavs::worker::layer_types::{
     TriggerData, TriggerDataCosmosContractEvent, TriggerDataEthContractEvent,
 };
 use crate::bindings::{export, Guest, TriggerAction};
-
-// use ark_std::{rand::thread_rng, UniformRand};
 
 // Define destination for output
 pub enum Destination {
@@ -152,7 +157,7 @@ impl Guest for Component {
 
             _ => {
                 // Unknown event type,default response
-                ServiceResponse { message: "non-infusion".into(), success: true, data: None }
+                ServiceResponse { message: "non-infusion".to_string(), success: true, data: None }
             }
         };
 
@@ -311,7 +316,7 @@ async fn process_burn_event(
         }
     }
     // - sign msg the operator set is authorizing to perform
-    let wavs_action_msg = Any {
+    let wavs_any_msg = Any {
         type_url: "/cosmwasm.wasm.v1.MsgExecuteContract".into(),
         value: cosmos_sdk_proto::cosmwasm::wasm::v1::MsgExecuteContract {
             sender: WAVS_INFUSER_OPERATOR_ADDR.into(), // wavs secp256k1 key address registered to x/accounts with bls12 authenticator
@@ -322,11 +327,7 @@ async fn process_burn_event(
         }
         .to_bytes()?,
     };
-
-    // - create sha256sum bytes that are being signed by operators for aggregated approval.
-    // Current implementation signs single msgs for authorization,
-    let msg_digest: [u8; 32] =
-        Sha256::digest(wavs_action_msg.to_bytes()?).to_vec().try_into().unwrap();
+    cosmic_wavs_actions.push(wavs_any_msg);
 
     // Import the bls12-381 private key
     let bls_key_pair = match <Bls12381 as commonware_cryptography::Signer>::PrivateKey::decode(
@@ -342,11 +343,14 @@ async fn process_burn_event(
     let mut imported_signer = <Bls12381 as commonware_cryptography::Signer>::from(bls_key_pair)
         .expect("broken private key");
 
-    let namespace = Some(&b"demo"[..]);
-    let signature = imported_signer.sign(namespace, &msg_digest);
+    // - create sha256sum bytes that are being signed by operators for aggregated approval.
+    // Current implementation signs single msgs for authorization,
+    let msg_digest: [u8; 32] =
+        Sha256::digest(to_json_binary(&cosmic_wavs_actions)?.as_ref()).to_vec().try_into().unwrap();
 
-    signatures.push(signature.to_vec());
-    cosmic_wavs_actions.push(wavs_action_msg);
+    // let namespace = Some(&b"demo"[..]);
+    let signature = imported_signer.sign(None, &msg_digest).to_vec();
+    signatures.push(signature.clone());
 
     // push signature
     // generate message to broadcast with use of the x/smart-account function
@@ -406,22 +410,30 @@ async fn process_burn_event(
     };
 
     // 5.handle transaction response (out of gas,edge case error)
-
-    let res = cosm_signing_client
+    let cosm_res = cosm_signing_client
         .tx_builder()
         .querier
         .broadcast_tx_bytes(wavs_request.to_bytes()?, BroadcastMode::Sync)
         .await?;
 
+    match cosm_res.code() {
+        0 => {
+            // successful response
+        }
+        _ => {
+            // errors
+        }
+    }
+
     // form object to use with  other operators
     let service_res = WavsBlsCosmosActionAuth {
         base64_msg_hash: to_base64(msg_digest),
         msg: vec![],
-        signature: signature.to_string(),
+        signature: hex::encode(signature),
         pubkey_g2: imported_signer.public_key().to_string(),
     };
 
-    if res.code() != 0 {
+    if cosm_res.code() != 0 {
         return Ok(ServiceResponse {
             message: "Infusion record failuter".to_string(),
             success: false,
@@ -430,8 +442,7 @@ async fn process_burn_event(
     }
 
     Ok(ServiceResponse {
-        message: "Burn recorded, but no infusion services have all requirements met yet"
-            .to_string(),
+        message: "Burn recorded".to_string(),
         success: true,
         data: Some(service_res),
     })

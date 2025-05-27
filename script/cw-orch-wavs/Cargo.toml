@@ -32,17 +32,18 @@ commonware-codec = { workspace = true }
 cw721 = { library =  "cw721", git = "https://github.com/public-awesome/cw-nfts", ref = "a5abe476c1028b2563f995adab184b86e3fc03ff" }
 cw721-base = {  git = "https://github.com/public-awesome/cw-nfts", ref = "a5abe476c1028b2563f995adab184b86e3fc03ff",features = ["library"] }
 
-cw-infuser-scripts   = { path = "../../../cw-infuser2/scripts"}
-btsg-account-scripts = { path = "../../../BITSONG/bs-accounts/scripts"}
-cw-infuser           = { path = "../../../cw-infuser2/contracts/cw-infuser", features=["library"]}
+# use for local-development
+# btsg-account-scripts = { path = "bs-accounts/scripts"}
+# btsg-nft-scripts     = { path = "bs-nfts/scripts" branch = "feat/wavs" }
+# cw-infuser-scripts   = { path = "cw-infuser/scripts"}
+# cw-infuser           = { path = "cw-infuser/contracts/cw-infuser", features=["library"]}
 
-btsg-nft-scripts = {library = "btsg-nft-scripts", git = "https://github.com/permissionlessweb/bs-nfts", branch = "feat/wavs" }
-# btsg-account-scripts = {library = "btsg-account-scripts", git = "https://github.com/permissionlessweb/bs-accounts", branch = "cleanup" }
-# cw-infuser = {git = "https://github.com/permissionlessweb/cw-infuser", branch = "feat/wavs", features =["library"] }
-# cw-infuser-scripts = { library = "cw-infuser-scripts", git = "https://github.com/permissionlessweb/cw-infuser", branch = "feat/wavs" }
+btsg-account-scripts = {library = "btsg-account-scripts", git = "https://github.com/permissionlessweb/bs-accounts", branch = "cleanup" }
+btsg-nft-scripts     = { library = "btsg-nft-scripts", git = "https://github.com/permissionlessweb/bs-nfts", branch = "feat/wavs" }
+cw-infuser-scripts   = { library = "cw-infuser-scripts", git = "https://github.com/permissionlessweb/cw-infuser", branch = "feat/wavs" }
+cw-infuser           = { git = "https://github.com/permissionlessweb/cw-infuser", branch = "feat/wavs", features =["library"] }
 
 cw-infusions = { library = "cw-infusions",git = "https://github.com/permissionlessweb/cw-infuser", branch = "feat/wavs" }
 
 # eth 
-
 # wavs

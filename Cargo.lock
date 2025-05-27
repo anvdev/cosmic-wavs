@@ -2124,7 +2124,7 @@ dependencies = [
  "bitflags 2.9.1",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools 0.12.1",
  "proc-macro2 1.0.95",
  "quote",
  "regex",
@@ -2211,6 +2211,19 @@ checksum = "5e764a1d40d510daf35e07be9eb06e75770908c27d411ee6c92109c9840eaaf7"
 
 [[package]]
 name = "bitcoin"
+version = "0.30.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1945a5048598e4189e239d3f809b19bdad4845c4b2ba400d304d2dcf26d2c462"
+dependencies = [
+ "bech32 0.9.1",
+ "bitcoin-private",
+ "bitcoin_hashes 0.12.0",
+ "hex_lit",
+ "secp256k1 0.27.0",
+]
+
+[[package]]
+name = "bitcoin"
 version = "0.31.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c85783c2fe40083ea54a33aa2f0ba58831d90fcd190f5bdc47e74e84d2a96ae"
@@ -2263,12 +2276,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b47c4ab7a93edb0c7198c5535ed9b52b63095f4e9b45279c6736cec4b856baf"
 
 [[package]]
+name = "bitcoin-private"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73290177011694f38ec25e165d0387ab7ea749a4b81cd4c80dae5988229f7a57"
+
+[[package]]
 name = "bitcoin-units"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5285c8bcaa25876d07f37e3d30c303f2609179716e11d688f51e8f1fe70063e2"
 dependencies = [
  "bitcoin-internals 0.3.0",
+]
+
+[[package]]
+name = "bitcoin_hashes"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d7066118b13d4b20b23645932dfb3a81ce7e29f95726c2036fa33cd7b092501"
+dependencies = [
+ "bitcoin-private",
 ]
 
 [[package]]
@@ -2506,7 +2534,7 @@ dependencies = [
 [[package]]
 name = "bs721"
 version = "0.3.0"
-source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#a67433bc9ba78a8c9ee095caa6b6da014a416cf2"
+source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#39c0ff42bcbbf1776395b608c3afaf4a8066b77f"
 dependencies = [
  "cosmwasm-schema 2.2.2",
  "cosmwasm-std 2.2.2",
@@ -2530,6 +2558,7 @@ dependencies = [
 [[package]]
 name = "bs721-account"
 version = "0.2.0"
+source = "git+https://github.com/permissionlessweb/bs-accounts?branch=cleanup#737d8b72573a2f2dd0523bfcdccfceb398c6c034"
 dependencies = [
  "abstract-std",
  "bs-controllers",
@@ -2553,6 +2582,7 @@ dependencies = [
 [[package]]
 name = "bs721-account-marketplace"
 version = "0.2.0"
+source = "git+https://github.com/permissionlessweb/bs-accounts?branch=cleanup#737d8b72573a2f2dd0523bfcdccfceb398c6c034"
 dependencies = [
  "bs-controllers",
  "bs721 0.3.0 (git+https://github.com/permissionlessweb/bs-nfts?rev=1e50abdac4517bcdd5e03491589bdba6929806cf)",
@@ -2575,6 +2605,7 @@ dependencies = [
 [[package]]
 name = "bs721-account-minter"
 version = "0.2.0"
+source = "git+https://github.com/permissionlessweb/bs-accounts?branch=cleanup#737d8b72573a2f2dd0523bfcdccfceb398c6c034"
 dependencies = [
  "bs-controllers",
  "bs721 0.3.0 (git+https://github.com/permissionlessweb/bs-nfts?rev=1e50abdac4517bcdd5e03491589bdba6929806cf)",
@@ -2597,7 +2628,7 @@ dependencies = [
 [[package]]
 name = "bs721-base"
 version = "0.3.0"
-source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#a67433bc9ba78a8c9ee095caa6b6da014a416cf2"
+source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#39c0ff42bcbbf1776395b608c3afaf4a8066b77f"
 dependencies = [
  "bs721 0.3.0 (git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs)",
  "cosmwasm-schema 2.2.2",
@@ -2633,7 +2664,7 @@ dependencies = [
 [[package]]
 name = "bs721-curve"
 version = "0.3.0"
-source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#a67433bc9ba78a8c9ee095caa6b6da014a416cf2"
+source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#39c0ff42bcbbf1776395b608c3afaf4a8066b77f"
 dependencies = [
  "bs721 0.3.0 (git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs)",
  "bs721-base 0.3.0 (git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs)",
@@ -2653,7 +2684,7 @@ dependencies = [
 [[package]]
 name = "bs721-factory"
 version = "0.3.0"
-source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#a67433bc9ba78a8c9ee095caa6b6da014a416cf2"
+source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#39c0ff42bcbbf1776395b608c3afaf4a8066b77f"
 dependencies = [
  "bs721 0.3.0 (git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs)",
  "bs721-base 0.3.0 (git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs)",
@@ -2674,7 +2705,7 @@ dependencies = [
 [[package]]
 name = "bs721-launchparty"
 version = "0.3.0"
-source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#a67433bc9ba78a8c9ee095caa6b6da014a416cf2"
+source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#39c0ff42bcbbf1776395b608c3afaf4a8066b77f"
 dependencies = [
  "bs721 0.3.0 (git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs)",
  "bs721-base 0.3.0 (git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs)",
@@ -2693,7 +2724,7 @@ dependencies = [
 [[package]]
 name = "bs721-royalties"
 version = "0.3.0"
-source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#a67433bc9ba78a8c9ee095caa6b6da014a416cf2"
+source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#39c0ff42bcbbf1776395b608c3afaf4a8066b77f"
 dependencies = [
  "bs721-base 0.3.0 (git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs)",
  "cosmwasm-schema 2.2.2",
@@ -2720,6 +2751,7 @@ dependencies = [
 [[package]]
 name = "btsg-account"
 version = "0.2.0"
+source = "git+https://github.com/permissionlessweb/bs-accounts?branch=cleanup#737d8b72573a2f2dd0523bfcdccfceb398c6c034"
 dependencies = [
  "abstract-std",
  "bech32 0.11.0",
@@ -2740,6 +2772,7 @@ dependencies = [
 [[package]]
 name = "btsg-account-scripts"
 version = "0.2.0"
+source = "git+https://github.com/permissionlessweb/bs-accounts?branch=cleanup#737d8b72573a2f2dd0523bfcdccfceb398c6c034"
 dependencies = [
  "abstract-client",
  "abstract-cw-orch-polytone 6.0.1",
@@ -2799,7 +2832,7 @@ dependencies = [
 [[package]]
 name = "btsg-auth"
 version = "0.3.0"
-source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#a67433bc9ba78a8c9ee095caa6b6da014a416cf2"
+source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#39c0ff42bcbbf1776395b608c3afaf4a8066b77f"
 dependencies = [
  "cosmwasm-schema 2.2.2",
  "cosmwasm-std 2.2.2",
@@ -2813,7 +2846,7 @@ dependencies = [
 [[package]]
 name = "btsg-cw-orch"
 version = "0.3.0"
-source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#a67433bc9ba78a8c9ee095caa6b6da014a416cf2"
+source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#39c0ff42bcbbf1776395b608c3afaf4a8066b77f"
 dependencies = [
  "bs721 0.3.0 (git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs)",
  "bs721-base 0.3.0 (git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs)",
@@ -2831,7 +2864,7 @@ dependencies = [
 [[package]]
 name = "btsg-nft-scripts"
 version = "0.3.0"
-source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#a67433bc9ba78a8c9ee095caa6b6da014a416cf2"
+source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#39c0ff42bcbbf1776395b608c3afaf4a8066b77f"
 dependencies = [
  "abstract-cw-orch-polytone 4.1.0",
  "anyhow",
@@ -2847,7 +2880,6 @@ dependencies = [
  "clap",
  "cosmwasm-std 2.2.2",
  "cw-orch 0.26.0",
- "cw-orch-clone-testing",
  "cw-orch-interchain 0.9.0",
  "cw-orch-interchain-core 0.10.1",
  "dirs",
@@ -2864,6 +2896,7 @@ dependencies = [
 [[package]]
 name = "btsg-wavs"
 version = "0.2.0"
+source = "git+https://github.com/permissionlessweb/bs-accounts?branch=cleanup#737d8b72573a2f2dd0523bfcdccfceb398c6c034"
 dependencies = [
  "btsg-auth 0.3.0 (git+https://github.com/permissionlessweb/bs-nfts?branch=cosmwasm-std-v2)",
  "cosmos-sdk-proto 0.26.1",
@@ -2884,7 +2917,7 @@ dependencies = [
 [[package]]
 name = "btsg-wavs"
 version = "0.3.0"
-source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#a67433bc9ba78a8c9ee095caa6b6da014a416cf2"
+source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#39c0ff42bcbbf1776395b608c3afaf4a8066b77f"
 dependencies = [
  "bs721 0.3.0 (git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs)",
  "bs721-base 0.3.0 (git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs)",
@@ -3220,25 +3253,23 @@ checksum = "f46ad14479a25103f283c0f10005961cf086d8dc42205bb44c46ac563475dca6"
 
 [[package]]
 name = "clone-cw-multi-test"
-version = "0.6.5"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a954647cfa0b8985bd8519c7342de0aae22b33964bc17c3e2a2027891892cd98"
+checksum = "8d5e0939b69b273c150ed09a733ab9929c2e7a9981c38569fb1c386fcfa3c6e8"
 dependencies = [
  "anyhow",
  "bech32 0.9.1",
- "cargo_metadata",
- "cosmrs 0.19.0",
- "cosmwasm-std 2.2.2",
+ "cosmrs 0.15.0",
+ "cosmwasm-std 1.5.11",
  "cosmwasm-vm",
- "cw-orch 0.25.1",
- "cw-storage-plus 2.0.0",
- "cw-utils 2.0.0",
+ "cw-orch 0.24.1",
+ "cw-storage-plus 1.2.0",
+ "cw-utils 1.0.3",
  "derivative",
- "file-lock",
  "itertools 0.12.1",
  "log",
  "num-bigint",
- "prost 0.13.5",
+ "prost 0.12.6",
  "rustc-serialize",
  "schemars",
  "serde",
@@ -3246,7 +3277,7 @@ dependencies = [
  "sha2 0.10.9",
  "thiserror 1.0.69",
  "tokio",
- "tonic 0.12.3",
+ "tonic 0.10.2",
  "treediff",
  "wasmer",
 ]
@@ -3580,6 +3611,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "cosmic-wavs-demo-infusion"
+version = "0.3.0"
+dependencies = [
+ "alloy-network",
+ "alloy-primitives 0.8.25",
+ "alloy-provider",
+ "alloy-rpc-types",
+ "alloy-sol-macro 0.8.25",
+ "alloy-sol-types 0.8.25",
+ "anyhow",
+ "btsg-auth 0.3.0 (git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs)",
+ "commonware-codec",
+ "commonware-cryptography",
+ "cosmos-sdk-proto 0.27.0",
+ "cosmwasm-std 2.2.2",
+ "cw-infuser 0.4.2 (git+https://github.com/permissionlessweb/cw-infuser)",
+ "cw-infusions 0.1.0 (git+https://github.com/permissionlessweb/cw-infuser)",
+ "layer-climb",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tonic 0.9.2",
+ "wavs-wasi-chain",
+ "wit-bindgen-rt",
+ "wstd",
+]
+
+[[package]]
 name = "cosmos-sdk-proto"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3588,6 +3647,7 @@ dependencies = [
  "prost 0.12.6",
  "prost-types 0.12.6",
  "tendermint-proto 0.34.1",
+ "tonic 0.10.2",
 ]
 
 [[package]]
@@ -3663,7 +3723,9 @@ dependencies = [
  "signature",
  "subtle-encoding",
  "tendermint 0.34.1",
+ "tendermint-rpc 0.34.1",
  "thiserror 1.0.69",
+ "tokio",
 ]
 
 [[package]]
@@ -3726,34 +3788,6 @@ dependencies = [
  "subtle-encoding",
  "tendermint 0.40.4",
  "thiserror 1.0.69",
-]
-
-[[package]]
-name = "cosmwasm-burn-to-mint"
-version = "0.3.0"
-dependencies = [
- "alloy-network",
- "alloy-primitives 0.8.25",
- "alloy-provider",
- "alloy-rpc-types",
- "alloy-sol-macro 0.8.25",
- "alloy-sol-types 0.8.25",
- "anyhow",
- "btsg-auth 0.3.0 (git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs)",
- "commonware-codec",
- "commonware-cryptography",
- "cosmos-sdk-proto 0.27.0",
- "cosmwasm-std 2.2.2",
- "cw-infuser 0.4.2 (git+https://github.com/permissionlessweb/cw-infuser)",
- "cw-infusions 0.1.0 (git+https://github.com/permissionlessweb/cw-infuser)",
- "layer-climb",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "tonic 0.9.2",
- "wavs-wasi-chain",
- "wit-bindgen-rt",
- "wstd",
 ]
 
 [[package]]
@@ -3915,44 +3949,28 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-vm"
-version = "2.2.0"
+version = "1.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8609b60a64d3db43ccfe775828b701cc29d27c7ac136c0a89d5279353bdc1513"
+checksum = "8188ddfab8dbe6eb083ca40478be3171d385cb2ec59992cad22b2d0b2e2d689d"
 dependencies = [
- "bech32 0.11.0",
- "blake2",
+ "bitflags 1.3.2",
+ "bytecheck",
  "bytes",
  "clru",
- "cosmwasm-core",
- "cosmwasm-crypto 2.2.2",
- "cosmwasm-std 2.2.2",
- "cosmwasm-vm-derive",
+ "cosmwasm-crypto 1.5.11",
+ "cosmwasm-std 1.5.11",
  "crc32fast",
  "derivative",
+ "enumset",
  "hex",
- "rand_core 0.6.4",
  "schemars",
  "serde",
  "serde_json",
  "sha2 0.10.9",
- "strum 0.26.3",
  "thiserror 1.0.69",
- "tracing",
  "wasmer",
  "wasmer-middlewares",
  "wasmer-types",
-]
-
-[[package]]
-name = "cosmwasm-vm-derive"
-version = "2.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38d1eda106774245dbe5b2f23c07d498553a31e7a90fa431b4f3ab1b68d1fcf0"
-dependencies = [
- "blake2",
- "proc-macro2 1.0.95",
- "quote",
- "syn 2.0.101",
 ]
 
 [[package]]
@@ -4368,34 +4386,6 @@ dependencies = [
 [[package]]
 name = "cw-infuser"
 version = "0.4.2"
-dependencies = [
- "clap",
- "cosmwasm-schema 2.2.2",
- "cosmwasm-std 2.2.2",
- "cw-asset 3.1.1",
- "cw-controllers 1.1.2",
- "cw-infuser 0.2.1",
- "cw-infusions 0.1.0",
- "cw-orch 0.28.0",
- "cw-storage-plus 2.0.0",
- "cw2 2.0.0",
- "cw721 0.20.0",
- "cw721-base 0.20.0",
- "nois",
- "rand_core 0.6.4",
- "rand_xoshiro",
- "schemars",
- "semver 1.0.26",
- "serde",
- "sha2 0.10.9",
- "shuffle",
- "thiserror 1.0.69",
- "url",
-]
-
-[[package]]
-name = "cw-infuser"
-version = "0.4.2"
 source = "git+https://github.com/permissionlessweb/cw-infuser?branch=feat/wavs#13225bb7aae691801e24867ef5169e615df22577"
 dependencies = [
  "clap",
@@ -4459,31 +4449,21 @@ dependencies = [
 [[package]]
 name = "cw-infuser-scripts"
 version = "0.1.0"
+source = "git+https://github.com/permissionlessweb/cw-infuser?branch=feat/wavs#13225bb7aae691801e24867ef5169e615df22577"
 dependencies = [
  "anyhow",
  "clap",
  "cosmrs 0.15.0",
  "cosmwasm-std 2.2.2",
- "cw-infuser 0.4.2",
- "cw-infusions 0.1.0",
+ "cw-infuser 0.4.2 (git+https://github.com/permissionlessweb/cw-infuser?branch=feat/wavs)",
+ "cw-infusions 0.1.0 (git+https://github.com/permissionlessweb/cw-infuser?branch=feat/wavs)",
  "cw-orch 0.28.0",
+ "cw-orch-clone-testing",
  "cw721 0.18.0",
  "dotenv",
  "env_logger 0.11.8",
  "sg721",
  "sg721-base",
-]
-
-[[package]]
-name = "cw-infusions"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "cosmwasm-schema 2.2.2",
- "cosmwasm-std 2.2.2",
- "cw-orch 0.25.1",
- "sg721",
- "sha2 0.10.9",
 ]
 
 [[package]]
@@ -4540,11 +4520,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c81cb500eb2f9be31a0f90c7ce66572ee4a790ffbae1c6b42ff2e3f9faf3479"
 dependencies = [
  "anyhow",
+ "cosmrs 0.15.0",
  "cosmwasm-std 1.5.11",
  "cw-orch-contract-derive",
  "cw-orch-core 1.2.4",
+ "cw-orch-daemon 0.24.6",
  "cw-orch-fns-derive 0.22.0",
  "cw-orch-mock 0.23.2",
+ "cw-orch-networks 0.23.3",
  "cw-orch-traits 0.23.3",
  "cw-utils 1.0.3",
  "hex",
@@ -4552,6 +4535,7 @@ dependencies = [
  "schemars",
  "serde",
  "thiserror 1.0.69",
+ "tokio",
 ]
 
 [[package]]
@@ -4561,14 +4545,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b7353edbba484283e3162fba408bc450de43b8cc20124f89299af6ba70ad8727"
 dependencies = [
  "anyhow",
- "cosmrs 0.19.0",
  "cosmwasm-std 2.2.2",
  "cw-orch-contract-derive",
  "cw-orch-core 2.1.4",
- "cw-orch-daemon 0.25.3",
  "cw-orch-fns-derive 0.23.1",
  "cw-orch-mock 0.24.4",
- "cw-orch-networks",
  "cw-orch-traits 0.24.1",
  "cw-utils 2.0.0",
  "hex",
@@ -4576,7 +4557,6 @@ dependencies = [
  "schemars",
  "serde",
  "thiserror 1.0.69",
- "tokio",
 ]
 
 [[package]]
@@ -4593,7 +4573,7 @@ dependencies = [
  "cw-orch-daemon 0.27.3",
  "cw-orch-fns-derive 0.23.1",
  "cw-orch-mock 0.24.4",
- "cw-orch-networks",
+ "cw-orch-networks 0.24.11",
  "cw-orch-traits 0.24.1",
  "cw-utils 2.0.0",
  "hex",
@@ -4618,7 +4598,7 @@ dependencies = [
  "cw-orch-daemon 0.28.1",
  "cw-orch-fns-derive 0.23.1",
  "cw-orch-mock 0.24.4",
- "cw-orch-networks",
+ "cw-orch-networks 0.24.11",
  "cw-orch-traits 0.25.0",
  "cw-utils 2.0.0",
  "hex",
@@ -4643,7 +4623,7 @@ dependencies = [
  "cw-orch-daemon 0.29.2",
  "cw-orch-fns-derive 0.23.1",
  "cw-orch-mock 0.24.4",
- "cw-orch-networks",
+ "cw-orch-networks 0.24.11",
  "cw-orch-traits 0.25.0",
  "cw-utils 2.0.0",
  "hex",
@@ -4656,23 +4636,23 @@ dependencies = [
 
 [[package]]
 name = "cw-orch-clone-testing"
-version = "0.9.2"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51791920a24d6fb28b3937087b4636c739aa7b94cb4a5a2cf2e0d10d6e778745"
+checksum = "83a68d72f7a715d5f022dfc518fdf92c6d692fee75f5023f66fd032f682f274c"
 dependencies = [
  "anyhow",
  "clone-cw-multi-test",
- "cosmwasm-std 2.2.2",
- "cw-orch-core 2.1.4",
- "cw-orch-daemon 0.28.1",
- "cw-orch-mock 0.24.4",
- "cw-utils 2.0.0",
+ "cosmwasm-std 1.5.11",
+ "cw-orch-core 1.2.4",
+ "cw-orch-daemon 0.24.6",
+ "cw-orch-mock 0.23.2",
+ "cw-utils 1.0.3",
  "itertools 0.12.1",
  "log",
  "serde",
  "sha2 0.10.9",
  "tokio",
- "tonic 0.12.3",
+ "tonic 0.10.2",
 ]
 
 [[package]]
@@ -4728,22 +4708,21 @@ dependencies = [
 
 [[package]]
 name = "cw-orch-daemon"
-version = "0.25.3"
+version = "0.24.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10346b7f1b552d8b454e908ba8be798a2ea7c97288e54df73f448f636e0245e7"
+checksum = "2e9f248dc0ebcadf6e1d0aaa4c520c2955ab74f9e4b5d71c8d6380bc1338c57c"
 dependencies = [
  "anyhow",
  "async-recursion",
  "base16",
  "base64 0.22.1",
- "bech32 0.11.0",
- "bitcoin 0.32.6",
+ "bitcoin 0.30.2",
  "chrono",
- "cosmrs 0.19.0",
- "cosmwasm-std 2.2.2",
- "cw-orch-core 2.1.4",
- "cw-orch-networks",
- "cw-orch-traits 0.24.1",
+ "cosmrs 0.15.0",
+ "cosmwasm-std 1.5.11",
+ "cw-orch-core 1.2.4",
+ "cw-orch-networks 0.23.3",
+ "cw-orch-traits 0.23.3",
  "dirs",
  "ed25519-dalek",
  "eyre",
@@ -4751,14 +4730,13 @@ dependencies = [
  "flate2",
  "hex",
  "hkd32",
- "http 1.3.1",
  "lazy_static",
  "log",
  "once_cell",
- "prost 0.13.5",
- "prost-types 0.13.5",
+ "prost 0.12.6",
+ "prost-types 0.12.6",
  "rand_core 0.6.4",
- "reqwest 0.12.15",
+ "reqwest 0.11.27",
  "ring 0.17.14",
  "ripemd",
  "schemars",
@@ -4767,9 +4745,8 @@ dependencies = [
  "sha2 0.10.9",
  "thiserror 1.0.69",
  "tokio",
- "toml",
- "tonic 0.12.3",
- "uuid 1.17.0",
+ "tonic 0.10.2",
+ "uid",
 ]
 
 [[package]]
@@ -4789,7 +4766,7 @@ dependencies = [
  "cosmrs 0.19.0",
  "cosmwasm-std 2.2.2",
  "cw-orch-core 2.1.4",
- "cw-orch-networks",
+ "cw-orch-networks 0.24.11",
  "cw-orch-traits 0.24.1",
  "dirs",
  "ed25519-dalek",
@@ -4814,7 +4791,7 @@ dependencies = [
  "sha2 0.10.9",
  "thiserror 1.0.69",
  "tokio",
- "toml",
+ "toml 0.8.22",
  "tonic 0.12.3",
  "uid",
 ]
@@ -4836,7 +4813,7 @@ dependencies = [
  "cosmrs 0.19.0",
  "cosmwasm-std 2.2.2",
  "cw-orch-core 2.1.4",
- "cw-orch-networks",
+ "cw-orch-networks 0.24.11",
  "cw-orch-traits 0.25.0",
  "dirs",
  "ed25519-dalek",
@@ -4861,7 +4838,7 @@ dependencies = [
  "sha2 0.10.9",
  "thiserror 1.0.69",
  "tokio",
- "toml",
+ "toml 0.8.22",
  "tonic 0.12.3",
  "uid",
 ]
@@ -4883,7 +4860,7 @@ dependencies = [
  "cosmrs 0.19.0",
  "cosmwasm-std 2.2.2",
  "cw-orch-core 2.1.4",
- "cw-orch-networks",
+ "cw-orch-networks 0.24.11",
  "cw-orch-traits 0.25.0",
  "dirs",
  "ed25519-dalek",
@@ -4908,7 +4885,7 @@ dependencies = [
  "sha2 0.10.9",
  "thiserror 1.0.69",
  "tokio",
- "toml",
+ "toml 0.8.22",
  "tonic 0.12.3",
  "uid",
 ]
@@ -5231,6 +5208,16 @@ dependencies = [
 
 [[package]]
 name = "cw-orch-networks"
+version = "0.23.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6b0e1af56869ced61c25f509a0a40cddd028779d838441b70f4578a8d7c0253"
+dependencies = [
+ "cw-orch-core 1.2.4",
+ "serde",
+]
+
+[[package]]
+name = "cw-orch-networks"
 version = "0.24.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab644b0b5a6c7450d18e04874e569b27464fdb0a3c90732f5f94b895f627892e"
@@ -5346,7 +5333,7 @@ dependencies = [
  "cosmwasm-crypto 2.2.2",
  "cosmwasm-schema 2.2.2",
  "cosmwasm-std 2.2.2",
- "cw-infuser 0.4.2",
+ "cw-infuser 0.4.2 (git+https://github.com/permissionlessweb/cw-infuser?branch=feat/wavs)",
  "cw-infuser-scripts",
  "cw-infusions 0.1.0 (git+https://github.com/permissionlessweb/cw-infuser?branch=feat/wavs)",
  "cw-orch 0.28.0",
@@ -6793,7 +6780,7 @@ dependencies = [
  "serde",
  "serde_json",
  "syn 2.0.101",
- "toml",
+ "toml 0.8.22",
  "walkdir",
 ]
 
@@ -8856,7 +8843,7 @@ dependencies = [
  "tiny-keccak",
  "tokio",
  "tokio-stream",
- "toml",
+ "toml 0.8.22",
  "tonic 0.12.3",
  "tracing",
  "tracing-subscriber 0.3.19",
@@ -8934,7 +8921,7 @@ dependencies = [
  "tiny-keccak",
  "tokio",
  "tokio-stream",
- "toml",
+ "toml 0.8.22",
  "tonic 0.12.3",
  "tracing",
  "tracing-subscriber 0.3.19",
@@ -10179,7 +10166,7 @@ dependencies = [
  "tendermint-rpc 0.40.4",
  "thiserror 2.0.12",
  "tokio",
- "toml",
+ "toml 0.8.22",
  "tonic 0.13.1",
  "tonic-web-wasm-client",
  "tower-service",
@@ -10235,9 +10222,9 @@ dependencies = [
 
 [[package]]
 name = "libloading"
-version = "0.8.7"
+version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a793df0d7afeac54f95b471d3af7f0d4fb975699f972341a4b76988d49cdf0c"
+checksum = "07033963ba89ebaf1584d767badaa2e8fcec21aedea6b8c0346d487d49c28667"
 dependencies = [
  "cfg-if",
  "windows-targets 0.53.0",
@@ -10401,6 +10388,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "mach"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b823e83b2affd8f40a9ee8c29dbc56404c1e34cd2710921f2801e2cf29527afa"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "mach2"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10545,9 +10541,9 @@ dependencies = [
 
 [[package]]
 name = "memoffset"
-version = "0.9.1"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
+checksum = "d61c719bcfbcf5d62b3a09efa6088de8c54bc0bfcd3ea7ae39fcc186108b8de1"
 dependencies = [
  "autocfg",
 ]
@@ -11112,7 +11108,7 @@ dependencies = [
  "thiserror 2.0.12",
  "tiny-bip39 2.0.0",
  "tokio",
- "toml",
+ "toml 0.8.22",
  "tracing",
  "xorf",
  "zeroize",
@@ -11313,7 +11309,7 @@ dependencies = [
  "smooth-operator",
  "thiserror 2.0.12",
  "tracing",
- "wasmparser",
+ "wasmparser 0.121.2",
 ]
 
 [[package]]
@@ -11387,7 +11383,7 @@ dependencies = [
  "smooth-operator",
  "thiserror 2.0.12",
  "tiny-bip39 2.0.0",
- "toml",
+ "toml 0.8.22",
  "zeroize",
 ]
 
@@ -13590,7 +13586,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be769465445e8c1474e9c5dac2018218498557af32d9ed057325ec9a41ae81bf"
 dependencies = [
  "heck 0.5.0",
- "itertools 0.14.0",
+ "itertools 0.12.1",
  "log",
  "multimap",
  "once_cell",
@@ -13636,7 +13632,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a56d757972c98b346a9b766e3f02746cde6dd1cd1d1d563472929fdd74bec4d"
 dependencies = [
  "anyhow",
- "itertools 0.14.0",
+ "itertools 0.12.1",
  "proc-macro2 1.0.95",
  "quote",
  "syn 2.0.101",
@@ -14701,6 +14697,7 @@ version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "25996b82292a7a57ed3508f052cfff8640d38d32018784acd714758b43da9c8f"
 dependencies = [
+ "bitcoin_hashes 0.12.0",
  "secp256k1-sys 0.8.1",
 ]
 
@@ -15804,6 +15801,20 @@ dependencies = [
 
 [[package]]
 name = "tendermint-config"
+version = "0.34.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1a02da769166e2052cd537b1a97c78017632c2d9e19266367b27e73910434fc"
+dependencies = [
+ "flex-error",
+ "serde",
+ "serde_json",
+ "tendermint 0.34.1",
+ "toml 0.5.11",
+ "url",
+]
+
+[[package]]
+name = "tendermint-config"
 version = "0.39.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8add7b85b0282e5901521f78fe441956ac1e2752452f4e1f2c0ce7e1f10d485"
@@ -15812,7 +15823,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tendermint 0.39.1",
- "toml",
+ "toml 0.8.22",
  "url",
 ]
 
@@ -15826,7 +15837,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tendermint 0.40.4",
- "toml",
+ "toml 0.8.22",
  "url",
 ]
 
@@ -15990,6 +16001,39 @@ dependencies = [
  "serde_bytes",
  "subtle-encoding",
  "time",
+]
+
+[[package]]
+name = "tendermint-rpc"
+version = "0.34.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71afae8bb5f6b14ed48d4e1316a643b6c2c3cbad114f510be77b4ed20b7b3e42"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "flex-error",
+ "futures",
+ "getrandom 0.2.16",
+ "peg",
+ "pin-project",
+ "rand 0.8.5",
+ "reqwest 0.11.27",
+ "semver 1.0.26",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "subtle",
+ "subtle-encoding",
+ "tendermint 0.34.1",
+ "tendermint-config 0.34.1",
+ "tendermint-proto 0.34.1",
+ "thiserror 1.0.69",
+ "time",
+ "tokio",
+ "tracing",
+ "url",
+ "uuid 1.17.0",
+ "walkdir",
 ]
 
 [[package]]
@@ -16425,6 +16469,15 @@ dependencies = [
  "pin-project-lite",
  "slab",
  "tokio",
+]
+
+[[package]]
+name = "toml"
+version = "0.5.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4f7f0dd8d50a853a531c426359045b1998f04219d88799810762cd4ad314234"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -17254,6 +17307,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasm-bindgen-downcast"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5dac026d43bcca6e7ce1c0956ba68f59edf6403e8e930a5d891be72c31a44340"
+dependencies = [
+ "js-sys",
+ "once_cell",
+ "wasm-bindgen",
+ "wasm-bindgen-downcast-macros",
+]
+
+[[package]]
+name = "wasm-bindgen-downcast-macros"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c5020cfa87c7cecefef118055d44e3c1fc122c7ec25701d528ee458a0b45f38f"
+dependencies = [
+ "proc-macro2 1.0.95",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "wasm-bindgen-futures"
 version = "0.4.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -17313,9 +17389,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer"
-version = "4.3.7"
+version = "4.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b28d4251f96ece14460328c56ee0525edcf4bbb08748cfd87fef3580ae4d403"
+checksum = "0e626f958755a90a6552b9528f59b58a62ae288e6c17fcf40e99495bc33c60f0"
 dependencies = [
  "bytes",
  "cfg-if",
@@ -17329,22 +17405,22 @@ dependencies = [
  "shared-buffer",
  "target-lexicon",
  "thiserror 1.0.69",
- "tracing",
  "wasm-bindgen",
+ "wasm-bindgen-downcast",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-singlepass",
  "wasmer-derive",
  "wasmer-types",
  "wasmer-vm",
- "windows-sys 0.59.0",
+ "winapi",
 ]
 
 [[package]]
 name = "wasmer-compiler"
-version = "4.3.7"
+version = "4.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "009b8417d51dbca8ac9a640ea999cc924fc59040a81245ecd0e092cb7c45dc10"
+checksum = "848e1922694cf97f4df680a0534c9d72c836378b5eb2313c1708fe1a75b40044"
 dependencies = [
  "backtrace",
  "bytes",
@@ -17353,7 +17429,6 @@ dependencies = [
  "enumset",
  "lazy_static",
  "leb128",
- "libc",
  "memmap2 0.5.10",
  "more-asserts",
  "region",
@@ -17364,16 +17439,15 @@ dependencies = [
  "thiserror 1.0.69",
  "wasmer-types",
  "wasmer-vm",
- "wasmparser",
- "windows-sys 0.59.0",
- "xxhash-rust",
+ "wasmparser 0.95.0",
+ "winapi",
 ]
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "4.3.7"
+version = "4.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2445c6fb03824979448293e91d8a6daf0cdf66e8d996f31ef270e0d2cc3ea1f3"
+checksum = "3d96bce6fad15a954edcfc2749b59e47ea7de524b6ef3df392035636491a40b4"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
@@ -17390,9 +17464,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "4.3.7"
+version = "4.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6add6b3abdbd2db38dd6a42e4727d860b893e5a6ba3ac49bdd42fe0e6dc06db"
+checksum = "ebaa865b40ffb3351b03dab9fe9930a5248c25daebd55b464b79b862d9b55ccd"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -17409,9 +17483,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "4.3.7"
+version = "4.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02592d86ac19fb09c972e72edeb3e57ac5c569eac7e77b919b165da014e8c139"
+checksum = "7f08f80d166a9279671b7af7a09409c28ede2e0b4e3acabbf0e3cb22c8038ba7"
 dependencies = [
  "proc-macro-error 1.0.4",
  "proc-macro2 1.0.95",
@@ -17421,9 +17495,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-middlewares"
-version = "4.3.7"
+version = "4.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b8606706b694465035cbdd85a5a1ea437b7cd851e6a8dfe4e387a3e8f81ef78"
+checksum = "eeb4b87c0ea9f8636c81a8ab8f52bad01c8623c9fcbb3db5f367d5f157fada30"
 dependencies = [
  "wasmer",
  "wasmer-types",
@@ -17432,50 +17506,56 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "4.3.7"
+version = "4.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d22a00f1a90e9e66d5427853f41e76d8ab89e03eb3034debd11933607fef56a"
+checksum = "ae2c892882f0b416783fb4310e5697f5c30587f6f9555f9d4f2be85ab39d5d3d"
 dependencies = [
  "bytecheck",
  "enum-iterator",
  "enumset",
- "getrandom 0.2.16",
- "hex",
  "indexmap 1.9.3",
  "more-asserts",
  "rkyv",
- "sha2 0.10.9",
  "target-lexicon",
  "thiserror 1.0.69",
- "xxhash-rust",
 ]
 
 [[package]]
 name = "wasmer-vm"
-version = "4.3.7"
+version = "4.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87d88e8355157cd730fb81e33c3b4d6849fd44c26d32bf78820638e1d935967b"
+checksum = "7c0a9a57b627fb39e5a491058d4365f099bc9b140031c000fded24a3306d9480"
 dependencies = [
  "backtrace",
  "cc",
  "cfg-if",
  "corosensei",
  "crossbeam-queue",
- "dashmap 6.1.0",
+ "dashmap 5.5.3",
  "derivative",
  "enum-iterator",
  "fnv",
  "indexmap 1.9.3",
  "lazy_static",
  "libc",
- "mach2",
+ "mach",
  "memoffset",
  "more-asserts",
  "region",
  "scopeguard",
  "thiserror 1.0.69",
  "wasmer-types",
- "windows-sys 0.59.0",
+ "winapi",
+]
+
+[[package]]
+name = "wasmparser"
+version = "0.95.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2ea896273ea99b15132414be1da01ab0d8836415083298ecaffbe308eaac87a"
+dependencies = [
+ "indexmap 1.9.3",
+ "url",
 ]
 
 [[package]]

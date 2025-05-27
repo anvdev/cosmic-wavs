@@ -34,6 +34,8 @@ pub struct MsgAddAuthenticator {
     pub data: Vec<u8>,
 }
 
+pub const COMPONENT: &str = "cosmic-wavs-demo-infusion.wasm";
+
 // todo: move to .env file
 pub const MNEMONIC: &str =
     "garage dial step tourist hint select patient eternal lesson raccoon shaft palace flee purpose vivid spend place year file life cliff winter race fox";
@@ -63,6 +65,12 @@ fn main() {
         _ => panic!("Invalid network"),
     };
 
+    // deploy local cosmos chain if enabled
+
+    if args.network.as_str() == "local" {
+        deploy_local_cosmos_node()?;
+    }
+
     if let Err(ref err) = deploy_wavs(bitsong_chain.into()) {
         log::error!("{}", err);
         err.chain().skip(1).for_each(|cause| log::error!("because: {}", cause));
@@ -85,7 +93,7 @@ fn deploy_wavs(network: ChainInfoOwned) -> anyhow::Result<()> {
 
     let cosmos =
         DaemonBuilder::new(network.clone()).handle(rt.handle()).mnemonic(MNEMONIC).build()?;
-    //  deploy & configure btsg-accounts contracts to cosmos network
+    //  deploy & configure btsg-account contracts to cosmos network
     let bs_accounts =
         btsg_account_scripts::BtsgAccountSuite::deploy_on(cosmos.clone(), cosmos.sender_addr())?;
 
@@ -138,14 +146,26 @@ fn deploy_wavs(network: ChainInfoOwned) -> anyhow::Result<()> {
         },
         None,
         &[],
-    );
+    )?;
 
     // deploy wavs service (eth chain, eigenlayer stuff)
-    // deploy_wavs_eth_stuff();
+    deploy_wavs_infra();
 
     // confirm wavs updated the contract state
 
     Ok(())
 }
 
-// fn deploy_wavs_eth_stuff();
+fn deploy_wavs_infra() -> Result<(), anyhow::Error> {
+    // spin up local eth network or deploy on desired network
+
+    //
+    Ok(())
+}
+fn deploy_local_cosmos_node() -> Result<(), anyhow::Error> {
+    // spin up local docker image with funded genesis state to use throughout the app.
+
+    // spec out this part, as this is crucial
+
+    Ok(())
+}

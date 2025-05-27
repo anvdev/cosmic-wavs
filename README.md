@@ -233,8 +233,7 @@ forge script ./script/Deploy.s.sol ${SERVICE_MANAGER_ADDR} --sig "run(string)" -
 
 ## Deploy Service
 
-Deploy the compiled component with the contracts from the previous steps. Review the [makefile](./Makefile) for more details and configuration options.`TRIGGER_EVENT` is the event that the trigger contract emits and WAVS watches for. By altering `SERVICE_TRIGGER_ADDR` you can watch events for contracts others have deployed.
-
+Provide the cw-infuser contract address to register to the service.
 ```bash
 # Your component filename in the `/compiled` folder
 export COMPONENT_FILENAME=your_component.wasm
@@ -245,13 +244,16 @@ TRIGGER_EVENT="NewTrigger(bytes)" make deploy-service
 
 ## Trigger the Service
 
-Anyone can now call the [trigger contract](./src/contracts/WavsTrigger.sol) which emits the trigger event WAVS is watching for from the previous step. WAVS then calls the service and saves the result on-chain.
+
+todo: implmeent description for triggering service via nft mint
+
+<!-- Anyone can now call the [trigger contract](./src/contracts/WavsTrigger.sol) which emits the trigger event WAVS is watching for from the previous step. WAVS then calls the service and saves the result on-chain.
 
 ```bash
 export TRIGGER_DATA_INPUT=merch
 export SERVICE_TRIGGER_ADDR=`make get-trigger-from-deploy`
 forge script ./script/Trigger.s.sol ${SERVICE_TRIGGER_ADDR} ${TRIGGER_DATA_INPUT} --sig "run(string,string)" --rpc-url http://localhost:8545 --broadcast -v 4
-```
+``` -->
 
 ## Show the result
 

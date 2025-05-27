@@ -8,7 +8,7 @@ CARGO=cargo
 COIN_MARKET_CAP_ID?=1
 COMPONENT_FILENAME?=evm_price_oracle.wasm
 CREDENTIAL?=""
-DOCKER_IMAGE?=ghcr.io/lay3rlabs/wavs:b45bee6
+DOCKER_IMAGE?=ghcr.io/lay3rlabs/wavs:fd8b66e
 MIDDLEWARE_DOCKER_IMAGE?=ghcr.io/lay3rlabs/wavs-middleware:0.4.0-beta.5
 IPFS_ENDPOINT?=http://127.0.0.1:5001
 RPC_URL?=http://127.0.0.1:8545
@@ -129,11 +129,11 @@ upload-to-ipfs:
 
 ## operator-list: listing the AVS operators | ENV_FILE
 operator-list:
-	@if [ -z "${WAVS_SERVICE_MANAGER_ADDRESS}" ]; then \
-		echo "Error: WAVS_SERVICE_MANAGER_ADDRESS is not set. Please set it to the deployed WAVS stake registry." && exit 1; \
+	@if [ -z "${SERVICE_MANAGER_ADDRESS}" ]; then \
+		echo "Error: SERVICE_MANAGER_ADDRESS is not set. Please set it to the deployed WAVS stake registry." && exit 1; \
 	fi
 	@docker run --rm --network host --env-file ${ENV_FILE} \
-		-e WAVS_SERVICE_MANAGER_ADDRESS=${WAVS_SERVICE_MANAGER_ADDRESS} \
+		-e WAVS_SERVICE_MANAGER_ADDRESS=${SERVICE_MANAGER_ADDRESS} \
 		-v ./.nodes:/root/.nodes --entrypoint /wavs/list_operator.sh ${MIDDLEWARE_DOCKER_IMAGE}
 
 AVS_PRIVATE_KEY?=""
@@ -143,11 +143,11 @@ operator-register:
 	@if [ -z "${AVS_PRIVATE_KEY}" ]; then \
 		echo "Error: AVS_PRIVATE_KEY is not set. Please set it to your AVS private key." && exit 1; \
 	fi
-	@if [ -z "${WAVS_SERVICE_MANAGER_ADDRESS}" ]; then \
-		echo "Error: WAVS_SERVICE_MANAGER_ADDRESS is not set. Please set it to the deployed WAVS service manager." && exit 1; \
+	@if [ -z "${SERVICE_MANAGER_ADDRESS}" ]; then \
+		echo "Error: SERVICE_MANAGER_ADDRESS is not set. Please set it to the deployed WAVS service manager." && exit 1; \
 	fi
 	@docker run --rm --network host \
-		-e WAVS_SERVICE_MANAGER_ADDRESS=${WAVS_SERVICE_MANAGER_ADDRESS} \
+		-e WAVS_SERVICE_MANAGER_ADDRESS=${SERVICE_MANAGER_ADDRESS} \
 		--env-file ${ENV_FILE} \
 		-v ./.nodes:/root/.nodes \
 		--entrypoint /wavs/register.sh ${MIDDLEWARE_DOCKER_IMAGE} "${AVS_PRIVATE_KEY}" "${DELEGATION}"

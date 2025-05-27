@@ -1,4 +1,5 @@
 use abstract_cw_multi_test::Contract;
+use anyhow::Context;
 use clap::Parser;
 use cosmos_sdk_proto::Any;
 use cosmwasm_schema::cw_serde;
@@ -9,22 +10,18 @@ use cw_orch::{
     prelude::*,
 };
 use cw_orch_wavs::networks::{BITSONG_MAINNET, BITSONG_TESTNET, LOCAL_NETWORK1};
-use tokio::runtime::Runtime;
-/// MsgAddAuthenticatorRequest defines the Msg/AddAuthenticator request type.
+use std::{
+    env, fs,
+    path::Path,
+    process::{Command, Stdio},
+    time::Duration,
+};
+use tokio::{runtime::Runtime, time::sleep};
 
 #[cw_serde]
 pub struct CosmwasmAuthenticatorInitData {
     pub contract: String,
     pub params: Vec<u8>,
-}
-
-fn cw721_contract() -> Box<dyn Contract<Empty>> {
-    let contract = ContractWrapper::new(
-        cw721_base::entry::execute,
-        cw721_base::entry::instantiate,
-        cw721_base::entry::query,
-    );
-    Box::new(contract)
 }
 
 #[cw_serde]
@@ -35,10 +32,7 @@ pub struct MsgAddAuthenticator {
 }
 
 pub const COMPONENT: &str = "cosmic-wavs-demo-infusion.wasm";
-
-// todo: move to .env file
-pub const MNEMONIC: &str =
-    "garage dial step tourist hint select patient eternal lesson raccoon shaft palace flee purpose vivid spend place year file life cliff winter race fox";
+pub const DOCKER_COMPOSE_PATH: &str = "cosmic-wavs-demo-infusion.wasm";
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -46,6 +40,9 @@ struct Args {
     /// Network to deploy on: main, testnet, local
     #[clap(short, long)]
     network: String,
+    /// PAth to dockercomposefile for deploying eth & cosmos network
+    #[clap(short, long)]
+    docker_compose: String,
     // optional address to broadcast msg on behalf of. This address must have authorized the wallet calling these scripts
     // #[clap(short, long)]
     // authz: Option<String>,
@@ -65,13 +62,7 @@ fn main() {
         _ => panic!("Invalid network"),
     };
 
-    // deploy local cosmos chain if enabled
-
-    if args.network.as_str() == "local" {
-        deploy_local_cosmos_node()?;
-    }
-
-    if let Err(ref err) = deploy_wavs(bitsong_chain.into()) {
+    if let Err(ref err) = deploy_wavs(&args.network, bitsong_chain.into()) {
         log::error!("{}", err);
         err.chain().skip(1).for_each(|cause| log::error!("because: {}", cause));
 
@@ -79,9 +70,23 @@ fn main() {
     }
 }
 
-fn deploy_wavs(network: ChainInfoOwned) -> anyhow::Result<()> {
+fn deploy_wavs(chain: &str, network: ChainInfoOwned) -> anyhow::Result<()> {
     let rt = Runtime::new()?;
     // rt.block_on(assert_wallet_balance(vec![network.clone()]));
+
+    // deploy wavs service (eth chain, eigenlayer stuff)
+    // simulating the existing logic in the makefile to:
+    // -  deploy a local ethereum network
+    // -  deploy the eigenlayer contract
+    deploy_wavs_infra();
+    // -  deploy a cosmos chain
+    if chain == "local" {
+        deploy_local_cosmos_node();
+    }
+    // -  deploy the nft & other contracts
+    // -  register a new service
+    // - simulate a trigger for the service to perform its designed logic
+    deploy_eigenlayer_contracts();
 
     let wavs_controller_mnemonic = "";
     let wavs_controller_bech32_address = "";
@@ -148,24 +153,90 @@ fn deploy_wavs(network: ChainInfoOwned) -> anyhow::Result<()> {
         &[],
     )?;
 
-    // deploy wavs service (eth chain, eigenlayer stuff)
-    deploy_wavs_infra();
-
     // confirm wavs updated the contract state
 
     Ok(())
 }
 
-fn deploy_wavs_infra() -> Result<(), anyhow::Error> {
-    // spin up local eth network or deploy on desired network
+async fn deploy_wavs_infra() -> Result<(), anyhow::Error> {
+    // Clean up existing Docker data (equivalent to `clean-docker` and `rm .docker/*.json`)
+    if Path::new(".docker").exists() {
+        fs::remove_dir_all(".docker").context("Failed to remove .docker directory")?;
+    }
+    fs::create_dir_all(".docker").context("Failed to create .docker directory")?;
 
-    //
+    // Copy .env.example to .env if it doesn't exist
+    if !Path::new(".env").exists() {
+        fs::copy(".env.example", ".env").context("Failed to copy .env.example to .env")?;
+    }
+
+    // Start Anvil in the background
+    let anvil_process = Command::new("anvil")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .context("Failed to start Anvil")?;
+
+    // Ensure Anvil has time to start
+    sleep(Duration::from_secs(2)).await;
+
+    // Start Docker Compose for WAVS
+    let status = Command::new("docker")
+        .args(["compose", "-f", DOCKER_COMPOSE_PATH, "up", "-d"])
+        .status()
+        .context("Failed to run docker compose up")?;
+
+    if !status.success() {
+        // Clean up Anvil process on failure
+        let _ = Command::new("kill").arg(anvil_process.id().to_string()).status();
+        return Err(anyhow::anyhow!("Docker compose failed with status: {}", status));
+    }
+
     Ok(())
 }
-fn deploy_local_cosmos_node() -> Result<(), anyhow::Error> {
-    // spin up local docker image with funded genesis state to use throughout the app.
 
-    // spec out this part, as this is crucial
+// Deploys Eigenlayer contracts and returns the ServiceManager address
+async fn deploy_eigenlayer_contracts(rpc_url: &str) -> Result<(), anyhow::Error> {
+    Ok(())
+}
+
+// Placeholder for deploy_mock_service_manager (unchanged)
+async fn deploy_mock_service_manager(_rpc_url: &str) -> Result<(), anyhow::Error> {
+    // Implement actual contract deployment logic here
+    unimplemented!("deploy_mock_service_manager not implemented")
+}
+
+async fn deploy_service(
+    component_filename: &str,
+    trigger_event: &str,
+    service_trigger_addr: &str,
+    service_submission_addr: &str,
+    service_config: &str,
+) -> Result<(), anyhow::Error> {
+    // Deploy the WAVS component service
+    let wavs_cmd = "wavs"; // Replace with actual WAVS command or binary path
+    let data_dir = "/data/.docker";
+    let home_dir = "/data";
+    let component_path = format!("/data/compiled/{}", component_filename);
+
+    let status = Command::new(wavs_cmd)
+        .args([
+            "deploy-service",
+            "--log-level=info",
+            &format!("--data={}", data_dir),
+            &format!("--home={}", home_dir),
+            &format!("--component={}", component_path),
+            &format!("--trigger-event-name={}", trigger_event),
+            &format!("--trigger-address={}", service_trigger_addr),
+            &format!("--submit-address={}", service_submission_addr),
+            &format!("--service-config={}", service_config),
+        ])
+        .status()
+        .context("Failed to run WAVS deploy-service")?;
+
+    if !status.success() {
+        return Err(anyhow::anyhow!("WAVS deploy-service failed with status: {}", status));
+    }
 
     Ok(())
 }

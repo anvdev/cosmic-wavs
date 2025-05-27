@@ -75,3 +75,26 @@ services:
       - "./:/wavs"
       - "./.docker:/root/wavs/cli/"
     network_mode: "host"
+
+  # deploy-cosmos-network:
+  #   image: "cosmos/gaia:v14.2.0" #  TODO: use cosmos-omnibus:  
+  #   container_name: "cosmos-node"
+  #   network_mode: "host" # Use host networking for simplicity
+  #   ports:
+  #     - "26656:26656" # P2P port for node communication
+  #     - "26657:26657" # RPC port for client interactions
+  #     - "1317:1317"   # REST API port for querying
+  #   volumes:
+  #     - "./.cosmos:/root/.gaia" # Persist node data
+  #     - "./setup-cosmos.sh:/setup-cosmos.sh" # Mount the setup script
+  #   environment:
+  #     - CHAIN_ID=testnet-1 # Chain ID for the Cosmos network
+  #     - MONIKER=test-node  # Node moniker (name)
+  #   command: >
+  #     /bin/bash /setup-cosmos.sh ${CHAIN_ID} ${MONIKER}
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:26657/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 40s2

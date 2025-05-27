@@ -289,7 +289,7 @@ async fn process_burn_event(
     let cosm_guery = cosm_signing_client.querier.clone();
 
     // TODO: get cw-infuser contracts & params registered when creating the service
-    // let eth = get_eth_chain_config(&CURRENT_CHAIN_ETH)
+    // let eth =    (&CURRENT_CHAIN_ETH)
     //     .ok_or_else(|| anyhow::anyhow!("Failed to get Eth chain config for local"))?;
     let cw_infuser_addr = WAVS_CW_INFUSER;
 
@@ -344,7 +344,7 @@ async fn process_burn_event(
         .expect("broken private key");
 
     // - create sha256sum bytes that are being signed by operators for aggregated approval.
-    // Current implementation signs single msgs for authorization,
+    // Current implementation signs binary formaated array of Any msgs being authorized.
     let msg_digest: [u8; 32] =
         Sha256::digest(to_json_binary(&cosmic_wavs_actions)?.as_ref()).to_vec().try_into().unwrap();
 

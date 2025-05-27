@@ -302,16 +302,17 @@ export ipfs_cid=`SERVICE_FILE=${SERVICE_FILE} make upload-to-ipfs`
 # TESTNET: https://gateway.pinata.cloud/
 export IPFS_GATEWAY=$(sh script/get-ipfs-gateway.sh)
 
-export SERVICE_URI="${IPFS_GATEWAY}/ipfs/${ipfs_cid}"
-curl ${SERVICE_URI}
+export IPFS_URI="ipfs://${ipfs_cid}"
+curl "${IPFS_GATEWAY}/ipfs/${ipfs_cid}"
 
-cast send ${SERVICE_MANAGER_ADDRESS} 'setServiceURI(string)' "${SERVICE_URI}" -r ${RPC_URL} --private-key ${DEPLOYER_PK}
+cast send ${SERVICE_MANAGER_ADDRESS} 'setServiceURI(string)' "${IPFS_URI}" -r ${RPC_URL} --private-key ${DEPLOYER_PK}
 ```
 
 ## Start Aggregator
 
 ```bash
 sh ./script/create-aggregator.sh 1
+
 sh ./infra/aggregator-1/start.sh
 
 wget -q --header="Content-Type: application/json" --post-data='{"service": '"$(jq -c . ${SERVICE_FILE})"'}' ${AGGREGATOR_URL}/register-service -O -
@@ -322,13 +323,13 @@ wget -q --header="Content-Type: application/json" --post-data='{"service": '"$(j
 ```bash
 sh ./script/create-operator.sh 1
 
-# [!] UPDATE PROPER VALUES FOR TESTNET HERE (`wavs.toml`: registry, ipfs_gateway)
+# [!] UPDATE PROPER VALUES FOR TESTNET HERE (`wavs.toml`: ipfs_gateway)
 
-sh ./infra/wavs-1/start.sh
+IPFS_GATEWAY=${IPFS_GATEWAY}/ipfs/ sh ./infra/wavs-1/start.sh
 
 # Deploy the service JSON to WAVS so it now watches and submits.
 # 'opt in' for WAVS to watch (this is before we register to Eigenlayer)
-WAVS_ENDPOINT=http://127.0.0.1:8000 SERVICE_URL=${SERVICE_URI} make deploy-service
+WAVS_ENDPOINT=http://127.0.0.1:8000 SERVICE_URL=${IPFS_URI} IPFS_GATEWAY=${IPFS_GATEWAY}/ipfs/ make deploy-service
 ```
 
 ## Register service specific operator

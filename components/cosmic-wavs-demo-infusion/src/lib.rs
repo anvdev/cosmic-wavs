@@ -243,7 +243,9 @@ pub fn decode_trigger_event(
 
 // Process registration event from escrow contract
 async fn process_registration_event(escrow_address: &str) -> Result<ServiceResponse> {
+    
     Ok(ServiceResponse { message: format!("Infusion"), success: true, data: None })
+       
 }
 
 // Process burn event and check if requirements are met
@@ -315,6 +317,8 @@ async fn process_burn_event(
             });
         }
     }
+
+
     // - sign msg the operator set is authorizing to perform
     let wavs_any_msg = Any {
         type_url: "/cosmwasm.wasm.v1.MsgExecuteContract".into(),
@@ -435,7 +439,7 @@ async fn process_burn_event(
 
     if cosm_res.code() != 0 {
         return Ok(ServiceResponse {
-            message: "Infusion record failuter".to_string(),
+            message: "Infusion recEord failuter".to_string(),
             success: false,
             data: Some(service_res),
         });

@@ -8,7 +8,7 @@ CARGO=cargo
 COIN_MARKET_CAP_ID?=1
 COMPONENT_FILENAME?=evm_price_oracle.wasm
 CREDENTIAL?=""
-DOCKER_IMAGE?=ghcr.io/lay3rlabs/wavs:487a781
+DOCKER_IMAGE?=ghcr.io/lay3rlabs/wavs:fd8b66e
 MIDDLEWARE_DOCKER_IMAGE?=ghcr.io/lay3rlabs/wavs-middleware:0.4.0-beta.5
 IPFS_ENDPOINT?=http://127.0.0.1:5001
 RPC_URL?=http://127.0.0.1:8545
@@ -87,6 +87,7 @@ upload-component:
 	fi
 	@wget --post-file=./compiled/${COMPONENT_FILENAME} --header="Content-Type: application/wasm" -O - ${WAVS_ENDPOINT}/upload | jq -r .digest
 
+IPFS_GATEWAY?="https://ipfs.io/ipfs"
 ## deploy-service: deploying the WAVS component service json | SERVICE_URL, CREDENTIAL, WAVS_ENDPOINT
 deploy-service:
 # this wait is required to ensure the WAVS service has time to service check
@@ -97,11 +98,11 @@ deploy-service:
 	fi
 	@if [ -n "${WAVS_ENDPOINT}" ]; then \
 		if [ "$$(curl -s -o /dev/null -w "%{http_code}" ${WAVS_ENDPOINT}/app)" != "200" ]; then \
-			echo "Error: WAVS_ENDPOINT is not reachable. Please check the WAVS_ENDPOINT."; \
+			echo "Error: WAVS_ENDPOINT is not reachable. Please check WAVS is online, or run this again in a few seconds."; \
 			exit 1; \
 		fi; \
 	fi
-	@$(WAVS_CMD) deploy-service --service-url ${SERVICE_URL} --log-level=debug --data /data/.docker --home /data $(if $(WAVS_ENDPOINT),--wavs-endpoint $(WAVS_ENDPOINT),)
+	@$(WAVS_CMD) deploy-service --service-url ${SERVICE_URL} --log-level=debug --data /data/.docker --home /data $(if $(WAVS_ENDPOINT),--wavs-endpoint $(WAVS_ENDPOINT),) $(if $(IPFS_GATEWAY),--ipfs-gateway $(IPFS_GATEWAY),)
 
 ## get-trigger: get the trigger id | SERVICE_TRIGGER_ADDR, RPC_URL
 get-trigger:
@@ -128,11 +129,11 @@ upload-to-ipfs:
 
 ## operator-list: listing the AVS operators | ENV_FILE
 operator-list:
-	@if [ -z "${WAVS_SERVICE_MANAGER_ADDRESS}" ]; then \
-		echo "Error: WAVS_SERVICE_MANAGER_ADDRESS is not set. Please set it to the deployed WAVS stake registry." && exit 1; \
+	@if [ -z "${SERVICE_MANAGER_ADDRESS}" ]; then \
+		echo "Error: SERVICE_MANAGER_ADDRESS is not set. Please set it to the deployed WAVS stake registry." && exit 1; \
 	fi
 	@docker run --rm --network host --env-file ${ENV_FILE} \
-		-e WAVS_SERVICE_MANAGER_ADDRESS=${WAVS_SERVICE_MANAGER_ADDRESS} \
+		-e WAVS_SERVICE_MANAGER_ADDRESS=${SERVICE_MANAGER_ADDRESS} \
 		-v ./.nodes:/root/.nodes --entrypoint /wavs/list_operator.sh ${MIDDLEWARE_DOCKER_IMAGE}
 
 AVS_PRIVATE_KEY?=""
@@ -142,11 +143,11 @@ operator-register:
 	@if [ -z "${AVS_PRIVATE_KEY}" ]; then \
 		echo "Error: AVS_PRIVATE_KEY is not set. Please set it to your AVS private key." && exit 1; \
 	fi
-	@if [ -z "${WAVS_SERVICE_MANAGER_ADDRESS}" ]; then \
-		echo "Error: WAVS_SERVICE_MANAGER_ADDRESS is not set. Please set it to the deployed WAVS service manager." && exit 1; \
+	@if [ -z "${SERVICE_MANAGER_ADDRESS}" ]; then \
+		echo "Error: SERVICE_MANAGER_ADDRESS is not set. Please set it to the deployed WAVS service manager." && exit 1; \
 	fi
 	@docker run --rm --network host \
-		-e WAVS_SERVICE_MANAGER_ADDRESS=${WAVS_SERVICE_MANAGER_ADDRESS} \
+		-e WAVS_SERVICE_MANAGER_ADDRESS=${SERVICE_MANAGER_ADDRESS} \
 		--env-file ${ENV_FILE} \
 		-v ./.nodes:/root/.nodes \
 		--entrypoint /wavs/register.sh ${MIDDLEWARE_DOCKER_IMAGE} "${AVS_PRIVATE_KEY}" "${DELEGATION}"

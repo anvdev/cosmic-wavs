@@ -44,6 +44,7 @@ cw-infuser-scripts   = { library = "cw-infuser-scripts", git = "https://github.c
 cw-infuser           = { git = "https://github.com/permissionlessweb/cw-infuser", branch = "feat/wavs", features =["library"] }
 
 cw-infusions = { library = "cw-infusions",git = "https://github.com/permissionlessweb/cw-infuser", branch = "feat/wavs" }
+secp256k1 = "0.31.0"
 
 # eth 
 # wavs

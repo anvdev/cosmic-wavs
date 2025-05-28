@@ -1,4 +1,3 @@
-use alloy_primitives::hex::{self};
 // Required imports
 use alloy_sol_types::{sol, SolValue};
 use anyhow::Result;
@@ -16,8 +15,7 @@ use layer_climb::proto::{
 use commonware_codec::extensions::DecodeExt;
 use commonware_cryptography::{Bls12381, Signer};
 use sha2::{Digest, Sha256};
-
-use wavs_wasi_chain::decode_event_log_data;
+use wavs_wasi_utils::decode_event_log_data;
 use wstd::runtime::block_on;
 
 pub mod bindings; // Never edit bindings.rs!
@@ -184,7 +182,7 @@ pub fn decode_trigger_event(
         TriggerData::EthContractEvent(TriggerDataEthContractEvent { log, .. }) => {
             let event: solidity::NewTrigger = decode_event_log_data!(log)?;
             let trigger_info =
-                <solidity::TriggerInfo as SolValue>::abi_decode(&event._triggerInfo, false)?;
+                <solidity::TriggerInfo as SolValue>::abi_decode(&event._triggerInfo)?;
             Ok((trigger_info.triggerId, trigger_info.data.to_vec(), Destination::Ethereum, None))
         }
         TriggerData::CosmosContractEvent(TriggerDataCosmosContractEvent {
@@ -243,9 +241,7 @@ pub fn decode_trigger_event(
 
 // Process registration event from escrow contract
 async fn process_registration_event(escrow_address: &str) -> Result<ServiceResponse> {
-    
     Ok(ServiceResponse { message: format!("Infusion"), success: true, data: None })
-       
 }
 
 // Process burn event and check if requirements are met
@@ -372,7 +368,6 @@ async fn process_burn_event(
             .to_vec()
             .try_into()
             .unwrap();
-
 
         // let namespace = Some(&b"demo"[..]);
         let signature = imported_signer.sign(None, &msg_digest).to_vec();

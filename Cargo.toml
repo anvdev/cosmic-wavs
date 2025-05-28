@@ -8,7 +8,7 @@ resolver = "2"
 
 [workspace.package]
 edition = "2021"
-version = "0.3.0"
+version = "0.4.0"
 license = "MIT"
 authors = ["Lay3r Labs Team"]
 repository = "https://github.com/Lay3rLabs/wavs"
@@ -16,14 +16,13 @@ rust-version = "1.80.0"
 
 [workspace.dependencies]
 # WASI
- wit-bindgen-rt = {version = "0.39.0", features = ["bitflags"]}
-wit-bindgen = "0.39.0"
+wit-bindgen-rt ={ version = "0.42.1", features = ["bitflags"]}
+wit-bindgen = "0.42.1"
 wstd = "0.5.3"
 wasi = "0.14.1"
-wavs-wasi-chain = "0.3.0"
-sha = "0.3.0"
+wavs-wasi-utils = "0.4.0-beta.4"
+ 
 
-# Cosmos 
 
 layer-climb = "0.4.3"
 cosmos-sdk-proto = "0.27.0"
@@ -35,9 +34,6 @@ cosmwasm-std = { version = "2.2.2", features = [
   # "cosmwasm_2_0",
 ] }
 
-# Eigenlayer
-eigen-crypto-bls = "0.5.0"
-ark-bls12-381 = "0.5.0"
  
 # Commonware
 commonware-cryptography = "0.0.52"
@@ -45,20 +41,12 @@ commonware-utils = "0.0.52"
 commonware-codec = "0.0.52"
 
 # Other
-sha2 = { version = "0.10.8", default-features = false }
-serde = { version = "1.0.217", features = ["derive"] }
-serde_json = "1.0.138" 
-anyhow = "1.0.95"
-chrono = "0.4.34"
-regex = "1.10.3"
-tonic = "0.9"
-prost = "0.11"
-
+sha = "0.3.0"
+hex = "0.4.3"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+anyhow = "1.0.98"
 
 ## Alloy
-alloy-sol-macro = { version = "0.8.13", features = ["json"]}
-alloy-sol-types = "0.8.13"
-alloy-primitives = "0.8.25"  # Core types (Address, U256)
-alloy-provider = { version = "0.11.1", default-features = false, features = ["rpc-api"] }
-alloy-rpc-types = "0.11.1"  # RPC definitions
-alloy-network = "0.11.1"    # Network trait
+alloy-sol-macro = { version = "1.0.0", features = ["json"]}
+alloy-sol-types = "1.0.0"

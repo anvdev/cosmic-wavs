@@ -1,7 +1,12 @@
+# general compile
 /target
 out/
 cache/
 broadcast/
+node_modules/
+
+# WAVS
+.env
 compiled/*.wasm
 .docker/*.json
 .env

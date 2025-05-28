@@ -5,6 +5,16 @@ CONFIG_DIR="/root/.bitsongd/config"
 # set the test-keys file path
 TEST_KEYS_PATH=""
 
+# Define the new ports for val1
+VAL1HOME=""
+VAL1_API_PORT=1317
+VAL1_GRPC_PORT=9090
+VAL1_GRPC_WEB_PORT=9091
+VAL1_PROXY_APP_PORT=26658
+VAL1_RPC_PORT=26657
+VAL1_PPROF_PORT=6060
+VAL1_P2P_PORT=26656
+
 # Validate required environment variables
 if [ -z "$VAL1HOME" ] || [ -z "$VAL1_PROXY_APP_PORT" ] || [ -z "$VAL1_RPC_PORT" ] || [ -z "$VAL1_P2P_PORT" ] || [ -z "$VAL1_API_PORT" ] || [ -z "$VAL1_GRPC_PORT" ] || [ -z "$VAL1_GRPC_WEB_PORT" ] || [ -z "$BIND" ] || [ -z "$CHAINID" ] || [ -z "$defaultCoins" ] || [ -z "$delegate" ]; then
   echo "Error: Missing required environment variables (VAL1HOME, VAL1_PROXY_APP_PORT, VAL1_RPC_PORT, VAL1_P2P_PORT, VAL1_API_PORT, VAL1_GRPC_PORT, VAL1_GRPC_WEB_PORT, BIND, CHAINID, defaultCoins, delegate)"

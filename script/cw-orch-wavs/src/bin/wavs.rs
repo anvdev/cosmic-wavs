@@ -1,4 +1,5 @@
 use anyhow::Context;
+use btsg_nft_scripts::framework::assert_wallet_balance;
 use clap::Parser;
 use commonware_cryptography::{Bls12381, Signer};
 use cosmrs::bip32::secp256k1::elliptic_curve::rand_core::OsRng;
@@ -7,17 +8,24 @@ use cosmwasm_std::{to_json_binary, Decimal};
 use cw_infuser::msg::{ExecuteMsgFns, InstantiateMsg, QueryMsgFns};
 use cw_orch::{
     core::serde_json::json,
-    daemon::{senders::CosmosSender, DaemonBase, DaemonBuilder, TxSender},
+    daemon::{
+        keys::private::PrivateKey, senders::CosmosSender, DaemonBase, DaemonBuilder, TxSender,
+    },
     prelude::*,
 };
-use cw_orch_wavs::networks::{BITSONG_MAINNET, BITSONG_TESTNET, LOCAL_NETWORK1};
-use secp256k1::All;
 use std::{
-    env, fs,
+    env,
+    fs::{self, File},
     path::Path,
     process::{Command, Stdio},
     time::Duration,
 };
+
+use btsg_account_scripts::BtsgAccountSuite;
+use cw_infuser_scripts::CwInfuser;
+use cw_orch_wavs::networks::{BITSONG_MAINNET, BITSONG_TESTNET, LOCAL_NETWORK1};
+
+use secp256k1::{All, Secp256k1};
 use tokio::{
     runtime::{Handle, Runtime},
     time::sleep,
@@ -28,7 +36,7 @@ pub struct CosmwasmAuthenticatorInitData {
     pub contract: String,
     pub params: Vec<u8>,
 }
-#[cw_serde]
+
 pub struct DeployInfusionDemo {
     pub cosmos: DaemonBase<CosmosSender<All>>,
     pub bs_accounts: BtsgAccountSuite<DaemonBase<CosmosSender<All>>>,
@@ -76,27 +84,27 @@ fn main() {
     if let Err(ref err) = deploy_wavs(&args.network, bitsong_chain.into()) {
         log::error!("{}", err);
         err.chain().skip(1).for_each(|cause| log::error!("because: {}", cause));
-
         ::std::process::exit(1);
     }
 }
 
 fn deploy_wavs(chain: &str, network: ChainInfoOwned) -> anyhow::Result<()> {
-    // rt.block_on(assert_wallet_balance(vec![network.clone()]));
+    let rt = Runtime::new()?;
     let wavs_bech32_addr = env::var("WAVS_CONTROLLER_ADDRESS").unwrap_or_else(|_| "".to_string());
     let service_config_file_path = env::var("SERVICE_CONFIG").unwrap_or_else(|_| "".to_string());
     let service_sub_addr = env::var("SERVICE_SUBMISSION_ADDR").unwrap_or_else(|_| "".to_string());
     let service_trigger_addr = env::var("SERVICE_TRIGGER_ADDR").unwrap_or_else(|_| "".to_string());
 
+    rt.block_on(assert_wallet_balance(vec![network.clone()]));
     setup_local_crypto_keys()?;
     // deploy networks
     rt.block_on(deploy_wavs_infra())?;
     // deploy cosmos smart contracct
-    let DeployInfusionDemo { cosmos, bs_accounts, infuser } =
+    let infusion_demo: DeployInfusionDemo =
         match rt.block_on(deploy_infusion_demo(rt.handle(), network)) {
             Ok(value) => value,
             Err(e) => return Err(e.into()),
-        }?;
+        };
 
     // deploy eth contracts (wavs service)
     rt.block_on(deploy_wavs_service(
@@ -107,7 +115,7 @@ fn deploy_wavs(chain: &str, network: ChainInfoOwned) -> anyhow::Result<()> {
         &service_config_file_path,
     ))?;
     // run demo
-    rt.block_on(run_infusion_demo())?;
+    rt.block_on(run_infusion_demo(infusion_demo))?;
 
     Ok(())
 }
@@ -123,12 +131,12 @@ fn setup_local_crypto_keys() -> Result<(), anyhow::Error> {
 
     // Generate secp256k1 keypair
     let secp = Secp256k1::new();
-    let secret_key = SecretKey::new(&mut rand::thread_rng());
-    let public_key = PublicKey::from_secret_key(&secp, &secret_key);
+    let private_key = PrivateKey::new(&secp, 118u32)?;
+    let public_key = private_key.public_key(&secp);
 
     // Convert to strings (simplified; in practice, derive bech32 address)
-    let secp256k1_private = hex::encode(secret_key.to_bytes());
-    let secp256k1_public = hex::encode(public_key.serialize());
+    let secp256k1_private = hex::encode(private_key.raw_key());
+    let secp256k1_public = hex::encode(&public_key.raw_pub_key.unwrap_or_default());
 
     // Generate BLS12-381 keypair (placeholder)
     let mut bls12 = Bls12381::new(&mut OsRng);
@@ -298,16 +306,20 @@ async fn deploy_wavs_service(
 
 async fn run_infusion_demo(suite: DeployInfusionDemo) -> Result<(), anyhow::Error> {
     // burn nft,triggering wavs service
-
     // query that wavs record has been added to wavs service
     assert_eq!(
-        suite
-            .infuser
-            .wavs_record(vec![bs_accounts.wavs.addr_str()?], Some(cosmos.sender_addr()))?[0]
+        suite.infuser.wavs_record(
+            vec![suite.bs_accounts.wavs.addr_str()?],
+            Some(suite.cosmos.sender_addr())
+        )?[0]
             .count,
         Some(1)
     );
 
+    Ok(())
+}
+
+fn deploy_eigenlayer_contracts(rpc_url: &str) -> Result<(), anyhow::Error> {
     Ok(())
 }
 

@@ -18,7 +18,6 @@ services:
   #     ANVIL_IP_ADDR: 0.0.0.0
   #   command: ["anvil", "--no-cors"]
 
-  # The main instance all WAVS interaction will happen from
   wavs:
     image: "ghcr.io/lay3rlabs/wavs:0.3.0"
     container_name: "wavs"
@@ -76,25 +75,24 @@ services:
       - "./.docker:/root/wavs/cli/"
     network_mode: "host"
 
-  # deploy-cosmos-network:
-  #   image: "cosmos/gaia:v14.2.0" #  TODO: use cosmos-omnibus:  
-  #   container_name: "cosmos-node"
-  #   network_mode: "host" # Use host networking for simplicity
-  #   ports:
-  #     - "26656:26656" # P2P port for node communication
-  #     - "26657:26657" # RPC port for client interactions
-  #     - "1317:1317"   # REST API port for querying
-  #   volumes:
-  #     - "./.cosmos:/root/.gaia" # Persist node data
-  #     - "./setup-cosmos.sh:/setup-cosmos.sh" # Mount the setup script
-  #   environment:
-  #     - CHAIN_ID=testnet-1 # Chain ID for the Cosmos network
-  #     - MONIKER=test-node  # Node moniker (name)
-  #   command: >
-  #     /bin/bash /setup-cosmos.sh ${CHAIN_ID} ${MONIKER}
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:26657/health"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
-  #     start_period: 40s2
+  cosmos-node:
+    image: "ghcr.io/akash-network/cosmos-omnibus:v1.2.17-bitsong-v0.21.6"
+    container_name: "cosmos-node"
+    network_mode: "host"
+    ports:
+      - "26656:26656" # P2P port for node communication
+      - "26657:26657" # RPC port for client interactions
+      - "1317:1317"   # REST API port for querying
+    environment:
+      - MONIKER=Cosmos Omnibus Node
+      # genesis file is created on entry point 
+    volumes:
+      - "./.cosmos:/root/.bitsongd" # Persist Bitsong chain data
+      - "./entrypoint.sh:/entrypoint.sh" # Mount the entrypoint script
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:26657/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

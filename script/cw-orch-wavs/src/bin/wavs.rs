@@ -82,7 +82,6 @@ fn main() {
 }
 
 fn deploy_wavs(chain: &str, network: ChainInfoOwned) -> anyhow::Result<()> {
-    let rt = Runtime::new()?;
     // rt.block_on(assert_wallet_balance(vec![network.clone()]));
     let wavs_bech32_addr = env::var("WAVS_CONTROLLER_ADDRESS").unwrap_or_else(|_| "".to_string());
     let service_config_file_path = env::var("SERVICE_CONFIG").unwrap_or_else(|_| "".to_string());

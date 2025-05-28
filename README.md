@@ -72,8 +72,20 @@ We can also implement custom logic, such as deterministic queries to determine a
 ```
 For this demo, any burn event will trigger the AVS to check if any infusion in the cw-infuser address paired to it has the specific nft collection as an eligible collection.
 
-If there are none, no messages are formed, otherwise a message to update the global contract state is signed via the preferred Ecdsa authorization method.
+If there are none,no messages are formed, otherwise a message to update the global contract state is signed via the preferred Ecdsa authorization method.
 ```rs
+// - create sha256sum bytes that are being signed by operators for aggregated approval.
+// Current implementation signs binary formaated array of Any msgs being authorized.
+// let namespace = Some(&b"demo"[..]);
+let signature = imported_signer
+.sign(
+    None,
+    &Sha256::digest(to_json_binary(&cosmic_wavs_actions)?.as_ref())
+        .to_vec()
+        .try_into()
+        .unwrap(),
+)
+.to_vec();
 
 ```
 

@@ -296,7 +296,7 @@ async fn process_burn_event(
     let cw_infuser_addr = WAVS_CW_INFUSER;
 
     // 2.query contract the check if operators need to update assigned cw-infuser state
-    let res: Vec<cw_infusions::wavs::WavsRecordResponse> = cosm_guery
+    let on_chain_conditional: Vec<cw_infusions::wavs::WavsRecordResponse> = cosm_guery
         .contract_smart(
             &Address::new_cosmos_string(&cw_infuser_addr, None)?,
             &cw_infuser::msg::QueryMsg::WavsRecord {
@@ -308,7 +308,7 @@ async fn process_burn_event(
 
     // 3. form msgs for operators to sign
     let mut infusions = vec![];
-    for record in res {
+    for record in on_chain_conditional {
         if let Some(count) = record.count {
             infusions.push(WavsBundle {
                 infuser: burner.to_string(),
@@ -318,138 +318,138 @@ async fn process_burn_event(
         }
     }
 
+    // 4. perform workflow to sign msg the operator set is authorizing to perform
+    if infusions.len() > 0 {
+        // -
+        let wavs_any_msg = Any {
+            type_url: "/cosmwasm.wasm.v1.MsgExecuteContract".into(),
+            value: cosmos_sdk_proto::cosmwasm::wasm::v1::MsgExecuteContract {
+                sender: WAVS_INFUSER_OPERATOR_ADDR.into(), // wavs secp256k1 key address registered to x/accounts with bls12 authenticator
+                contract: cw_infuser_addr.to_string(),
+                msg: to_json_binary(&cw_infuser::msg::ExecuteMsg::WavsEntryPoint { infusions })?
+                    .to_vec(),
+                funds: vec![],
+            }
+            .to_bytes()?,
+        };
+        cosmic_wavs_actions.push(wavs_any_msg);
+        // Import the bls12-381 private key
+        let bls_key_pair = match <Bls12381 as commonware_cryptography::Signer>::PrivateKey::decode(
+            hex::decode(WAVS_BLS_PRIVATE_KEY.as_bytes())?.as_ref(),
+        ) {
+            Ok(key) => key,
+            Err(e) => {
+                return Err(e.into());
+            }
+        };
+        // Create a signer from the imported key
+        let mut imported_signer = <Bls12381 as commonware_cryptography::Signer>::from(bls_key_pair)
+            .expect("broken private key");
 
-    // - sign msg the operator set is authorizing to perform
-    let wavs_any_msg = Any {
-        type_url: "/cosmwasm.wasm.v1.MsgExecuteContract".into(),
-        value: cosmos_sdk_proto::cosmwasm::wasm::v1::MsgExecuteContract {
-            sender: WAVS_INFUSER_OPERATOR_ADDR.into(), // wavs secp256k1 key address registered to x/accounts with bls12 authenticator
-            contract: cw_infuser_addr.to_string(),
-            msg: to_json_binary(&cw_infuser::msg::ExecuteMsg::WavsEntryPoint { infusions })?
-                .to_vec(),
-            funds: vec![],
+        // gete account info for our smart-account
+        let smart_account = cosm_guery
+            .base_account(&Address::Cosmos {
+                bech32_addr: chain_config
+                    .address_kind
+                    .address_from_pub_key(&secp256k1pubkey)?
+                    .to_string(),
+                prefix_len: 7usize,
+            })
+            .await?;
+
+        // signer info. This demo implements the signing info for single wav operator bls12 keys
+        let signer_info = cosmos_sdk_proto::cosmos::tx::v1beta1::SignerInfo {
+            public_key: Some(Any {
+                type_url: "/cosmos.crypto.bls12_381.PubKey".into(),
+                value: imported_signer.public_key().to_vec(),
+            }),
+            mode_info: None,
+            sequence: 0,
+        };
+        // - create sha256sum bytes that are being signed by operators for aggregated approval.
+        // Current implementation signs binary formaated array of Any msgs being authorized.
+        let msg_digest: [u8; 32] = Sha256::digest(to_json_binary(&cosmic_wavs_actions)?.as_ref())
+            .to_vec()
+            .try_into()
+            .unwrap();
+
+
+        // let namespace = Some(&b"demo"[..]);
+        let signature = imported_signer.sign(None, &msg_digest).to_vec();
+        // push signature to array of operator bls signatures
+        signatures.push(signature.clone());
+
+        // generate message to broadcast with use of the x/smart-account function
+        let wavs_broadcast_msg: TxBody = TxBody {
+            messages: cosmic_wavs_actions,
+            memo: "Cosmic Wavs Account Action".into(),
+            timeout_height: 100u64,
+            extension_options: vec![],
+            non_critical_extension_options: vec![Any {
+                type_url: TX_EXTENSION_TYPE.into(),
+                value: to_json_binary(&TxExtension { selected_authenticators: vec![1] })?.to_vec(),
+            }]
+            .to_vec(),
+        };
+        // simulate the gas consumed.
+        // todo: if gas simulated is to be more that current x/smart-account params defined,
+        //       we need split messages into smaller batches to be verified.
+        let gas = cosm_signing_client
+            .clone()
+            .tx_builder()
+            .simulate_gas(signer_info.clone(), smart_account.account_number, &wavs_broadcast_msg)
+            .await?;
+
+        let fee = Fee {
+            amount: vec![Coin { denom: "ubtsg".into(), amount: 100u64.to_string() }],
+            gas_limit: gas.gas_used * 2,
+            payer: "".to_string(), // wavs operated account
+            granter: "".to_string(),
+        };
+
+        signer_infos.push(signer_info);
+
+        //  SIGN_MODE_DIRECT
+        let wavs_request = cosmos_sdk_proto::cosmos::tx::v1beta1::Tx {
+            body: Some(wavs_broadcast_msg),
+            auth_info: Some(AuthInfo { signer_infos, fee: Some(fee), tip: None }),
+            signatures, // added array of bls signatures
+        };
+
+        // 5.handle transaction response (out of gas,edge case error)
+        let cosm_res = cosm_signing_client
+            .tx_builder()
+            .querier
+            .broadcast_tx_bytes(wavs_request.to_bytes()?, BroadcastMode::Sync)
+            .await?;
+
+        match cosm_res.code() {
+            0 => {
+                // successful response
+            }
+            _ => {
+                // errors
+            }
         }
-        .to_bytes()?,
-    };
-    cosmic_wavs_actions.push(wavs_any_msg);
 
-    // Import the bls12-381 private key
-    let bls_key_pair = match <Bls12381 as commonware_cryptography::Signer>::PrivateKey::decode(
-        hex::decode(WAVS_BLS_PRIVATE_KEY.as_bytes())?.as_ref(),
-    ) {
-        Ok(key) => key,
-        Err(e) => {
-            return Err(e.into());
-        }
-    };
+        // form object to use with  other operators
+        let service_res = WavsBlsCosmosActionAuth {
+            base64_msg_hash: to_base64(msg_digest),
+            msg: vec![],
+            signature: hex::encode(signature),
+            pubkey_g2: imported_signer.public_key().to_string(),
+        };
 
-    // Create a signer from the imported key
-    let mut imported_signer = <Bls12381 as commonware_cryptography::Signer>::from(bls_key_pair)
-        .expect("broken private key");
-
-    // - create sha256sum bytes that are being signed by operators for aggregated approval.
-    // Current implementation signs binary formaated array of Any msgs being authorized.
-    let msg_digest: [u8; 32] =
-        Sha256::digest(to_json_binary(&cosmic_wavs_actions)?.as_ref()).to_vec().try_into().unwrap();
-
-    // let namespace = Some(&b"demo"[..]);
-    let signature = imported_signer.sign(None, &msg_digest).to_vec();
-    signatures.push(signature.clone());
-
-    // push signature
-    // generate message to broadcast with use of the x/smart-account function
-    let wavs_broadcast_msg: TxBody = TxBody {
-        messages: cosmic_wavs_actions,
-        memo: "Cosmic Wavs Account Action".into(),
-        timeout_height: 100u64,
-        extension_options: vec![],
-        non_critical_extension_options: vec![Any {
-            type_url: TX_EXTENSION_TYPE.into(),
-            value: to_json_binary(&TxExtension { selected_authenticators: vec![1] })?.to_vec(),
-        }]
-        .to_vec(),
-    };
-
-    // gete account info for our smart-account
-    let smart_account = cosm_guery
-        .base_account(&Address::Cosmos {
-            bech32_addr: chain_config
-                .address_kind
-                .address_from_pub_key(&secp256k1pubkey)?
-                .to_string(),
-            prefix_len: 7usize,
-        })
-        .await?;
-
-    // signer info. This demo implements the signing info for single wav operator bls12 keys
-    let signer_info = cosmos_sdk_proto::cosmos::tx::v1beta1::SignerInfo {
-        public_key: Some(Any {
-            type_url: "/cosmos.crypto.bls12_381.PubKey".into(),
-            value: imported_signer.public_key().to_vec(),
-        }),
-        mode_info: None,
-        sequence: 0,
-    };
-
-    let gas = cosm_signing_client
-        .clone()
-        .tx_builder()
-        .simulate_gas(signer_info.clone(), smart_account.account_number, &wavs_broadcast_msg)
-        .await?;
-
-    let fee = Fee {
-        amount: vec![Coin { denom: "ubtsg".into(), amount: 100u64.to_string() }],
-        gas_limit: gas.gas_used * 2,
-        payer: "".to_string(), // wavs operated account
-        granter: "".to_string(),
-    };
-
-    signer_infos.push(signer_info);
-
-    //  SIGN_MODE_DIRECT
-    let wavs_request = cosmos_sdk_proto::cosmos::tx::v1beta1::Tx {
-        body: Some(wavs_broadcast_msg),
-        auth_info: Some(AuthInfo { signer_infos, fee: Some(fee), tip: None }),
-        signatures, // added array of bls signatures
-    };
-
-    // 5.handle transaction response (out of gas,edge case error)
-    let cosm_res = cosm_signing_client
-        .tx_builder()
-        .querier
-        .broadcast_tx_bytes(wavs_request.to_bytes()?, BroadcastMode::Sync)
-        .await?;
-
-    match cosm_res.code() {
-        0 => {
-            // successful response
-        }
-        _ => {
-            // errors
+        if cosm_res.code() != 0 {
+            return Ok(ServiceResponse {
+                message: "Infusion record failuter".to_string(),
+                success: false,
+                data: Some(service_res),
+            });
         }
     }
 
-    // form object to use with  other operators
-    let service_res = WavsBlsCosmosActionAuth {
-        base64_msg_hash: to_base64(msg_digest),
-        msg: vec![],
-        signature: hex::encode(signature),
-        pubkey_g2: imported_signer.public_key().to_string(),
-    };
-
-    if cosm_res.code() != 0 {
-        return Ok(ServiceResponse {
-            message: "Infusion recEord failuter".to_string(),
-            success: false,
-            data: Some(service_res),
-        });
-    }
-
-    Ok(ServiceResponse {
-        message: "Burn recorded".to_string(),
-        success: true,
-        data: Some(service_res),
-    })
+    Ok(ServiceResponse { message: "Burn recorded".to_string(), success: true, data: None })
 }
 
 pub fn encode_trigger_output(trigger_id: u64, output: impl AsRef<[u8]>) -> Vec<u8> {

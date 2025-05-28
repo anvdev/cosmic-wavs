@@ -226,7 +226,6 @@ sudo do-release-upgrade
 # https://github.com/bytecodealliance/cargo-component#installation
 cargo install cargo-binstall
 cargo binstall cargo-component wasm-tools warg-cli wkg --locked --no-confirm --force
-cargo binstall cargo-component warg-cli wkg --locked --no-confirm --force
 
 # Configure default registry
 # Found at: $HOME/.config/wasm-pkg/config.toml
@@ -260,6 +259,52 @@ forge build
 # Run the solidity tests
 forge test
 ```
+
+## Build WASI components
+
+Now build the WASI components into the `compiled` output directory.
+
+> \[!WARNING]
+> If you get: `error: no registry configured for namespace "wavs"`
+>
+> run, `wkg config --default-registry wa.dev`
+
+> \[!WARNING]
+> If you get: `failed to find the 'wasm32-wasip1' target and 'rustup' is not available`
+>
+> `brew uninstall rust` & install it from <https://rustup.rs>
+
+```bash
+# Remove `WASI_BUILD_DIR` to build all components.
+warg reset
+WASI_BUILD_DIR=components/evm-price-oracle make wasi-build
+```
+
+## Testing the Price Feed Component Locally
+
+How to test the component locally for business logic validation before on-chain deployment. An ID of 1 for the oracle component is Bitcoin.
+
+```bash
+COIN_MARKET_CAP_ID=1 make wasi-exec
+```
+ 
+
+Expected output:
+
+```shell docci-ignore
+input id: 1
+resp_data: PriceFeedData {
+    symbol: "BTC",
+    timestamp: "2025-04-01T00:00:00.000Z",
+    price: 82717.27035239758
+}
+INFO Fuel used: 653415
+
+Result (hex encoded):
+7b2273796d626f6c223a22425443222c2274696d657374616d70223a22323032352d30342d30315430303a34...
+
+Result (utf8):
+{"symbol":"BTC","timestamp":"2025-04-01T00:00:00.000Z","price":82717.27035239758}
  
 
 ### Testing 
@@ -276,11 +321,9 @@ export SERVICE_CONFIG="'{\"fuel_limit\":100000000,\"max_gas\":5000000,\"host_env
 # IMPORTANT: Claude can't run this command without system permission. It is always best for the user to run this command.
 make wasi-exec
 ```
- 
 
 ## Running WAVS locally
 
-> \[!NOTE]
 > If you are running on a Mac with an ARM chip, you will need to do the following:
 > - Set up Rosetta: `softwareupdate --install-rosetta`
 > - Enable Rosetta (Docker Desktop: Settings -> General -> enable "Use Rosetta for x86_64/amd64 emulation on Apple Silicon")
@@ -290,9 +333,22 @@ make wasi-exec
 > - `brew install chipmk/tap/docker-mac-net-connect && sudo brew services start chipmk/tap/docker-mac-net-connect`
 
 ## Start Environment
+## Start Environment
 
 Start an Ethereum node (anvil), the WAVS service, and deploy [eigenlayer](https://www.eigenlayer.xyz/) contracts to the local network.
 
+### Enable Telemetry (optional)
+
+Set Log Level:
+  - Open the `.env` file.
+  - Set the `log_level` variable for wavs to debug to ensure detailed logs are captured.
+
+> \[!NOTE]
+To see details on how to access both traces and metrics, please check out [Telemetry Documentation](telemetry/telemetry.md).
+
+### Start the backend
+
+```bash docci-background docci-delay-after=5
 ### Enable Telemetry (optional)
 
 Set Log Level:
@@ -337,6 +393,7 @@ docker run --rm --network host --env-file .env -v ./.nodes:/root/.nodes ghcr.io/
 ```bash docci-delay-per-cmd=2
 export RPC_URL=`sh ./script/get-rpc.sh`
 export DEPLOYER_PK=$(cat .nodes/deployer)
+
 export SERVICE_MANAGER_ADDRESS=$(jq -r '.addresses.WavsServiceManager' .nodes/avs_deploy.json)
 
 forge create SimpleSubmit --json --broadcast -r ${RPC_URL} --private-key "${DEPLOYER_PK}" --constructor-args "${SERVICE_MANAGER_ADDRESS}" > .docker/submit.json
@@ -366,12 +423,14 @@ export PKG_NAMESPACE=`sh ./script/get-wasi-namespace.sh`
 # local or wa.dev depending on DEPLOY_ENV in .env
 sh script/upload-to-wasi-registry.sh
 
+# Build your service JSON
+export AGGREGATOR_URL=http://127.0.0.1:8001
+
 # Testnet: set values (default: local if not set)
 # export TRIGGER_CHAIN=holesky
 # export SUBMIT_CHAIN=holesky
 
 # Package not found with wa.dev? -- make sure it is public
-export AGGREGATOR_URL=http://127.0.0.1:8001
 REGISTRY=${REGISTRY} sh ./script/build_service.sh
 ```
 
@@ -387,22 +446,21 @@ export ipfs_cid=`SERVICE_FILE=${SERVICE_FILE} make upload-to-ipfs`
 
 # LOCAL: http://127.0.0.1:8080
 # TESTNET: https://gateway.pinata.cloud/
-export IPFS_GATEWAY="$(sh script/get-ipfs-gateway.sh)/ipfs/"
+export IPFS_GATEWAY=$(sh script/get-ipfs-gateway.sh)
 
-export IPFS_URI="ipfs://${ipfs_cid}"
-curl "${IPFS_GATEWAY}${ipfs_cid}"
+export SERVICE_URI="${IPFS_GATEWAY}/ipfs/${ipfs_cid}"
+curl ${SERVICE_URI}
 
-cast send ${SERVICE_MANAGER_ADDRESS} 'setServiceURI(string)' "${IPFS_URI}" -r ${RPC_URL} --private-key ${DEPLOYER_PK}
+cast send ${SERVICE_MANAGER_ADDRESS} 'setServiceURI(string)' "${SERVICE_URI}" -r ${RPC_URL} --private-key ${DEPLOYER_PK}
 ```
 
 ## Start Aggregator
 
 ```bash
 sh ./script/create-aggregator.sh 1
+sh ./infra/aggregator-1/start.sh
 
-IPFS_GATEWAY=${IPFS_GATEWAY} sh ./infra/aggregator-1/start.sh
-
-wget -q --header="Content-Type: application/json" --post-data="{\"uri\": \"${IPFS_URI}\"}" ${AGGREGATOR_URL}/register-service -O -
+wget -q --header="Content-Type: application/json" --post-data='{"service": '"$(jq -c . ${SERVICE_FILE})"'}' ${AGGREGATOR_URL}/register-service -O -
 ```
 
 ## Start WAVS
@@ -410,36 +468,33 @@ wget -q --header="Content-Type: application/json" --post-data="{\"uri\": \"${IPF
 ```bash
 sh ./script/create-operator.sh 1
 
-IPFS_GATEWAY=${IPFS_GATEWAY} sh ./infra/wavs-1/start.sh
+# [!] UPDATE PROPER VALUES FOR TESTNET HERE (`wavs.toml`: registry, ipfs_gateway)
+
+sh ./infra/wavs-1/start.sh
 
 # Deploy the service JSON to WAVS so it now watches and submits.
 # 'opt in' for WAVS to watch (this is before we register to Eigenlayer)
-WAVS_ENDPOINT=http://127.0.0.1:8000 SERVICE_URL=${IPFS_URI} IPFS_GATEWAY=${IPFS_GATEWAY} make deploy-service
+WAVS_ENDPOINT=http://127.0.0.1:8000 SERVICE_URL=${SERVICE_URI} make deploy-service
 ```
 
 ## Register service specific operator
 
 Each service gets their own key path (hd_path). The first service starts at 1 and increments from there. Get the service ID
 
-Provide the cw-infuser contract address to register to the service.
 ```bash
 export SERVICE_ID=`curl -s http://localhost:8000/app | jq -r '.services[0].id'`
-export HD_INDEX=`curl -s http://localhost:8000/service-key/${SERVICE_ID} | jq -rc '.secp256k1.hd_index'`
+export HD_INDEX=`curl -s http://localhost:8000/service-key/${SERVICE_ID} | jq -rc .secp256k1.hd_index | tr -d '[]'`
 
 source infra/wavs-1/.env
-export AVS_PRIVATE_KEY=`cast wallet private-key --mnemonic-path "$WAVS_SUBMISSION_MNEMONIC" --mnemonic-index ${HD_INDEX}`
+AVS_PRIVATE_KEY=`cast wallet private-key --mnemonic-path "$WAVS_SUBMISSION_MNEMONIC" --mnemonic-index ${HD_INDEX}`
+OPERATOR_ADDRESS=`cast wallet address ${AVS_PRIVATE_KEY}`
 
 # Register the operator with the WAVS service manager
-export SERVICE_MANAGER_ADDRESS=`jq -r '.addresses.WavsServiceManager' .nodes/avs_deploy.json`
+export WAVS_SERVICE_MANAGER_ADDRESS=`jq -r '.addresses.WavsServiceManager' .nodes/avs_deploy.json`
 DELEGATION=0.001ether AVS_PRIVATE_KEY=${AVS_PRIVATE_KEY} make V=1 operator-register
 
 # Verify registration
-SERVICE_MANAGER_ADDRESS=${SERVICE_MANAGER_ADDRESS} make operator-list
-# Your component filename in the `/compiled` folder
-export COMPONENT_FILENAME=your_component.wasm
-# Your service config. Make sure to include any necessary variables.
-export SERVICE_CONFIG="'{\"fuel_limit\":100000000,\"max_gas\":5000000,\"host_envs\":[],\"kv\":[],\"workflow_id\":\"default\",\"component_id\":\"default\"}'"
-TRIGGER_EVENT="NewTrigger(bytes)" make deploy-service
+WAVS_SERVICE_MANAGER_ADDRESS=${WAVS_SERVICE_MANAGER_ADDRESS} make operator-list
 ```
 
 ## Trigger the Service
@@ -453,7 +508,6 @@ todo: implmeent description for triggering service via nft mint
 # Request BTC from CMC
 export COIN_MARKET_CAP_ID=1
 # Get the trigger address from previous Deploy forge script
-export TRIGGER_DATA_INPUT=merch
 export SERVICE_TRIGGER_ADDR=`make get-trigger-from-deploy`
 # Execute on the trigger contract, WAVS will pick this up and submit the result
 # on chain via the operators.
@@ -463,12 +517,41 @@ source .env
 
 forge script ./script/Trigger.s.sol ${SERVICE_TRIGGER_ADDR} ${COIN_MARKET_CAP_ID} --sig 'run(string,string)' --rpc-url ${RPC_URL} --broadcast
 ```
-forge script ./script/Trigger.s.sol ${SERVICE_TRIGGER_ADDR} ${TRIGGER_DATA_INPUT} --sig "run(string,string)" --rpc-url http://localhost:8545 --broadcast -v 4
-``` -->
 
 ## Show the result
 
 Query the latest submission contract id from the previous request made.
+
+```bash docci-delay-per-cmd=2 docci-output-contains="1"
+RPC_URL=${RPC_URL} make get-trigger
+```
+
+```bash docci-delay-per-cmd=2 docci-output-contains="BTC"
+TRIGGER_ID=1 RPC_URL=${RPC_URL} make show-result
+```
+
+## Update Threshold
+
+```bash docci-ignore
+export ECDSA_CONTRACT=`cat .nodes/avs_deploy.json | jq -r '.addresses.stakeRegistry'`
+
+TOTAL_WEIGHT=`cast call ${ECDSA_CONTRACT} "getLastCheckpointTotalWeight()(uint256)" --rpc-url ${RPC_URL} --json | jq -r '.[0]'`
+TWO_THIRDS=`echo $((TOTAL_WEIGHT * 2 / 3))`
+
+cast send ${ECDSA_CONTRACT} "updateStakeThreshold(uint256)" ${TWO_THIRDS} --rpc-url ${RPC_URL} --private-key ${FUNDED_KEY}
+
+make operator-list
+```
+
+# Claude Code
+
+To spin up a sandboxed instance of [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) in a Docker container that only has access to this project's files, run the following command:
+
+```bash docci-ignore
+npm run claude-code
+# or with no restrictions (--dangerously-skip-permissions)
+npm run claude-code:unrestricted
+```
 
 ```bash docci-delay-per-cmd=2 docci-output-contains="1"
 RPC_URL=${RPC_URL} make get-trigger

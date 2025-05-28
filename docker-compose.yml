@@ -9,11 +9,23 @@
 # docker volume rm $(docker volume ls -q -f "dangling=true")
 
 
+# docker volume rm $(docker volume ls -q -f "dangling=true")
+
+
 services:
   warg-server:
     image: "ghcr.io/reecepbcups/warg-registry:v0.9.3"
     container_name: "warg-server"
+  warg-server:
+    image: "ghcr.io/reecepbcups/warg-registry:v0.9.3"
+    container_name: "warg-server"
     environment:
+      WARG_OPERATOR_KEY: ecdsa-p256:I+UlDo0HxyBBFeelhPPWmD+LnklOpqZDkrFP5VduASk=
+      WARG_NAMESPACE: example
+      WKG_REGISTRY: http://localhost:5000
+      WARG_CONTENT_BASE_URL: http://localhost:8090
+      WARG_LISTEN: 0.0.0.0:8090
+      WARG_VERBOSE: 1
       WARG_OPERATOR_KEY: ecdsa-p256:I+UlDo0HxyBBFeelhPPWmD+LnklOpqZDkrFP5VduASk=
       WARG_NAMESPACE: example
       WKG_REGISTRY: http://localhost:5000
@@ -25,7 +37,20 @@ services:
     ports:
       - 8090:8090
     command: ["--rm"]
+      - warg-data:/var/lib/warg-server/data
+    ports:
+      - 8090:8090
+    command: ["--rm"]
 
+  ipfs:
+    image: ipfs/kubo:v0.34.1
+    container_name: ipfs
+    network_mode: host
+    ports:
+      - "4001:4001"
+      - "4001:4001/udp"
+      - "8080:8080"
+      - "5001:5001"
   ipfs:
     image: ipfs/kubo:v0.34.1
     container_name: ipfs

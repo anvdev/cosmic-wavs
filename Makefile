@@ -5,7 +5,7 @@ SUDO := $(shell if groups | grep -q docker; then echo ''; else echo 'sudo'; fi)
 
 # Define common variables
 CARGO=cargo
-TRIGGER_DATA_INPUT?=1
+COIN_MARKET_CAP_ID?=1
 COMPONENT_FILENAME?=evm_price_oracle.wasm
 CREDENTIAL?=""
 DOCKER_IMAGE?=ghcr.io/lay3rlabs/wavs:fd8b66e
@@ -35,7 +35,7 @@ wasi-build:
 wasi-exec: pull-image
 	@$(WAVS_CMD) exec --log-level=info --data /data/.docker --home /data \
 	--component "/data/compiled/$(COMPONENT_FILENAME)" \
-	--input $(TRIGGER_DATA_INPUT) \
+	--input $(COIN_MARKET_CAP_ID) \
 
 
 ## clean: cleaning the project files

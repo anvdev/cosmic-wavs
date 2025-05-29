@@ -1,10 +1,13 @@
 mod trigger;
+use alloy_sol_types::{SolType, SolValue};
 use trigger::{decode_trigger_event, encode_trigger_output, Destination};
 use wavs_wasi_utils::http::{fetch_json, http_request_get};
 pub mod bindings;
 use crate::bindings::{export, Guest, TriggerAction, WasmResponse};
 use serde::{Deserialize, Serialize};
 use wstd::{http::HeaderValue, runtime::block_on};
+// import solidity from triggers
+use trigger::solidity;
 
 struct Component;
 export!(Component with_types_in bindings);
@@ -30,11 +33,24 @@ impl Guest for Component {
         let (trigger_id, req, dest) =
             decode_trigger_event(action.data).map_err(|e| e.to_string())?;
 
-        // Convert bytes to string and parse first char as u64
-        let input = std::str::from_utf8(&req).map_err(|e| e.to_string())?;
-        println!("input id: {}", input);
+        // Decode the string using proper ABI decoding
+        let string_data: String =
+            if let Ok(decoded) = <solidity::DataWithId as SolType>::abi_decode(&req) {
+                // If it has a function selector (from cast abi-encode "f(string)" format)
+                decoded.data.to_string()
+            } else {
+                // Fallback: try decoding just as a string parameter (no function selector)
+                match String::abi_decode(&req) {
+                    Ok(s) => s,
+                    Err(e) => return Err(format!("Failed to decode input as ABI string: {}", e)),
+                }
+                // alloy_primitives::Bytes::from(s.into_bytes())
+            };
 
-        let id = input.chars().next().ok_or("Empty input")?;
+        println!("Decoded string input: {}", string_data);
+
+        // Parse the first character as a hex digit for the ID
+        let id = string_data.chars().next().ok_or("Empty input")?;
         let id = id.to_digit(16).ok_or("Invalid hex digit")? as u64;
 
         let res = block_on(async move {

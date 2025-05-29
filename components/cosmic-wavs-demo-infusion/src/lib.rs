@@ -1,6 +1,7 @@
 // Required imports
 use alloy_sol_types::{sol, SolValue};
 use anyhow::Result;
+use layer_climb::proto::wasm::MsgExecuteContract;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{to_base64, to_json_binary};
@@ -316,18 +317,14 @@ async fn process_burn_event(
 
     // 4. perform workflow to sign msg the operator set is authorizing to perform
     if infusions.len() > 0 {
-        // -
-        let wavs_any_msg = Any {
-            type_url: "/cosmwasm.wasm.v1.MsgExecuteContract".into(),
-            value: cosmos_sdk_proto::cosmwasm::wasm::v1::MsgExecuteContract {
-                sender: WAVS_INFUSER_OPERATOR_ADDR.into(), // wavs secp256k1 key address registered to x/accounts with bls12 authenticator
-                contract: cw_infuser_addr.to_string(),
-                msg: to_json_binary(&cw_infuser::msg::ExecuteMsg::WavsEntryPoint { infusions })?
-                    .to_vec(),
-                funds: vec![],
-            }
-            .to_bytes()?,
-        };
+        let wavs_any_msg = Any::from_msg(&MsgExecuteContract {
+            sender: WAVS_INFUSER_OPERATOR_ADDR.into(), // wavs secp256k1 key address registered to x/accounts with bls12 authenticator
+            contract: cw_infuser_addr.to_string(),
+            msg: to_json_binary(&cw_infuser::msg::ExecuteMsg::WavsEntryPoint { infusions })?
+                .to_vec(),
+            funds: vec![],
+        })?;
+
         cosmic_wavs_actions.push(wavs_any_msg);
         // Import the bls12-381 private key
         let bls_key_pair = match <Bls12381 as commonware_cryptography::Signer>::PrivateKey::decode(
@@ -362,6 +359,7 @@ async fn process_burn_event(
             mode_info: None,
             sequence: 0,
         };
+
         // - create sha256sum bytes that are being signed by operators for aggregated approval.
         // Current implementation signs binary formaated array of Any msgs being authorized.
         let msg_digest: [u8; 32] = Sha256::digest(to_json_binary(&cosmic_wavs_actions)?.as_ref())
@@ -369,7 +367,7 @@ async fn process_burn_event(
             .try_into()
             .unwrap();
 
-        // let namespace = Some(&b"demo"[..]);
+        // let namespace = Some(&b"additional_namespace. Commonware library already generates hash with standard dst"[..]);
         let signature = imported_signer.sign(None, &msg_digest).to_vec();
         // push signature to array of operator bls signatures
         signatures.push(signature.clone());

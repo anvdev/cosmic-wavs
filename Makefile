@@ -120,7 +120,7 @@ show-result:
 
 
 PINATA_API_KEY?=""
-## upload-to-ipfs: uploading the a service config to IPFS | SERVICE_FILE, [PINATA_API_KEY]
+## upload-to-ipfs: uploading a service config to IPFS | SERVICE_FILE, [PINATA_API_KEY]
 upload-to-ipfs:
 	@if [ `sh script/get-deploy-status.sh` = "LOCAL" ]; then \
 		curl -X POST "http://127.0.0.1:5001/api/v0/add?pin=true" -H "Content-Type: multipart/form-data" -F file=@${SERVICE_FILE} | jq -r .Hash; \

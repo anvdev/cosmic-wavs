@@ -9,23 +9,11 @@
 # docker volume rm $(docker volume ls -q -f "dangling=true")
 
 
-# docker volume rm $(docker volume ls -q -f "dangling=true")
-
-
 services:
   warg-server:
     image: "ghcr.io/reecepbcups/warg-registry:v0.9.3"
     container_name: "warg-server"
-  warg-server:
-    image: "ghcr.io/reecepbcups/warg-registry:v0.9.3"
-    container_name: "warg-server"
     environment:
-      WARG_OPERATOR_KEY: ecdsa-p256:I+UlDo0HxyBBFeelhPPWmD+LnklOpqZDkrFP5VduASk=
-      WARG_NAMESPACE: example
-      WKG_REGISTRY: http://localhost:5000
-      WARG_CONTENT_BASE_URL: http://localhost:8090
-      WARG_LISTEN: 0.0.0.0:8090
-      WARG_VERBOSE: 1
       WARG_OPERATOR_KEY: ecdsa-p256:I+UlDo0HxyBBFeelhPPWmD+LnklOpqZDkrFP5VduASk=
       WARG_NAMESPACE: example
       WKG_REGISTRY: http://localhost:5000
@@ -37,20 +25,7 @@ services:
     ports:
       - 8090:8090
     command: ["--rm"]
-      - warg-data:/var/lib/warg-server/data
-    ports:
-      - 8090:8090
-    command: ["--rm"]
 
-  ipfs:
-    image: ipfs/kubo:v0.34.1
-    container_name: ipfs
-    network_mode: host
-    ports:
-      - "4001:4001"
-      - "4001:4001/udp"
-      - "8080:8080"
-      - "5001:5001"
   ipfs:
     image: ipfs/kubo:v0.34.1
     container_name: ipfs
@@ -64,27 +39,27 @@ services:
     command: daemon
     restart: unless-stopped
 
-volumes:
-  warg-data:
-
   cosmos-node:
     image: "ghcr.io/akash-network/cosmos-omnibus:v1.2.17-bitsong-v0.21.6"
     container_name: "cosmos-node"
     network_mode: "host"
     ports:
-      - "26656:26656" # P2P port for node communication
-      - "26657:26657" # RPC port for client interactions
-      - "1317:1317"   # REST API port for querying
+      - "26656:26656" # P2P port  
+      - "26657:26657" # RPC port  
+      - "1317:1317"   # REST API 
     environment:
       - MONIKER=Cosmos Omnibus Node
       # genesis file is created on entry point 
     volumes:
       - "./.cosmos:/root/.bitsongd" # Persist Bitsong chain data
       - "./entrypoint.sh:/entrypoint.sh" # Mount the entrypoint script
-    entrypoint: ["/bin/sh", "/entrypoint.sh"]
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:26657/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    entrypoint: ["/bin/sh", "/script/cosmos-entrypoint.sh"] # entry point configures node with confgured genesis file 
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:26657/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 40s
+
+volumes:
+  warg-data:

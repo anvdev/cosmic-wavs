@@ -59,8 +59,8 @@ const LOCAL_NET: NetworkInfo = NetworkInfo {
 
 pub const LOCAL_NETWORK1: ChainInfo = ChainInfo {
     kind: ChainKind::Testnet,
-    chain_id: "test-1",
-    gas_denom: "uterp",
+    chain_id: "sub-1",
+    gas_denom: "ubtsg",
     gas_price: 0.025,
     grpc_urls: &["tcp://localhost:9090"],
     network_info: BITSONG_NETWORK,

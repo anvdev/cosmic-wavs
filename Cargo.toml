@@ -25,9 +25,9 @@ wavs-wasi-utils = "0.4.0-beta.4"
 
 
 layer-climb = "0.4.3"
-cosmos-sdk-proto = "0.27.0"
+cosmos-sdk-proto = {version = "0.27.0",features = ["cosmwasm"]}
 cosmrs = "0.22.0"
-cosmwasm-schema = "2.2.0"
+cosmwasm-schema ={ version =  "2.2.0"}
 cosmwasm-std = { version = "2.2.2", features = [
   "cosmwasm_1_4",
   # Enable this if you only deploy to chains that have CosmWasm 2.0 or higher

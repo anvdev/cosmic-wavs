@@ -5022,6 +5022,8 @@ version = "0.1.0"
 dependencies = [
  "abstract-cw-multi-test 2.2.4",
  "anyhow",
+ "bs721",
+ "bs721-base",
  "btsg-account-scripts",
  "btsg-nft-scripts",
  "clap",
@@ -5041,9 +5043,11 @@ dependencies = [
  "hex",
  "log",
  "prost-types 0.13.5",
+ "rand 0.8.5",
  "reqwest 0.11.27",
  "secp256k1 0.29.1",
  "serde_json",
+ "sha2 0.10.9",
  "tokio",
 ]
 

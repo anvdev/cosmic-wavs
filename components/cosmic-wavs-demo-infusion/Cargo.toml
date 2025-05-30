@@ -9,20 +9,22 @@ repository.workspace = true
 [dependencies]
 # Core dependencies (always needed)
 wit-bindgen-rt = {workspace = true}
+wavs-wasi-utils = {workspace = true}
 
-wavs-wasi-chain = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 alloy-sol-macro = { workspace = true }
 wstd = { workspace = true }
 alloy-sol-types = { workspace = true }
 anyhow = { workspace = true }
-tonic = { workspace = true }
+hex = { workspace = true }
+tonic = "0.13.1"
+sha2 = "0.10.9"
+ 
 
 
 
 
-sha2 = { workspace = true }
 commonware-cryptography = { workspace = true }
 commonware-codec = { workspace = true }
 
@@ -38,10 +40,6 @@ cw-infusions =  { package = "cw-infusions", git  = "https://github.com/permissio
 
 # Add for blockchain interactions
 layer-climb = { workspace = true }
-alloy-primitives = { workspace = true }
-alloy-provider = { workspace = true }
-alloy-rpc-types = { workspace = true }
-alloy-network = { workspace = true }
 
 [lib]
 crate-type = ["cdylib"]

@@ -1,7 +1,12 @@
+# general compile
 /target
 out/
 cache/
 broadcast/
+node_modules/
+
+# WAVS
+.env
 compiled/*.wasm
 .docker/*.json
 .env
@@ -9,3 +14,13 @@ node_modules/
 lcov.info
 **/.claude/settings.local.json
 test_data
+.docker/*.log
+wavs:worker*.wit
+wavs:worker*.wasm
+
+# WAVS infra
+.nodes
+infra/*
+
+# Tools
+**/.claude/settings.local.json

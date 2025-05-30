@@ -112,6 +112,9 @@ cargo binstall cargo-component wasm-tools warg-cli wkg --locked --no-confirm --f
 # Configure default registry
 # Found at: $HOME/.config/wasm-pkg/config.toml
 wkg config --default-registry wa.dev
+
+# Allow publishing to a registry
+warg key new
 ```
 
 </details>
@@ -231,7 +234,7 @@ make start-all-local
 bash ./script/create-deployer.sh
 
 ## Deploy Eigenlayer from Deployer
-docker run --rm --network host --env-file .env -v ./.nodes:/root/.nodes ghcr.io/lay3rlabs/wavs-middleware:cd0ca86 deploy
+COMMAND=deploy make wavs-middleware
 ```
 
 ## Deploy Service Contracts
@@ -341,10 +344,11 @@ export AVS_SIGNING_ADDRESS=`cast wallet address --mnemonic-path "$WAVS_SUBMISSIO
 
 # Register the operator with the WAVS service manager
 export SERVICE_MANAGER_ADDRESS=`jq -r '.addresses.WavsServiceManager' .nodes/avs_deploy.json`
-DELEGATION=0.001ether OPERATOR_PRIVATE_KEY=${OPERATOR_PRIVATE_KEY} AVS_SIGNING_ADDRESS=${AVS_SIGNING_ADDRESS} make V=1 operator-register
+
+COMMAND="register ${OPERATOR_PRIVATE_KEY} ${AVS_SIGNING_ADDRESS} 0.001ether" make wavs-middleware
 
 # Verify registration
-SERVICE_MANAGER_ADDRESS=${SERVICE_MANAGER_ADDRESS} make operator-list
+COMMAND="list_operator" PAST_BLOCKS=500 make wavs-middleware
 ```
 
 ## Trigger the Service

@@ -16,9 +16,9 @@ SERVICE_FILE?=.docker/service.json
 SERVICE_SUBMISSION_ADDR?=`jq -r .deployedTo .docker/submit.json`
 SERVICE_TRIGGER_ADDR?=`jq -r .deployedTo .docker/trigger.json`
 WASI_BUILD_DIR ?= ""
-WAVS_CMD ?= $(SUDO) docker run --rm --network host $$(test -f .env && echo "--env-file ./.env") -v $$(pwd):/data ${DOCKER_IMAGE} wavs-cli
-WAVS_ENDPOINT?="http://127.0.0.1:8000"
 ENV_FILE?=.env
+WAVS_CMD ?= $(SUDO) docker run --rm --network host $$(test -f ${ENV_FILE} && echo "--env-file ./${ENV_FILE}") -v $$(pwd):/data ${DOCKER_IMAGE} wavs-cli
+WAVS_ENDPOINT?="http://127.0.0.1:8000"
 -include ${ENV_FILE}
 
 # Default target is build
@@ -91,7 +91,6 @@ IPFS_GATEWAY?="https://ipfs.io/ipfs"
 ## deploy-service: deploying the WAVS component service json | SERVICE_URL, CREDENTIAL, WAVS_ENDPOINT
 deploy-service:
 # this wait is required to ensure the WAVS service has time to service check
-	@sleep 2
 	@if [ -z "${SERVICE_URL}" ]; then \
 		echo "Error: SERVICE_URL is not set. Set SERVICE_URL to a link / ipfs url."; \
 		exit 1; \
@@ -127,35 +126,13 @@ upload-to-ipfs:
 		curl -X POST --url https://uploads.pinata.cloud/v3/files --header "Authorization: Bearer ${PINATA_API_KEY}" --header 'Content-Type: multipart/form-data' --form file=@${SERVICE_FILE} --form network=public --form name=service-`date +"%b-%d-%Y"`.json | jq -r .data.cid; \
 	fi
 
-## operator-list: listing the AVS operators | ENV_FILE
-operator-list:
-	@if [ -z "${SERVICE_MANAGER_ADDRESS}" ]; then \
-		echo "Error: SERVICE_MANAGER_ADDRESS is not set. Please set it to the deployed WAVS stake registry." && exit 1; \
-	fi
+COMMAND?=""
+PAST_BLOCKS?=500
+wavs-middleware:
 	@docker run --rm --network host --env-file ${ENV_FILE} \
-		-e WAVS_SERVICE_MANAGER_ADDRESS=${SERVICE_MANAGER_ADDRESS} \
-		-v ./.nodes:/root/.nodes ${MIDDLEWARE_DOCKER_IMAGE} list_operator
-
-OPERATOR_PRIVATE_KEY?=""
-AVS_SIGNING_ADDRESS?=""
-DELEGATION?="0.001ether"
-## operator-register: listing the AVS operators | ENV_FILE, OPERATOR_PRIVATE_KEY
-operator-register:
-	@if [ -z "${OPERATOR_PRIVATE_KEY}" ]; then \
-		echo "Error: OPERATOR_PRIVATE_KEY is not set. Please set it to your operator private key." && exit 1; \
-	fi
-	@if [ -z "${AVS_SIGNING_ADDRESS}" ]; then \
-		echo "Error: AVS_SIGNING_ADDRESS is not set. Please set it to the signing address returned from your WAVS node." && exit 1; \
-	fi
-	@if [ -z "${SERVICE_MANAGER_ADDRESS}" ]; then \
-		echo "Error: SERVICE_MANAGER_ADDRESS is not set. Please set it to the deployed WAVS service manager." && exit 1; \
-	fi
-	@docker run --rm --network host \
-		-e WAVS_SERVICE_MANAGER_ADDRESS=${SERVICE_MANAGER_ADDRESS} \
-		--env-file ${ENV_FILE} \
-		-v ./.nodes:/root/.nodes \
-		${MIDDLEWARE_DOCKER_IMAGE} register "${OPERATOR_PRIVATE_KEY}" "${AVS_SIGNING_ADDRESS}" "${DELEGATION}"
-
+		$(if ${SERVICE_MANAGER_ADDRESS},-e WAVS_SERVICE_MANAGER_ADDRESS=${SERVICE_MANAGER_ADDRESS}) \
+		$(if ${PAST_BLOCKS},-e PAST_BLOCKS=${PAST_BLOCKS}) \
+		-v ./.nodes:/root/.nodes ${MIDDLEWARE_DOCKER_IMAGE} ${COMMAND}
 
 ## update-submodules: update the git submodules
 update-submodules:
@@ -178,11 +155,11 @@ _build_forge:
 
 .PHONY: setup-env
 setup-env:
-	@if [ ! -f .env ]; then \
+	@if [ ! -f ${ENV_FILE} ]; then \
 		if [ -f .env.example ]; then \
-			echo "Creating .env file from .env.example..."; \
-			cp .env.example .env; \
-			echo ".env file created successfully!"; \
+			echo "Creating ${ENV_FILE} file from .env.example..."; \
+			cp .env.example ${ENV_FILE}; \
+			echo "${ENV_FILE} file created successfully!"; \
 		fi; \
 	fi
 

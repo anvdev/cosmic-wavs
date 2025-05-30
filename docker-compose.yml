@@ -40,20 +40,20 @@ services:
     restart: unless-stopped
 
   cosmos-node:
-    image: "ghcr.io/akash-network/cosmos-omnibus:v1.2.17-bitsong-v0.21.6"
-    container_name: "cosmos-node"
+    image: "ghcr.io/bitsongofficial/go-bitsong:v0.22.0"
+    container_name: "bitsong-node"
     network_mode: "host"
     ports:
       - "26656:26656" # P2P port  
       - "26657:26657" # RPC port  
       - "1317:1317"   # REST API 
     environment:
-      - MONIKER=Cosmos Omnibus Node
-      # genesis file is created on entry point 
+      - MONIKER=Bitsong Node
+      # genesis file is created on entry point from params set in config file
     volumes:
       - "./.cosmos:/root/.bitsongd" # Persist Bitsong chain data
-      - "./entrypoint.sh:/entrypoint.sh" # Mount the entrypoint script
-    entrypoint: ["/bin/sh", "/script/cosmos-entrypoint.sh"] # entry point configures node with confgured genesis file 
+      - "./script/cosmos-entrypoint.sh:/cosmos-entrypoint.sh" # Mount the entrypoint script
+    command: sh -c "chmod +x /cosmos-entrypoint.sh && /cosmos-entrypoint.sh"
     # healthcheck:
     #   test: ["CMD", "curl", "-f", "http://localhost:26657/health"]
     #   interval: 30s

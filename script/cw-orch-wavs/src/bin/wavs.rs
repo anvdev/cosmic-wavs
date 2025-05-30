@@ -86,9 +86,9 @@ fn main() {
 fn deploy_wavs(chain: &str, network: ChainInfoOwned) -> anyhow::Result<()> {
     let rt = Runtime::new()?;
     let wavs_bech32_addr = env::var("WAVS_CONTROLLER_ADDRESS").unwrap_or_else(|_| "".to_string());
-    let service_config_file_path = env::var("SERVICE_CONFIG").unwrap_or_else(|_| "".to_string());
     let service_sub_addr = env::var("SERVICE_SUBMISSI1ON_ADDR").unwrap_or_else(|_| "".to_string());
     let service_trigger_addr = env::var("SERVICE_TRIGGER_ADDR").unwrap_or_else(|_| "".to_string());
+    let wavs_toml_path = env::var("WAVS_TOML_PATH").unwrap_or_else(|_| "".to_string());
 
     rt.block_on(assert_wallet_balance(vec![network.clone()]));
     // setup_local_crypto_keys()?;

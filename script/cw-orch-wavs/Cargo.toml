@@ -1,0 +1,52 @@
+[package]
+name = "cw-orch-wavs"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+env_logger = { version = "0.11.3", default-features = false }
+dotenv = "0.15.0"
+reqwest = { version = "0.11.9" }
+clap = "4.5.23"
+tokio = "1.39.3"
+prost-types = "0.13.5"
+log  = "0.4.22"
+chrono = { version = "0.4", features = ["serde"] }
+hex = { version = "0.4", features = ["serde"] }
+
+# cosmos 
+cosmrs  = { workspace = true }
+cosmos-sdk-proto   = { workspace = true }
+cosmwasm-schema  = { workspace = true }
+cosmwasm-std   = { workspace = true }
+cosmwasm-crypto  = { version = "2.1.4",  default-features = false }
+cw-orch = { version = "0.28.0", features = ["daemon"] }
+abstract-cw-multi-test = { version = "2.2.4" }
+
+commonware-cryptography = { workspace = true }
+commonware-codec = { workspace = true }
+rand = "0.8.5"
+
+# use for local-development
+# btsg-account-scripts = { path = "bs-accounts/scripts"}
+# btsg-nft-scripts     = { path = "bs-nfts/scripts" branch = "feat/wavs" }
+# cw-infuser-scripts   = { path = "cw-infuser/scripts"}
+# cw-infuser           = { path = "cw-infuser/contracts/cw-infuser", features=["library"]}
+
+bs721-base           = {  git = "https://github.com/permissionlessweb/bs-nfts", branch = "feat/wavs" }
+bs721                = {  git = "https://github.com/permissionlessweb/bs-nfts",     library = "bs721",     branch = "feat/wavs" }
+btsg-account-scripts = {  git = "https://github.com/permissionlessweb/bs-accounts", library = "btsg-account-scripts", branch = "cleanup" }
+btsg-wavs            = {  git = "https://github.com/permissionlessweb/bs-accounts", library = "btsg-account-scripts", branch = "cleanup" }
+btsg-nft-scripts     = {  git = "https://github.com/permissionlessweb/bs-nfts",     library = "btsg-nft-scripts",     branch = "feat/wavs" }
+cw-infuser-scripts   = {  git = "https://github.com/permissionlessweb/cw-infuser",  library = "cw-infuser-scripts",   branch = "feat/wavs" }
+cw-infuser           = {  git = "https://github.com/permissionlessweb/cw-infuser", branch = "feat/wavs", features =["library"] }
+cw-infusions         = {  git = "https://github.com/permissionlessweb/cw-infuser", library = "cw-infusions", branch = "feat/wavs" }
+
+secp256k1 = "0.29.1"
+sha2 = "0.10.9"
+# eth 
+# wavs

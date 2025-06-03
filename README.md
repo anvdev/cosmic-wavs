@@ -16,82 +16,6 @@ Repo template: https://github.com/Lay3rLabs/wavs-foundry-template
 </div>
 
 
-## Goals
-- Track cosmwasm nft burn events emitted from Cosmos Chain
-- Authentication action to perform via Wavs operator keys
-- Broadcast authorized action to Cosmos Chain
-
-## Design 
-
-### wavs + x/smart-accounts  
- For this implemenetation, WAVS services will use authentication capabilities provided by the [x/smart-account module](https://github.com/permissionlessweb/go-bitsong/tree/main/x/smart-account) to perform on chain actions. This is implemented by 
-registration of an smart-contract authenticator to a secp256k1 key account. This repo contains a few example of making use of this workflow. Our bls12-381 compatible account authentication example can be found here [btsg-wavs](https://github.com/permissionlessweb/bs-accounts/blob/cleanup/contracts/smart-accounts/btsg-wavs/src/contract.rs#L100), and is used to allow a set of operator for a given AVS instance authenticate actions for this account to perform.
-
-
-### custom AVS logic
- 
-Here we design our AVS to perform custom logic. This demo has logic that filters any new burn event that has occured on the chain the cw-infusion contract is deployed on, in order to trigger its custom filtering workflow:
-```rs
-TriggerData::CosmosContractEvent(TriggerDataCosmosContractEvent {event,..}) => {
-            // Extract event type and data from Cosmos event
-            let event_type = Some(event.ty.clone());
-            if let Some(et) = event_type.as_ref() {
-                if et.as_str() == "wasm" {
-                    // Look for burn action
-                    if let Some(action_attr) = event.attributes.iter().find(|(k, _)| k == "action")
-                    {
-                               if action_attr.1 == "burn" {
-                                /// custom logic...
-                               }
-                    }
-                }
-            }}
-```
-
-We can also implement custom logic, such as deterministic queries to determine any msgs that the AVS should perform:
-```rs
- // 2.query contract the check if operators need to update assigned cw-infuser state
-    let res: Vec<cw_infusions::wavs::WavsRecordResponse> = cosm_guery
-        .contract_smart(
-            &Address::new_cosmos_string(&cw_infuser_addr, None)?,
-            &cw_infuser::msg::QueryMsg::WavsRecord {
-                nfts: vec![nft_addr.to_string()],
-                burner: None,
-            },
-        )
-        .await?;
-
-    // 3. form msgs for operators to sign
-    let mut infusions = vec![];
-    for record in res {
-        if let Some(count) = record.count {
-            // implement custom WAVS action here
-        }
-    }
-
-```
-For this demo, any burn event will trigger the AVS to check if any infusion in the cw-infuser address paired to it has the specific nft collection as an eligible collection.
-
-If there are none,no messages are formed, otherwise a message to update the global contract state is signed via the preferred Ecdsa authorization method.
-```rs
-// - create sha256sum bytes that are being signed by operators for aggregated approval.
-// Current implementation signs binary formaated array of Any msgs being authorized.
-// let namespace = Some(&b"demo"[..]);
-let signature = imported_signer
-.sign(
-    None,
-    &Sha256::digest(to_json_binary(&cosmic_wavs_actions)?.as_ref())
-        .to_vec()
-        .try_into()
-        .unwrap(),
-)
-.to_vec();
-
-```
-
-We still need to handle error responses, in order to resubmit transactions via governance override.
-We still need to implement aggregated consensus if there are more than one operator.
-
 ## Cw-Orch-Wavs
 All-in-one scripting library for deploying & testing
  
@@ -349,7 +273,7 @@ make start-all-local
 sh ./script/create-deployer.sh
 
 ## Deploy Eigenlayer from Deployer
-docker run --rm --network host --env-file .env -v ./.nodes:/root/.nodes ghcr.io/lay3rlabs/wavs-middleware:0.4.0-beta.5
+docker run --rm --network host --env-file .env -v ./.nodes:/root/.nodes ghcr.io/lay3rlabs/wavs-middleware:cd0ca86 deploy
 ```
 
 ## Deploy Service Contracts
@@ -363,9 +287,9 @@ docker run --rm --network host --env-file .env -v ./.nodes:/root/.nodes ghcr.io/
  After WavsServiceManager has been deployed, you deploy the trigger and submission contracts which depends on the service manager. The service manager will verify that a submission is valid (from an authorized operator) before saving it to the blockchain. The trigger contract is any arbitrary contract that emits some event that WAVS will watch for.
 
 # ## Multichain Deployment
-Wavs supports having the trigger contract deployed on a different chain than the service submission contract on the L1 *(Ethereum for now because that is where Eigenlayer is deployed)*. Your wavs component will register
-
+Wavs supports having the trigger contract deployed on a different chain than the service submission contract on the L1 *(Ethereum for now because that is where Eigenlayer is deployed)*. 
 If your looking to design your multichain wavs, ensure you replace the default deployment logic for the trigger contract with your trigger specific implementation. 
+
 
 ```bash docci-delay-per-cmd=2
 export RPC_URL=`sh ./script/get-rpc.sh`
@@ -480,7 +404,7 @@ WAVS_SERVICE_MANAGER_ADDRESS=${WAVS_SERVICE_MANAGER_ADDRESS} make operator-list
 ## Trigger the Service
 todo: implmeent description for triggering service via nft mint
 
-<!-- Anyone can now call the [trigger contract](./src/contracts/WavsTrigger.sol) which emits the trigger event WAVS is watching for from the previous step. WAVS then calls the service and saves the result on-chain.
+Anyone can now call the [trigger contract](./src/contracts/WavsTrigger.sol) which emits the trigger event WAVS is watching for from the previous step. WAVS then calls the service and saves the result on-chain.
 
 ```bash
 # Request BTC from CMC

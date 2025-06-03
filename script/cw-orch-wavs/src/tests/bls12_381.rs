@@ -56,9 +56,9 @@ fn generate_keys(n_signers: usize) -> (Vec<Bls12381>, Vec<Vec<u8>>) {
 // Function to import a private key and create a signer
 fn import_private_key(encoded_key: &[u8]) -> Result<Bls12381, String> {
     println!("Importing private key...");
-    let private_key = <Bls12381 as Signer>::PrivateKey::decode(encoded_key)
-        .map_err(|e| format!("Failed to decode private key: {:?}", e))?;
-    let signer = <Bls12381 as Signer>::from(private_key).expect("broken private key");
+        let private_key = <Bls12381 as Signer>::PrivateKey::decode(encoded_key)
+            .map_err(|e| format!("Failed to decode private key: {:?}", e))?;
+        let signer = <Bls12381 as Signer>::from(private_key).expect("broken private key");
 
     println!(
         "Public key from imported private key: {}",
@@ -129,6 +129,7 @@ fn verify_batch(
     batch_valid
 }
 
+// same as cosmwasm-std library
 pub const BLS12_381_G1_GENERATOR: [u8; 48] = [
     151, 241, 211, 167, 49, 151, 215, 148, 38, 149, 99, 140, 79, 169, 172, 15, 195, 104, 140, 79,
     151, 116, 185, 5, 161, 78, 58, 63, 23, 27, 172, 88, 108, 85, 232, 63, 249, 122, 26, 239, 251,

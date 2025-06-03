@@ -1,7 +1,8 @@
-use anyhow::Context;
+use anyhow::{Context, Result};
 use btsg_account_scripts::BtsgAccountSuite;
 use btsg_nft_scripts::framework::assert_wallet_balance;
 use clap::{Parser, Subcommand};
+use commonware_codec::extensions::DecodeExt;
 use commonware_cryptography::{Bls12381, Signer};
 use cosmrs::bip32::secp256k1::elliptic_curve::rand_core::OsRng;
 use cosmwasm_schema::cw_serde;
@@ -15,7 +16,7 @@ use cw_orch::{
     },
     prelude::*,
 };
-use cw_orch_wavs::networks::{BITSONG_MAINNET, BITSONG_TESTNET, LOCAL_NETWORK1};
+use cw_orch_wavs::{networks::{BITSONG_MAINNET, BITSONG_TESTNET, LOCAL_NETWORK1}, tools::create_operator};
 use secp256k1::{All, Secp256k1};
 use std::{
     env,
@@ -54,183 +55,235 @@ pub const INFUSION_TRIGGER_EVENT: &str = "cw-infusion";
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
-    /// Network to deploy on: main, testnet, local
-    #[clap(short, long)]
-    network: String,
-    /// PAth to dockercomposefile for deploying eth & cosmos network
-    #[clap(short, long)]
-    docker_compose: String,
+    #[clap(subcommand)]
+    command: Commands,
 }
 
-fn main() {
-    // parse cargo command arguments for network type
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Create a new operator
+    CreateOperator {
+        /// Operator index number
+        #[clap(short, long)]
+        index: Option<u32>,
+        /// Force removal of existing operator directory
+        #[clap(short, long)]
+        force: bool,
+    },
+    /// Deploy WAVS infrastructure and contracts
+    Deploy {
+        /// Network to deploy on: main, testnet, local
+        #[clap(short, long)]
+        network: String,
+        /// Path to docker compose file for deploying eth & cosmos network
+        #[clap(short, long)]
+        docker_compose: String,
+    },
+    /// Build WAVS service configuration
+    BuildService {
+        /// Custom config file location (optional)
+        #[clap(short, long)]
+        config: Option<String>,
+    },
+    /// Create a new deployer wallet
+    CreateDeployer {
+        /// RPC URL for funding wallet
+        #[clap(short, long)]
+        rpc_url: Option<String>,
+        /// Deployment environment (LOCAL, TESTNET)
+        #[clap(short, long)]
+        env: Option<String>,
+    },
+    /// Create a new aggregator
+    CreateAggregator {
+        /// Aggregator index number
+        #[clap(short, long, default_value = "1")]
+        index: u32,
+        /// RPC URL for funding wallet
+        #[clap(short, long)]
+        rpc_url: Option<String>,
+        /// Deployment environment (LOCAL, TESTNET)  
+        #[clap(short, long)]
+        env: Option<String>,
+    },
+    /// Deploy Cosmos WAVS service
+    DeployCosmos {
+        /// Component filename
+        #[clap(short, long, default_value = "cosmic-wavs-demo-infusion.wasm")]
+        component: String,
+        /// Cosmos RPC URL
+        #[clap(short, long, default_value = "http://localhost:26657")]
+        rpc_url: String,
+        /// Cosmos chain ID
+        #[clap(long, default_value = "sub-1")]
+        chain_id: String,
+        /// Trigger event name
+        #[clap(short, long, default_value = "cw-infusion")]
+        trigger_event: String,
+        /// Start service after deployment
+        #[clap(short, long)]
+        start: bool,
+    },
+    /// Upload component to WAVS
+    Upload {
+        /// Component filename
+        #[clap(short, long)]
+        component: String,
+        /// WAVS endpoint
+        #[clap(short, long, default_value = "http://localhost:8000")]
+        endpoint: String,
+    },
+    /// Deploy WAVS service
+    DeployService {
+        /// Service URL (IPFS hash or HTTP URL)
+        #[clap(short, long)]
+        service_url: String,
+        /// WAVS endpoint
+        #[clap(short, long)]
+        wavs_endpoint: Option<String>,
+    },
+    /// Start all local services
+    StartAll {
+        /// Fork RPC URL for Anvil
+        #[clap(short, long)]
+        fork_rpc_url: Option<String>,
+    },
+}
+
+fn main() -> Result<()> {
     let args = Args::parse();
-    // logs any errors
     env_logger::init();
 
-    println!("Deploying Bitsong Accounts Framework...");
-    let bitsong_chain = match args.network.as_str() {
-        "main" => BITSONG_MAINNET.to_owned(),
-        "testnet" => BITSONG_TESTNET.to_owned(),
-        "local" => LOCAL_NETWORK1.to_owned(),
-        _ => panic!("Invalid network"),
+    let rt = Runtime::new().expect("Failed to create tokio runtime");
+
+    let result: Result<()> = match args.command {
+        Commands::Deploy { network, docker_compose } => {
+            println!("Deploying Bitsong Accounts Framework...");
+            let bitsong_chain = match network.as_str() {
+                "main" => BITSONG_MAINNET.to_owned(),
+                "testnet" => BITSONG_TESTNET.to_owned(),
+                "local" => LOCAL_NETWORK1.to_owned(),
+                _ => return std::process::exit(1),
+            };
+            deploy_wavs(&network, bitsong_chain.into())
+        }
+        Commands::BuildService { config } => {
+            use cw_orch_wavs::tools::*;
+
+            let mut service_config = ServiceConfig::from_env()
+                .context("Failed to load service config from environment")?;
+
+            if let Some(config_file) = config {
+                service_config.file_location = config_file;
+            }
+
+            build_service_config(service_config)
+                .map(|_| ())
+                .context("Failed to build service configuration")
+        }
+        Commands::CreateDeployer { rpc_url, env } => {
+            use cw_orch_wavs::tools::*;
+
+            let rpc = rpc_url.unwrap_or_else(|| "http://localhost:8545".to_string());
+            let deploy_env = env.unwrap_or_else(|| "LOCAL".to_string());
+
+            create_deployer(&deploy_env, &rpc)
+                .map(|wallet| println!("Created deployer: {}", wallet.address))
+                .context("Failed to create deployer")
+        }
+        Commands::CreateAggregator { index, rpc_url, env } => {
+            use cw_orch_wavs::tools::*;
+
+            let rpc = rpc_url.unwrap_or_else(|| "http://localhost:8545".to_string());
+            let deploy_env = env.unwrap_or_else(|| "LOCAL".to_string());
+
+            create_aggregator(index, &deploy_env, &rpc)
+                .map(|wallet| println!("Created aggregator-{}: {}", index, wallet.address))
+                .context("Failed to create aggregator")
+        }
+        Commands::DeployCosmos { component, rpc_url, chain_id, trigger_event, start } => {
+            use cw_orch_wavs::tools::*;
+
+            rt.block_on(deploy_cosmos_service(
+                &component,
+                &rpc_url,
+                &chain_id,
+                &trigger_event,
+                start,
+            ))
+            .context("Failed to deploy Cosmos service")
+        }
+        Commands::Upload { component, endpoint } => {
+            use cw_orch_wavs::tools::*;
+
+            upload_component(&component, &endpoint)
+                .map(|digest| println!("Component uploaded with digest: {}", digest))
+                .context("Failed to upload component")
+        }
+        Commands::DeployService { service_url, wavs_endpoint } => {
+            use cw_orch_wavs::tools::*;
+
+            deploy_service(&service_url, wavs_endpoint.as_deref())
+                .context("Failed to deploy service")
+        }
+        Commands::StartAll { fork_rpc_url } => {
+            use cw_orch_wavs::tools::*;
+
+            rt.block_on(start_all_local(fork_rpc_url.as_deref()))
+                .context("Failed to start all local services")
+        }
+        Commands::CreateOperator { index, force } => create_operator(index, force),
     };
 
-    if let Err(ref err) = deploy_wavs(&args.network, bitsong_chain.into()) {
+    if let Err(ref err) = result {
         log::error!("{}", err);
         err.chain().skip(1).for_each(|cause| log::error!("because: {}", cause));
-        ::std::process::exit(1);
+        std::process::exit(1);
     }
+    Ok(())
 }
 
 fn deploy_wavs(chain: &str, network: ChainInfoOwned) -> anyhow::Result<()> {
     let rt = Runtime::new()?;
-    let wavs_bech32_addr = env::var("WAVS_CONTROLLER_ADDRESS").unwrap_or_else(|_| "".to_string());
-    let service_sub_addr = env::var("SERVICE_SUBMISSI1ON_ADDR").unwrap_or_else(|_| "".to_string());
-    let service_trigger_addr = env::var("SERVICE_TRIGGER_ADDR").unwrap_or_else(|_| "".to_string());
-    let wavs_toml_path = env::var("WAVS_TOML_PATH").unwrap_or_else(|_| "".to_string());
+    let wavs_bech32_addr = env::var("WAVS_CONTROLLER_ADDRESS").unwrap();
+
+    let service_sub_addr = env::var("SERVICE_SUBMISSI1ON_ADDR").unwrap();
+    let service_trigger_addr = env::var("SERVICE_TRIGGER_ADDR").unwrap();
+    let wavs_toml_path = env::var("WAVS_TOML_PATH").unwrap();
 
     rt.block_on(assert_wallet_balance(vec![network.clone()]));
-    // setup_local_crypto_keys()?;
-    // deploy networks
-    // rt.block_on(deploy_wavs_infra())?;
-    // deploy cosmos smart contracct
-
     let infusion_demo: DeployInfusionDemo =
         match rt.block_on(deploy_infusion_demo(rt.handle(), network)) {
             Ok(value) => value,
             Err(e) => return Err(e.into()),
         };
-    // // deploy eth contracts (wavs service)
-    // rt.block_on(deploy_wavs_service(
-    //     WAVS_COMPONENT,
-    //     INFUSION_TRIGGER_EVENT,
-    //     &service_trigger_addr,
-    //     &service_sub_addr,
-    //     &service_config_file_path,
-    // ))?;
+
     // run demo
     rt.block_on(run_infusion_demo(infusion_demo))?;
 
     Ok(())
 }
 
-/// Creates cryptographic keys for integration tests
-fn setup_local_crypto_keys() -> Result<(), anyhow::Error> {
-    // Define output path for keys
-    let home_dir = env::var("HOME").context("HOME environment variable not set")?;
-    let config_dir = Path::new(&home_dir).join(".omnibus/config");
-
-    fs::create_dir_all(&config_dir).context("Failed to create config directory")?;
-    let keys_path = config_dir.join("keys.json");
-
-    // Generate secp256k1 keypair
-    let secp = Secp256k1::new();
-    let private_key = PrivateKey::new(&secp, 118u32)?;
-    let public_key = private_key.public_key(&secp);
-
-    // Convert to strings (simplified; in practice, derive bech32 address)
-    let secp256k1_private = hex::encode(private_key.raw_key());
-    let secp256k1_public = hex::encode(&public_key.raw_pub_key.unwrap_or_default());
-
-    // Generate BLS12-381 keypair (placeholder)
-    let mut bls12 = Bls12381::new(&mut OsRng);
-    let private_key = bls12.private_key();
-    let public_key = bls12.public_key();
-
-    // Create JSON structure
-    //      Setup test keys
-    //   todo: import and generate keys based on json file generated with this format
-    //  {
-    //      "members": [
-    //          {
-    //              "cosmos": {
-    //                  "ed12259": {},
-    //                  "secp256k1": {}
-    //              },
-    //              "eth": {
-    //                  "bls12": {}
-    //              }
-    //          }
-    //      ]
-    //  }
-    //  Create a validator key if it doesn't exist
-    let keys = json!({
-        "secp256k1": {
-            "private_key": secp256k1_private,
-            "public_key": secp256k1_public,
-            "address": env::var("WAVS_CONTROLLER_ADDRESS").expect("NO ADDRESS PROVIDED")
-        },
-        "bls12_381": {
-            "private_key": private_key.to_string(),
-            "public_key": public_key.to_string(),
-        }
-    });
-
-    // Write to keys.json (expecccted  to be used in cosmos node docker entrypoint)
-    let keys_file = File::create(&keys_path).context("Failed to create keys.json")?;
-    serde_json::to_writer_pretty(keys_file, &keys).context("Failed to write keys.json")?;
-
-    Ok(())
-}
-
-/// Runs Anvil & Docker Compose to deploy networks & service
-// async fn deploy_wavs_infra() -> Result<(), anyhow::Error> {
-//     let docker_compose_path = env::var("DOCKER_COMPOSE_PATH")
-//         .unwrap_or_else(|e| "missing docker-compose.yml".to_string());
-//     if Path::new(".docker").exists() {
-//         fs::remove_dir_all(".docker").context("Failed to remove .docker directory")?;
-//     }
-//     fs::create_dir_all(".docker").context("Failed to create .docker directory")?;
-
-//     // Copy .env.example to .env if it doesn't exist
-//     if !Path::new(".env").exists() {
-//         fs::copy(".env.example", ".env").context("Failed to copy .env.example to .env")?;
-//     }
-
-//     // Start Anvil in the background
-//     let anvil_process = Command::new("anvil")
-//         .stdout(Stdio::null())
-//         .stderr(Stdio::null())
-//         .spawn()
-//         .context("Failed to start Anvil")?;
-
-//     // Ensure Anvil has time to start
-//     sleep(Duration::from_secs(2)).await;
-
-//     // Start Docker Compose for WAVS
-//     let status = Command::new("docker")
-//         .args(["compose", "-f", &docker_compose_path, "up", "-d"])
-//         .status()
-//         .context("Failed to run docker compose up")?;
-
-//     if !status.success() {
-//         // Clean up Anvil process on failure
-//         let _ = Command::new("kill").arg(anvil_process.id().to_string()).status();
-//         return Err(anyhow::anyhow!("Docker compose failed with status: {}", status));
-//     }
-
-//     Ok(())
-// }
-
 // Deploys any cosmwasm contract needed for this demo (using cw-orch & config files)
 async fn deploy_infusion_demo(
     handle: &Handle,
     network: ChainInfoOwned,
 ) -> Result<DeployInfusionDemo, anyhow::Error> {
-    let wavs_mnemonic = env::var("WAVS_CONTROLLER_MNEMONIC").unwrap_or_else(|_| "".to_string());
+    let wavs_mnemonic = env::var("WAVS_CONTROLLER_MNEMONIC").unwrap();
 
     let cosmos =
         DaemonBuilder::new(network.clone()).handle(handle).mnemonic(wavs_mnemonic).build()?;
 
     // cw-orchestrator - bitsong account nft & cw-infuser suite
-    let bs_accounts =
-        btsg_account_scripts::BtsgAccountSuite::deploy_on(cosmos.clone(), cosmos.sender_addr())?;
+    let suite = btsg_account_scripts::BtsgAccountSuite::new(cosmos.clone());
+    let bs721base = suite.bs721base.clone();
+    let btsgwavs = suite.wavs.clone();
+
     let infuser = cw_infuser_scripts::CwInfuser::new(cosmos.clone());
 
     // Create nft ccollection to mint and register to trigger AVS.
     // We can use the bs-acount collection to assert that filtering actions is implemented properly by the AVS
-    bs_accounts.bs721base.instantiate(
+    bs721base.instantiate(
         &bs721_base::msg::InstantiateMsg {
             name: "cosmic-wavs".into(),
             symbol: "COSMIC_WAVS".into(),
@@ -241,10 +294,31 @@ async fn deploy_infusion_demo(
         &[],
     )?;
 
+    let pubkey = hex::encode(
+        <Bls12381 as Signer>::from(<Bls12381 as Signer>::PrivateKey::decode(
+            env::var("WAVS_BLS12_PRIVKEY").unwrap().as_bytes(),
+        )?)
+        .expect("broken private key")
+        .public_key()
+        .to_string(),
+    );
+
+    btsgwavs.instantiate(
+        &btsg_wavs::msg::InstantiateMsg {
+            owner: Some(cosmos.sender_addr()),
+            wavs_operator_pubkeys: vec![pubkey.as_bytes().into()],
+        },
+        None,
+        &[],
+    )?;
+
     if let Some(res) = infuser.upload_if_needed()? {
         // todo: handle response
         match res.code {
-            _ => {}
+            0 => {}
+            _ => {
+                panic!("non-0 response")
+            }
         }
     };
 
@@ -253,7 +327,7 @@ async fn deploy_infusion_demo(
         sender: cosmos.sender().pub_addr_str(),
         authenticator_type: "CosmwasmAuthenticatorV1".into(),
         data: to_json_binary(&CosmwasmAuthenticatorInitData {
-            contract: bs_accounts.wavs.address()?.into(),
+            contract: btsgwavs.address()?.into(),
             params: vec![],
         })?
         .to_vec(),
@@ -292,10 +366,13 @@ async fn deploy_infusion_demo(
         &[],
     )?;
 
+    // ccreate nft collection eligilbe to burn
+    // create
+
     // create infusion with wavs enabled
     infuser.create_infusion(vec![])?;
 
-    Ok(DeployInfusionDemo { cosmos, bs_accounts, infuser })
+    Ok(DeployInfusionDemo { cosmos, bs_accounts: suite, infuser })
 }
 
 // async fn deploy_wavs_service(
@@ -336,7 +413,8 @@ async fn deploy_infusion_demo(
 
 /// Runs the logic that we expect the wavs service to be triggered by.
 async fn run_infusion_demo(suite: DeployInfusionDemo) -> Result<(), anyhow::Error> {
-    // burn nft,triggering wavs service
+    // mint & burn nft,triggering wavs service
+
     // query that wavs record has been added to wavs service
     assert_eq!(
         suite.infuser.wavs_record(
@@ -363,4 +441,65 @@ async fn setup_bitsong_smart_account(
         type_url: "/bitsong.smartaccount.v1beta1.MsgAddAuthenticator".into(),
         value: to_json_binary(&authenticator)?.to_vec(),
     })
+}
+
+/// Creates cryptographic keys for integration tests
+fn setup_local_crypto_keys_with_balance(default_balance: Coin) -> Result<(), anyhow::Error> {
+    // Define output path for keys
+    let home_dir = env::var("HOME").context("HOME environment variable not set")?;
+    let config_dir = Path::new(&home_dir).join(".omnibus/config");
+
+    fs::create_dir_all(&config_dir).context("Failed to create config directory")?;
+    let keys_path = config_dir.join("keys.json");
+
+    // Generate secp256k1 keypair
+    let secp = Secp256k1::new();
+    let private_key = PrivateKey::new(&secp, 118u32)?;
+    let public_key = private_key.public_key(&secp);
+
+    // Convert to strings (simplified; in practice, derive bech32 address)
+    let secp256k1_private = hex::encode(private_key.raw_key());
+    let secp256k1_public = hex::encode(&public_key.raw_pub_key.unwrap_or_default());
+
+    // Generate BLS12-381 keypair (placeholder)
+    let mut bls12 = Bls12381::new(&mut OsRng);
+    let private_key = bls12.private_key();
+    let public_key = bls12.public_key();
+
+    // Create JSON structure
+    //      Setup test keys with default balane from coin
+    //   todo: import and generate keys based on json file generated with this format
+    //  {
+    //         "default-balance": {}
+    //      "members": [
+    //          {
+    //              "cosmos": {
+    //                  "ed12259": {},
+    //                  "secp256k1": {}
+    //              },
+    //              "eth": {
+    //                  "bls12": {}
+    //              }
+    //          }
+    //      ]
+    //  }
+
+    //  Create a validator key if it doesn't exist
+    let keys = json!({
+        "secp256k1": {
+            "private_key": secp256k1_private,
+            "public_key": secp256k1_public,
+            "address": env::var("WAVS_CONTROLLER_ADDRESS").expect("NO ADDRESS PROVIDED")
+        },
+        "bls12_381": {
+            "private_key": private_key.to_string(),
+            "public_key": public_key.to_string(),
+        }
+    });
+
+    // Write to keys.json (expecccted  to be used in cosmos node docker entrypoint)
+    let keys_file = File::create(&keys_path).context("Failed to create keys.json")?;
+    serde_json::to_writer_pretty(keys_file, &keys).context("Failed to write keys.json")?;
+
+    Ok(())
 }

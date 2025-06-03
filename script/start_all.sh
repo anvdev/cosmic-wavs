@@ -2,10 +2,16 @@
 
 set -e
 
-PORT=8545
-MIDDLEWARE_IMAGE=ghcr.io/lay3rlabs/wavs-middleware:0.4.0-beta.5
 FORK_RPC_URL=${FORK_RPC_URL:-"https://ethereum-holesky-rpc.publicnode.com"}
 DEPLOY_ENV=$(sh ./script/get-deploy-status.sh)
+
+
+# echo "Starting all local services using Rust library..."
+
+# # Use the Rust implementation to start all local services
+# cd script/cw-orch-wavs
+# cargo run --bin wavs start-all ${FORK_RPC_URL:+--fork-rpc-url "$FORK_RPC_URL"}
+# cd ../..
 
 ## == Start watcher ==
 rm $LOG_FILE 2> /dev/null || true

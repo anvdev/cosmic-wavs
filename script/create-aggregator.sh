@@ -2,6 +2,35 @@
 set -e
 # set -x
 
+# : '''
+# # Create a new aggregator using the Rust library
+# # This script now calls the Rust implementation for better maintainability
+# '''
+
+# # have an optional argument $1, if set, use it as the agg index
+# # otherwise, use the default of 1
+# if [ -n "$1" ]; then
+#     AGGREGATOR_INDEX=$1
+# fi
+# if [ -z "$AGGREGATOR_INDEX" ]; then
+#     AGGREGATOR_INDEX=1
+# fi
+
+# if [ -z "$DEPLOY_ENV" ]; then
+#     DEPLOY_ENV=$(sh ./script/get-deploy-status.sh)
+# fi
+# if [ -z "$RPC_URL" ]; then
+#     RPC_URL=$(sh ./script/get-rpc.sh)
+# fi
+
+# echo "Creating aggregator-${AGGREGATOR_INDEX}..."
+
+# # Change to the cw-orch-wavs directory and run the Rust command
+# cd script/cw-orch-wavs
+# cargo run --bin wavs create-aggregator --index "$AGGREGATOR_INDEX" --rpc-url "$RPC_URL" --env "$DEPLOY_ENV"
+# cd ../..
+
+
 # have an optional argument $1, if set, use it as the agg index
 # otherwise, use the default of 1
 if [ -n "$1" ]; then
@@ -58,10 +87,10 @@ EOF
 cp wavs.toml ${AGG_LOC}/wavs.toml
 
 if [ "$DEPLOY_ENV" = "LOCAL" ]; then
-    # Good DevEx, auto fund the deployer
+    # Good DevEx, auto fund the aggregator
     cast rpc anvil_setBalance "${AGGREGATOR_ADDR}" '15000000000000000000' --rpc-url ${RPC_URL} > /dev/null
 
-    BAL=`cast balance --ether $AGGREGATOR_ADDR --rpc-url=${RPC_URL}`
+    BAL=$(cast balance --ether $AGGREGATOR_ADDR --rpc-url=${RPC_URL})
     echo "Local aggregator \`${AGGREGATOR_ADDR}\` funded with ${BAL}ether"
 else
     # New account on testnet, must be funded externally (i.e. metamask)
@@ -69,7 +98,7 @@ else
     sleep 5
 
     while true; do
-        BALANCE=`cast balance --ether $AGGREGATOR_ADDR --rpc-url=${RPC_URL}`
+        BALANCE=$(cast balance --ether $AGGREGATOR_ADDR --rpc-url=${RPC_URL})
         if [ "$BALANCE" != "0.000000000000000000" ]; then
             echo "Account balance is now $BALANCE"
             break

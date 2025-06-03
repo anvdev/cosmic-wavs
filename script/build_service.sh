@@ -3,6 +3,24 @@
 set -e
 # set -x
 
+
+# : '''
+# # Run:
+
+# sh ./build_service.sh
+
+# # Build WAVS service configuration using the Rust library
+# # This script now calls the Rust implementation for better maintainability
+# '''
+
+# echo "Building WAVS service configuration..."
+
+# # Change to the cw-orch-wavs directory and run the Rust command
+# cd script/cw-orch-wavs
+# cargo run --bin wavs build-service ${FILE_LOCATION:+--config "$FILE_LOCATION"}
+# cd ../..
+
+
 : '''
 # Run:
 

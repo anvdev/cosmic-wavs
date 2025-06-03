@@ -21,25 +21,17 @@ hex = { workspace = true }
 tonic = "0.13.1"
 sha2 = "0.10.9"
  
-
-
-
-
+# Add for blockchain interactions
+layer-climb = { workspace = true }
 commonware-cryptography = { workspace = true }
 commonware-codec = { workspace = true }
 
- 
 # cosmwasm crates
 cosmos-sdk-proto = { workspace = true }
 cosmwasm-std = { workspace = true }
 cw-infuser =  {  git  = "https://github.com/permissionlessweb/cw-infuser", features = ["library"]}
 btsg-utils =  {  git  = "https://github.com/permissionlessweb/bs-nfts",  branch="feat/wavs",ref = "37902fbf5851a11fd83564f4dfa021b2abf7ed32", package = "btsg-auth"}
 cw-infusions =  { package = "cw-infusions", git  = "https://github.com/permissionlessweb/cw-infuser"}
-
- 
-
-# Add for blockchain interactions
-layer-climb = { workspace = true }
 
 [lib]
 crate-type = ["cdylib"]
@@ -52,5 +44,5 @@ strip = true
 lto = true
 
 [package.metadata.component]
-package = "component:cosmwasm-burn-to-mint"
+package = "component:cosmic-wavs-demo-infusion"
 target = "wavs:worker/layer-trigger-world@0.3.0"

@@ -1,4 +1,28 @@
 #!/usr/bin/bash
+# #!/usr/bin/bash
+
+# set -e
+
+# : '''
+# # Create a new deployer wallet using the Rust library
+# # This script now calls the Rust implementation for better maintainability
+# '''
+
+# # if DEPLOY_ENV is not set, grab it from the ./script/get-deploy-status.sh
+# if [ -z "$DEPLOY_ENV" ]; then
+#     DEPLOY_ENV=$(sh ./script/get-deploy-status.sh)
+# fi
+# if [ -z "$RPC_URL" ]; then
+#     RPC_URL=`sh ./script/get-rpc.sh`
+# fi
+
+# echo "Creating deployer wallet..."
+
+# # Change to the cw-orch-wavs directory and run the Rust command
+# cd script/cw-orch-wavs
+# cargo run --bin wavs create-deployer --rpc-url "$RPC_URL" --env "$DEPLOY_ENV"
+# cd ../..
+
 # set -e
 SP=""; if [ "$(uname)" == *"Darwin"* ]; then SP=" "; fi
 

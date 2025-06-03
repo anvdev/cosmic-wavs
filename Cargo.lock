@@ -5026,6 +5026,8 @@ dependencies = [
  "bs721-base",
  "btsg-account-scripts",
  "btsg-nft-scripts",
+ "btsg-wavs 0.2.0",
+ "chrono",
  "clap",
  "commonware-codec",
  "commonware-cryptography",

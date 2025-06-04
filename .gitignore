@@ -18,6 +18,7 @@ test_data
 wavs:worker*.wit
 wavs:worker*.wasm
 
+.DS_Store
 # WAVS infra
 .nodes
 infra/*

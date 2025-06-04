@@ -158,8 +158,8 @@ pub async fn start_all_local(fork_rpc_url: Option<&str>) -> Result<()> {
         wait_for_rpc(&format!("http://localhost:{}", port)).await?;
 
         // Check if cosmos trigger is being deployed
-        let trigger_dest = env::var("TRIGGER_DEST").unwrap_or_default();
-        if trigger_dest == "cosmos" {
+        let trigger_dest = env::var("TRIGGER_ORIGIN").unwrap_or_default();
+        if trigger_dest == "COSMOS" {
             setup_cosmos_environment().await?;
         }
 
@@ -260,10 +260,10 @@ fn get_deploy_status() -> Result<String> {
         }
     }
 
-    // Read TRIGGER_DEST from .env
+    // Read TRIGGER_ORIGIN from .env
     let env_content = fs::read_to_string(".env")?;
     for line in env_content.lines() {
-        if let Some(value) = line.strip_prefix("TRIGGER_DEST=") {
+        if let Some(value) = line.strip_prefix("TRIGGER_ORIGIN=") {
             return Ok(value.to_uppercase());
         }
     }
@@ -343,7 +343,7 @@ async fn deploy_cosmos_contracts() -> Result<()> {
 fn setup_cosmos_environment_vars(cosmos_rpc_url: &str, cosmos_chain_id: &str, trigger_event: &str) -> Result<()> {
     println!("Configuring Cosmos environment variables...");
     
-    env::set_var("TRIGGER_DEST", "COSMOS");
+    env::set_var("TRIGGER_ORIGIN", "COSMOS");
     env::set_var("TRIGGER_CHAIN", "cosmos");
     env::set_var("SUBMIT_CHAIN", "local");
     env::set_var("TRIGGER_EVENT", trigger_event);
@@ -461,8 +461,8 @@ fn set_default_cosmos_env_vars() {
     if env::var("DEPLOY_ENV").is_err() {
         env::set_var("DEPLOY_ENV", "LOCAL");
     }
-    if env::var("TRIGGER_DEST").is_err() {
-        env::set_var("TRIGGER_DEST", "COSMOS");
+    if env::var("TRIGGER_ORIGIN").is_err() {
+        env::set_var("TRIGGER_ORIGIN", "COSMOS");
     }
     
     // Component and service settings

@@ -74,7 +74,7 @@ impl ServiceConfig {
         if let Ok(val) = env::var("SUBMIT_CHAIN") {
             config.submit_chain = val;
         }
-        if let Ok(val) = env::var("TRIGGER_DEST") {
+        if let Ok(val) = env::var("TRIGGER_ORIGIN") {
             config.trigger_dest = Some(val);
         }
         if let Ok(val) = env::var("COSMOS_RPC_URL") {

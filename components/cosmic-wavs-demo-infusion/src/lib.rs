@@ -1,7 +1,7 @@
 // Required imports
 use alloy_sol_types::{sol, SolValue};
 use anyhow::Result;
-use layer_climb::proto::wasm::MsgExecuteContract;
+use layer_climb::proto::tx::{SignerInfo, Tx};
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{to_base64, to_json_binary};
@@ -10,12 +10,14 @@ use cw_infusions::wavs::WavsBundle;
 use layer_climb::prelude::*;
 use layer_climb::proto::{
     tx::{AuthInfo, BroadcastMode, Fee, TxBody},
+    wasm::MsgExecuteContract,
     Any, MessageExt,
 };
 
 use commonware_codec::extensions::DecodeExt;
 use commonware_cryptography::{Bls12381, Signer};
 use sha2::{Digest, Sha256};
+
 use wavs_wasi_utils::decode_event_log_data;
 use wstd::runtime::block_on;
 
@@ -276,23 +278,23 @@ async fn process_burn_event(
         gas_denom,
     };
 
-    // get operator signing key
+    // // get operator signing key
     let mnemonic = std::env::var(WAVS_SECP256k1_MNEMONIC)
         .expect("Missing 'WAVS_SECP256k1_MNEMONIC' in environment.");
     let op_secp256k1_signing_key = KeySigner::new_mnemonic_str(&mnemonic, None).unwrap();
     let secp256k1pubkey = op_secp256k1_signing_key.public_key().await?;
 
-    // create signing client: TODO: make use of bls12 pubkeys for signing implementation
+    // // create signing client: TODO: make use of bls12 pubkeys for signing implementation
     let cosm_signing_client: SigningClient =
         SigningClient::new(chain_config.clone(), op_secp256k1_signing_key, None).await?;
     let cosm_guery = cosm_signing_client.querier.clone();
 
-    // TODO: get cw-infuser contracts & params registered when creating the service
-    // let eth =    (&CURRENT_CHAIN_ETH)
-    //     .ok_or_else(|| anyhow::anyhow!("Failed to get Eth chain config for local"))?;
+    // // TODO: get cw-infuser contracts & params registered when creating the service
+    // // let eth =    (&CURRENT_CHAIN_ETH)
+    // //     .ok_or_else(|| anyhow::anyhow!("Failed to get Eth chain config for local"))?;
     let cw_infuser_addr = WAVS_CW_INFUSER;
 
-    // 2.query contract the check if operators need to update assigned cw-infuser state
+    // // 2.query contract the check if operators need to update assigned cw-infuser state
     let on_chain_conditional: Vec<cw_infusions::wavs::WavsRecordResponse> = cosm_guery
         .contract_smart(
             &Address::new_cosmos_string(&cw_infuser_addr, None)?,
@@ -351,7 +353,7 @@ async fn process_burn_event(
             .await?;
 
         // signer info. This demo implements the signing info for single wav operator bls12 keys
-        let signer_info = cosmos_sdk_proto::cosmos::tx::v1beta1::SignerInfo {
+        let signer_info = SignerInfo {
             public_key: Some(Any {
                 type_url: "/cosmos.crypto.bls12_381.PubKey".into(),
                 value: imported_signer.public_key().to_vec(),
@@ -403,7 +405,7 @@ async fn process_burn_event(
         signer_infos.push(signer_info);
 
         //  SIGN_MODE_DIRECT
-        let wavs_request = cosmos_sdk_proto::cosmos::tx::v1beta1::Tx {
+        let wavs_request = Tx {
             body: Some(wavs_broadcast_msg),
             auth_info: Some(AuthInfo { signer_infos, fee: Some(fee), tip: None }),
             signatures, // added array of bls signatures

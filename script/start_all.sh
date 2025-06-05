@@ -15,14 +15,6 @@ MIDDLEWARE_IMAGE=ghcr.io/lay3rlabs/wavs-middleware:0.4.0-beta.6
 FORK_RPC_URL=${FORK_RPC_URL:-"${TESTNET_RPC_URL}"}
 DEPLOY_ENV=$(sh ./script/get-deploy-status.sh)
 
-
-# echo "Starting all local services using Rust library..."
-
-# # Use the Rust implementation to start all local services
-# cd script/cw-orch-wavs
-# cargo run --bin wavs start-all ${FORK_RPC_URL:+--fork-rpc-url "$FORK_RPC_URL"}
-# cd ../..
-
 ## == Start watcher ==
 rm $LOG_FILE 2> /dev/null || true
 
@@ -33,6 +25,7 @@ if [ "$DEPLOY_ENV" = "TESTNET" ]; then
   exit 0
 fi
 
+
 if [ "$DEPLOY_ENV" = "LOCAL" ]; then
   anvil --fork-url ${FORK_RPC_URL} --port ${PORT} &
   anvil_pid=$!
@@ -42,10 +35,21 @@ if [ "$DEPLOY_ENV" = "LOCAL" ]; then
     sleep 0.25
   done
 
-  FILES="-f docker-compose.yml -f telemetry/docker-compose.yml"
+## == setup cosmos environments ==
+if [ "$TRIGGER_ORIGIN" = "COSMOS" ]; then
+# configure app,config,client files for cosmos node
+sh script/cosmos/configure-cosmos.sh
+# configure genesis file, start cosmos node via docker image
+sh script/cosmos/setup-local-cosmos.sh
+fi
+
+# run configuration scripts
+## start service
+  FILES="-f docker-compose.yml " 
   docker compose ${FILES} up --force-recreate -d
   trap "docker compose ${FILES} down --remove-orphans && docker kill wavs-1 wavs-aggregator-1 > /dev/null 2>&1 && echo -e '\nKilled IPFS + Local WARG, and wavs instances'" EXIT
-
   echo "Started..."
   wait
 fi
+
+

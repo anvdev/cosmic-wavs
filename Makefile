@@ -120,13 +120,14 @@ deploy-service:
 get-trigger:
 	@forge script ./script/ShowResult.s.sol ${SERVICE_TRIGGER_ADDR} --sig 'trigger(string)' --rpc-url $(RPC_URL) --broadcast
 ## get-trigger-cosmos: get the cosmos trigger id | COSMOS_RPC_URL, COSMOS_CHAIN_ID
+
 get-trigger-cosmos:
 	@echo "Querying Cosmos chain for trigger events..."
 	@curl -s "${COSMOS_RPC_URL}/abci_query?path=\"/custom/wasm/smart/${WAVS_CONTRACT_ADDRESS}&data={\\\"trigger_count\\\":{}}\""
 
 ## deploy-cosmos-service: deploy a WAVS service for Cosmos triggers | COMPONENT_FILENAME, COSMOS_RPC_URL
 deploy-cosmos-service:
-	@sh ./script/deploy-cosmos-service.sh
+	@sh ./script/cosmos/deploy-cosmos-service.sh
 
 ## start-cosmos-service: deploy and start a WAVS service for Cosmos triggers | COMPONENT_FILENAME
 start-cosmos-service:

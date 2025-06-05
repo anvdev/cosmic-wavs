@@ -56,7 +56,7 @@ pub const LOCAL_NETWORK1: ChainInfo = ChainInfo {
     chain_id: "sub-1",
     gas_denom: "ubtsg",
     gas_price: 0.025,
-    grpc_urls: &["tcp://localhost:9090"],
+    grpc_urls: &["tcp://localhost:1690"],
     network_info: BITSONG_NETWORK,
     lcd_url: None,
     fcd_url: None,

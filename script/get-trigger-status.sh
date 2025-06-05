@@ -11,7 +11,7 @@ if [ ! -f .env ]; then
 fi
 
 
-# Extract TRIGGER_DEST from the file
-TRIGGER_DEST=$(grep "^TRIGGER_DEST=" .env | cut -d '=' -f2)
-TRIGGER_DEST_ENV=$(echo "$TRIGGER_DEST" | tr '[:lower:]' '[:upper:]')
-echo "$TRIGGER_DEST_ENV"
+# Extract TRIGGER_ORIGIN from the file
+TRIGGER_ORIGIN=$(grep "^TRIGGER_ORIGIN=" .env | cut -d '=' -f2)
+TRIGGER_ORIGIN_ENV=$(echo "$TRIGGER_ORIGIN" | tr '[:lower:]' '[:upper:]')
+echo "$TRIGGER_ORIGIN_ENV"

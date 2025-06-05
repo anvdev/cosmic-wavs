@@ -1,0 +1,16 @@
+services:
+  cosmos-node:
+    image: "bitsong:local"
+    container_name: "bitsong-node"
+    # network_mode: "host"
+    ports:
+      - "26656:26656" # P2P port  
+      - "26657:26657" # RPC port  
+      - "1317:1317"   # REST API 
+    environment:
+      - MONIKER=Bitsong Node
+    volumes:
+      - "./.cosmos:/root/.bitsongd"  
+      # - "./cosmos-entrypoint.sh:/cosmos-entrypoint.sh"  
+    entrypoint: ["/cosmos-entrypoint.sh"]
+    # command: sh -c "chmod +x ./cosmos-entrypoint.sh && ./cosmos-entrypoint.sh"

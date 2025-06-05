@@ -33,19 +33,15 @@ rand = "0.8.5"
 # use for local-development
 
 
-
-cw-infuser             = { git = "https://github.com/permissionlessweb/cw-infuser", branch = "feat/wavs", features =["library"] }
-cw-infuser-scripts     = { git = "https://github.com/permissionlessweb/cw-infuser",  library = "cw-infuser-scripts",   branch = "feat/wavs" }
-
-
-btsg-nft-scripts       = { git = "https://github.com/permissionlessweb/bs-nfts",branch = "feat/wavs",library = "btsg-nft-scripts"}
+cw-infuser           = { git = "https://github.com/permissionlessweb/cw-infuser", branch = "feat/wavs", features =["library"] }
+cw-infuser-scripts   = { git = "https://github.com/permissionlessweb/cw-infuser",  library = "cw-infuser-scripts",   branch = "feat/wavs" }
+cw-infusions         = {  git = "https://github.com/permissionlessweb/cw-infuser", library = "cw-infusions", branch = "feat/wavs" }
+btsg-nft-scripts     = { git = "https://github.com/permissionlessweb/bs-nfts",branch = "feat/wavs",library = "btsg-nft-scripts"}
 bs721-base           = {  git = "https://github.com/permissionlessweb/bs-nfts", branch = "feat/wavs" }
 bs721                = {  git = "https://github.com/permissionlessweb/bs-nfts", library = "bs721",     branch = "feat/wavs" }
-
-btsg-account-scripts   = { git = "https://github.com/permissionlessweb/bs-accounts", package = "btsg-account-scripts", branch = "cleanup" }
+btsg-account-scripts = { git = "https://github.com/permissionlessweb/bs-accounts", package = "btsg-account-scripts", branch = "cleanup" }
 btsg-wavs            = {  git = "https://github.com/permissionlessweb/bs-accounts", package = "btsg-wavs", branch = "cleanup" }
-
-cw-infusions         = {  git = "https://github.com/permissionlessweb/cw-infuser", library = "cw-infusions", branch = "feat/wavs" }
+btsg-auth            = {  git = "https://github.com/permissionlessweb/bs-accounts", package = "btsg-auth", branch = "cleanup" }
 
 secp256k1 = "0.29.1"
 sha2 = "0.10.9"

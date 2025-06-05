@@ -274,13 +274,11 @@ fn verify_aggregated_signature(
 
     // Case 1: Prepare public keys and signatures for aggregation
     // Public keys are already in the correct form (G1 points, since PublicKey = G1)
-
     let ag1s: Vec<G1> = pks.iter().map(|pk| G1::decode(pk.encode()).expect("agggg")).collect();
     let scalars: Vec<Scalar> = vec![Scalar::one(); ag1s.len()];
     let agg1pk = G1::msm(ag1s.iter().as_ref(), &scalars);
 
     // Aggregate signatures on G2 (sum of signatures)
-
     let signature_scalars: Vec<Scalar> = vec![Scalar::one(); signatures.len()];
 
     match aggregate_verify_multiple_public_keys::<MinPk, _>(
@@ -364,6 +362,7 @@ fn test_how_wavs_infusion_service_generates_signature() -> anyhow::Result<()> {
     let deps = mock_dependencies();
 
     // Define the domain separation tag for verification (must match signing DST)
+    // same as commonware-cryptography
     let dst = b"BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
 
     // Aggregate signatures (in this case, only one signature)

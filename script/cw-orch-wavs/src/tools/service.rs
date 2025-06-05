@@ -16,7 +16,7 @@ pub struct ServiceConfig {
     pub trigger_event: String,
     pub trigger_chain: String,
     pub submit_chain: String,
-    pub trigger_dest: Option<String>,
+    pub TRIGGER_ORIGIN: Option<String>,
     pub cosmos_rpc_url: Option<String>,
     pub cosmos_chain_id: Option<String>,
     pub aggregator_url: Option<String>,
@@ -37,7 +37,7 @@ impl Default for ServiceConfig {
             trigger_event: "NewTrigger(bytes)".to_string(),
             trigger_chain: "local".to_string(),
             submit_chain: "local".to_string(),
-            trigger_dest: None,
+            TRIGGER_ORIGIN: None,
             cosmos_rpc_url: Some("http://localhost:26657".to_string()),
             cosmos_chain_id: Some("sub-1".to_string()),
             aggregator_url: None,
@@ -75,7 +75,7 @@ impl ServiceConfig {
             config.submit_chain = val;
         }
         if let Ok(val) = env::var("TRIGGER_ORIGIN") {
-            config.trigger_dest = Some(val);
+            config.TRIGGER_ORIGIN = Some(val);
         }
         if let Ok(val) = env::var("COSMOS_RPC_URL") {
             config.cosmos_rpc_url = Some(val);
@@ -152,7 +152,7 @@ pub fn build_service_config(config: ServiceConfig) -> Result<String> {
     println!("Workflow ID: {}", workflow_id);
 
     // Configure trigger based on destination
-    if config.trigger_dest.as_deref() == Some("COSMOS") {
+    if config.TRIGGER_ORIGIN.as_deref() == Some("COSMOS") {
         println!("Configuring Cosmos trigger...");
         let cosmos_rpc = config.cosmos_rpc_url.as_deref().unwrap_or("http://localhost:26657");
         let cosmos_chain = config.cosmos_chain_id.as_deref().unwrap_or("sub-1");

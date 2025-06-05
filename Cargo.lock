@@ -1610,7 +1610,7 @@ dependencies = [
  "bitflags 2.9.1",
  "cexpr",
  "clang-sys",
- "itertools 0.11.0",
+ "itertools 0.13.0",
  "proc-macro2 1.0.95",
  "quote",
  "regex",
@@ -1660,7 +1660,7 @@ checksum = "33415e24172c1b7d6066f6d999545375ab8e1d95421d6784bdfff9496f292387"
 dependencies = [
  "bitcoin_hashes 0.13.0",
  "rand 0.8.5",
- "rand_core 0.5.1",
+ "rand_core 0.6.4",
  "serde",
  "unicode-normalization",
 ]
@@ -1968,7 +1968,7 @@ dependencies = [
 [[package]]
 name = "bs-controllers"
 version = "0.3.0"
-source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#80fe7435e9c46116c68a22cc602de807ee2e23f0"
+source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#aa7d0e342aa56e89c040eba7b52fc924cc4ff3c5"
 dependencies = [
  "cosmwasm-schema 2.2.2",
  "cosmwasm-std 2.2.2",
@@ -1992,7 +1992,7 @@ dependencies = [
 [[package]]
 name = "bs721"
 version = "0.3.0"
-source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#80fe7435e9c46116c68a22cc602de807ee2e23f0"
+source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#aa7d0e342aa56e89c040eba7b52fc924cc4ff3c5"
 dependencies = [
  "cosmwasm-schema 2.2.2",
  "cosmwasm-std 2.2.2",
@@ -2004,7 +2004,7 @@ dependencies = [
 [[package]]
 name = "bs721-account"
 version = "0.2.0"
-source = "git+https://github.com/permissionlessweb/bs-accounts?branch=cleanup#6353ff7617dc9f33260de9bd6451dcad59eb5e50"
+source = "git+https://github.com/permissionlessweb/bs-accounts?branch=cleanup#a020b2d9e020c85a6a04a5e4fdcd37156efe2f6b"
 dependencies = [
  "abstract-std",
  "bs-controllers",
@@ -2028,7 +2028,7 @@ dependencies = [
 [[package]]
 name = "bs721-account-marketplace"
 version = "0.2.0"
-source = "git+https://github.com/permissionlessweb/bs-accounts?branch=cleanup#6353ff7617dc9f33260de9bd6451dcad59eb5e50"
+source = "git+https://github.com/permissionlessweb/bs-accounts?branch=cleanup#a020b2d9e020c85a6a04a5e4fdcd37156efe2f6b"
 dependencies = [
  "bs-controllers",
  "bs721",
@@ -2051,7 +2051,7 @@ dependencies = [
 [[package]]
 name = "bs721-account-minter"
 version = "0.2.0"
-source = "git+https://github.com/permissionlessweb/bs-accounts?branch=cleanup#6353ff7617dc9f33260de9bd6451dcad59eb5e50"
+source = "git+https://github.com/permissionlessweb/bs-accounts?branch=cleanup#a020b2d9e020c85a6a04a5e4fdcd37156efe2f6b"
 dependencies = [
  "bs-controllers",
  "bs721",
@@ -2074,7 +2074,7 @@ dependencies = [
 [[package]]
 name = "bs721-base"
 version = "0.3.0"
-source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#80fe7435e9c46116c68a22cc602de807ee2e23f0"
+source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#aa7d0e342aa56e89c040eba7b52fc924cc4ff3c5"
 dependencies = [
  "bs721",
  "cosmwasm-schema 2.2.2",
@@ -2092,7 +2092,7 @@ dependencies = [
 [[package]]
 name = "bs721-curve"
 version = "0.3.0"
-source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#80fe7435e9c46116c68a22cc602de807ee2e23f0"
+source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#aa7d0e342aa56e89c040eba7b52fc924cc4ff3c5"
 dependencies = [
  "bs721",
  "bs721-base",
@@ -2112,7 +2112,7 @@ dependencies = [
 [[package]]
 name = "bs721-factory"
 version = "0.3.0"
-source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#80fe7435e9c46116c68a22cc602de807ee2e23f0"
+source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#aa7d0e342aa56e89c040eba7b52fc924cc4ff3c5"
 dependencies = [
  "bs721",
  "bs721-base",
@@ -2133,7 +2133,7 @@ dependencies = [
 [[package]]
 name = "bs721-launchparty"
 version = "0.3.0"
-source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#80fe7435e9c46116c68a22cc602de807ee2e23f0"
+source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#aa7d0e342aa56e89c040eba7b52fc924cc4ff3c5"
 dependencies = [
  "bs721",
  "bs721-base",
@@ -2152,7 +2152,7 @@ dependencies = [
 [[package]]
 name = "bs721-royalties"
 version = "0.3.0"
-source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#80fe7435e9c46116c68a22cc602de807ee2e23f0"
+source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#aa7d0e342aa56e89c040eba7b52fc924cc4ff3c5"
 dependencies = [
  "bs721-base",
  "cosmwasm-schema 2.2.2",
@@ -2169,7 +2169,7 @@ dependencies = [
 [[package]]
 name = "btsg-account"
 version = "0.2.0"
-source = "git+https://github.com/permissionlessweb/bs-accounts?branch=cleanup#6353ff7617dc9f33260de9bd6451dcad59eb5e50"
+source = "git+https://github.com/permissionlessweb/bs-accounts?branch=cleanup#a020b2d9e020c85a6a04a5e4fdcd37156efe2f6b"
 dependencies = [
  "bech32 0.11.0",
  "bs-controllers",
@@ -2186,7 +2186,7 @@ dependencies = [
 [[package]]
 name = "btsg-account-scripts"
 version = "0.2.0"
-source = "git+https://github.com/permissionlessweb/bs-accounts?branch=cleanup#6353ff7617dc9f33260de9bd6451dcad59eb5e50"
+source = "git+https://github.com/permissionlessweb/bs-accounts?branch=cleanup#a020b2d9e020c85a6a04a5e4fdcd37156efe2f6b"
 dependencies = [
  "abstract-cw-orch-polytone",
  "abstract-std",
@@ -2232,7 +2232,7 @@ dependencies = [
 [[package]]
 name = "btsg-auth"
 version = "0.2.0"
-source = "git+https://github.com/permissionlessweb/bs-accounts?branch=cleanup#6353ff7617dc9f33260de9bd6451dcad59eb5e50"
+source = "git+https://github.com/permissionlessweb/bs-accounts?branch=cleanup#a020b2d9e020c85a6a04a5e4fdcd37156efe2f6b"
 dependencies = [
  "cosmwasm-schema 2.2.2",
  "cosmwasm-std 2.2.2",
@@ -2260,7 +2260,7 @@ dependencies = [
 [[package]]
 name = "btsg-nft-scripts"
 version = "0.3.0"
-source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#80fe7435e9c46116c68a22cc602de807ee2e23f0"
+source = "git+https://github.com/permissionlessweb/bs-nfts?branch=feat/wavs#aa7d0e342aa56e89c040eba7b52fc924cc4ff3c5"
 dependencies = [
  "abstract-cw-orch-polytone",
  "anyhow",
@@ -2290,7 +2290,7 @@ dependencies = [
 [[package]]
 name = "btsg-wavs"
 version = "0.2.0"
-source = "git+https://github.com/permissionlessweb/bs-accounts?branch=cleanup#6353ff7617dc9f33260de9bd6451dcad59eb5e50"
+source = "git+https://github.com/permissionlessweb/bs-accounts?branch=cleanup#a020b2d9e020c85a6a04a5e4fdcd37156efe2f6b"
 dependencies = [
  "btsg-auth 0.3.0",
  "cosmos-sdk-proto 0.26.1",
@@ -4164,6 +4164,7 @@ dependencies = [
  "bs721",
  "bs721-base",
  "btsg-account-scripts",
+ "btsg-auth 0.2.0",
  "btsg-nft-scripts",
  "btsg-wavs",
  "chrono",
@@ -6310,9 +6311,9 @@ dependencies = [
 
 [[package]]
 name = "hash_hasher"
-version = "2.0.3"
+version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74721d007512d0cb3338cd20f0654ac913920061a4c4d0d8708edb3f2a698c0c"
+checksum = "1b4b9ebce26001bad2e6366295f64e381c1e9c479109202149b9e15e154973e9"
 
 [[package]]
 name = "hashbrown"
@@ -12028,7 +12029,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be769465445e8c1474e9c5dac2018218498557af32d9ed057325ec9a41ae81bf"
 dependencies = [
  "heck 0.5.0",
- "itertools 0.11.0",
+ "itertools 0.14.0",
  "log",
  "multimap",
  "once_cell",
@@ -12061,7 +12062,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a56d757972c98b346a9b766e3f02746cde6dd1cd1d1d563472929fdd74bec4d"
 dependencies = [
  "anyhow",
- "itertools 0.11.0",
+ "itertools 0.14.0",
  "proc-macro2 1.0.95",
  "quote",
  "syn 2.0.101",

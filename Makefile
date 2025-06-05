@@ -22,7 +22,7 @@ ENV_FILE?=.env
 -include ${ENV_FILE}
 
 # Default target is build
-default: build
+default: help
 
 ## build: building the project
 build: _build_forge wasi-build
@@ -32,10 +32,10 @@ wasi-build:
 	@./script/build_components.sh $(WASI_BUILD_DIR)
 
 ## wasi-exec: executing the WAVS wasi component(s) | COMPONENT_FILENAME, COIN_MARKET_CAP_ID
-wasi-exec: pull-image
-	@$(WAVS_CMD) exec --log-level=info --data /data/.docker --home /data \
-	--component "/data/compiled/$(COMPONENT_FILENAME)" \
-	--input `cast format-bytes32-string $(COIN_MARKET_CAP_ID)`
+# wasi-exec: pull-image
+# 	@$(WAVS_CMD) exec --log-level=info --data /data/.docker --home /data \
+# 	--component "/data/compiled/$(COMPONENT_FILENAME)" \
+# 	--input `cast format-bytes32-string $(COIN_MARKET_CAP_ID)`
 
 ## clean: cleaning the project files
 clean: clean-docker

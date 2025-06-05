@@ -16,7 +16,10 @@ use cw_orch::{
     },
     prelude::*,
 };
-use cw_orch_wavs::{networks::{BITSONG_MAINNET, BITSONG_TESTNET, LOCAL_NETWORK1}, tools::create_operator};
+use cw_orch_wavs::{
+    networks::{BITSONG_MAINNET, BITSONG_TESTNET, LOCAL_NETWORK1},
+    tools::create_operator,
+};
 use secp256k1::{All, Secp256k1};
 use std::{
     env,
@@ -307,6 +310,7 @@ async fn deploy_infusion_demo(
         &btsg_wavs::msg::InstantiateMsg {
             owner: Some(cosmos.sender_addr()),
             wavs_operator_pubkeys: vec![pubkey.as_bytes().into()],
+            wavs_pubkey_type: "bls12-381".into(),
         },
         None,
         &[],

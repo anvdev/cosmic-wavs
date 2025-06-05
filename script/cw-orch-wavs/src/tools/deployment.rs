@@ -168,8 +168,8 @@ pub async fn start_all_local(fork_rpc_url: Option<&str>) -> Result<()> {
         let output = Command::new("docker")
             .args([
                 "compose",
-                "-f", "docker-compose.yml",
-                "-f", "telemetry/docker-compose.yml",
+                "-f", "../../docker-compose.yml",
+                "-f", "../../telemetry/docker-compose.yml",
                 "up", "--force-recreate", "-d"
             ])
             .output()

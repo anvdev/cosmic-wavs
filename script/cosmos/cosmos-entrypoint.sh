@@ -3,9 +3,11 @@ set -o errexit -o nounset -o pipefail
 
 # Docker entrypoint script for a Cosmos node using bitsongd
 CURRENT_DIR=$(pwd)
-echo $CURRENT_DIR
+echo "CURRENT: $CURRENT_DIR"
+LIST_FILE=$(ls)
+echo "LIST_FILE: $LIST_FILE"
 # Define paths
-CONFIG_SRC="$HOME/.cosmos/data"  
+CONFIG_SRC="../../.cosmos/data"
 
 CONFIG_DIR="$HOME/.bitsongd/config"
 VAL1HOME="$HOME/.bitsongd"
@@ -59,10 +61,18 @@ if ! $BSD keys show validator $KEYRING --home "$VAL1HOME" >/dev/null 2>&1; then
     fi
   fi
 
+
+ CURRENT_DIR=$(pwd)
+echo "CURRENT: $CURRENT_DIR"
+LIST_FILE=$(ls)
+echo "LIST_FILE_AFTER_DOC_UPDATE: $LIST_FILE"
+# Define paths
+CONFIG_SRC="../../.cosmos/data"
+
   # Create validator key
   echo "Creating validator key..."
   mkdir -p "$VAL1HOME/keys"
-  (echo "$PASSWORD"; echo "$PASSWORD") | $BSD keys add validator $KEYRING --home "$VAL1HOME" --output json > "$VAL1HOME/keys/val.json" 2>&1
+    $BSD keys add validator $KEYRING --home "$VAL1HOME" --output json > "$VAL1HOME/keys/val.json" 
   if [ $? -ne 0 ]; then
     echo "Error: Failed to add validator key"
     exit 1

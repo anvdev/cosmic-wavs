@@ -1,6 +1,10 @@
 [workspace]
 members = [
-    "components/evm-price-oracle",
+    "components/*",
+    "script/cw-orch-wavs",
+    "script/cosmic-wavs",
+    # "script/cosmic-wavs-light-client",
+    # "test_utils",
 ]
 resolver = "2"
 
@@ -14,17 +18,39 @@ rust-version = "1.80.0"
 
 [workspace.dependencies]
 # WASI
-wit-bindgen-rt ={ version = "0.42.1", features = ["bitflags"]}
+wit-bindgen-rt = { version = "0.42.1", features = ["bitflags"] }
 wit-bindgen = "0.42.1"
 wstd = "0.5.3"
 wasi = "0.14.1"
 wavs-wasi-utils = "0.4.0-beta.4"
 
 # Other
+sha = "0.3.0"
+hex = "0.4.3"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 anyhow = "1.0.98"
 
 ## Alloy
-alloy-sol-macro = { version = "1.0.0", features = ["json"]}
+alloy-sol-macro = { version = "1.0.0", features = ["json"] }
 alloy-sol-types = "1.0.0"
+
+# Commonware
+commonware-cryptography = "0.0.52"
+commonware-utils = "0.0.52"
+commonware-codec = "0.0.52"
+
+prost-types = "0.13.5"
+reqwest = { version = "0.11.9" }
+
+# Cosmos
+cosmic-wavs = { path = "script/cosmic-wavs"}
+layer-climb = "0.4.3"
+cosmos-sdk-proto = { version = "0.27.0", features = ["cosmwasm"] }
+cosmwasm-std = { version = "2.2.2", features = [
+  "cosmwasm_1_4",
+  # Enable this if you only deploy to chains that have CosmWasm 2.0 or higher
+  # "cosmwasm_2_0",
+] }
+cosmrs = { version = "0.22.0" }
+cosmwasm-schema = { version = "2.2.2" }

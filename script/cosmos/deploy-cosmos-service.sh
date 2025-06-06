@@ -31,8 +31,5 @@ sh script/cosmos/setup-local-cosmos.sh
 # Change to the cw-orch-wavs directory and run the Rust command
 cd script/cw-orch-wavs
 
-cargo run --bin wavs deploy-wavs-demo \
-    --network "local" \
-    --docker-compose "../cosmos/docker-compose.yaml" \
-    $START_FLAG
+cargo run --bin $START_FLAG
 cd ../..

@@ -131,7 +131,7 @@ deploy-cosmos-service:
 
 ## start-cosmos-service: deploy and start a WAVS service for Cosmos triggers | COMPONENT_FILENAME
 start-cosmos-service:
-	@sh ./script/deploy-cosmos-service.sh --start
+	@sh ./script/cosmos/deploy-cosmos-service.sh --start
 
 TRIGGER_ID?=1
 ## show-result: showing the result | SERVICE_SUBMISSION_ADDR, TRIGGER_ID, RPC_URL

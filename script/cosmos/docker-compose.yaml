@@ -1,6 +1,6 @@
 services:
   cosmos-node:
-    image: "bitsong:local"
+    image: "ghcr.io/bitsongofficial/go-bitsong:v0.22.0"
     container_name: "bitsong-node"
     # network_mode: "host"
     ports:
@@ -11,6 +11,6 @@ services:
       - MONIKER=Bitsong Node
     volumes:
       - "./.cosmos:/root/.bitsongd"  
-      # - "./cosmos-entrypoint.sh:/cosmos-entrypoint.sh"  
-    entrypoint: ["/cosmos-entrypoint.sh"]
+      - "./cosmos-entrypoint.sh:/cosmos-entrypoint.sh"  
+    entrypoint: ["sh", "-c", "/cosmos-entrypoint.sh"]
     # command: sh -c "chmod +x ./cosmos-entrypoint.sh && ./cosmos-entrypoint.sh"

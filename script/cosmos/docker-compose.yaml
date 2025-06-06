@@ -10,7 +10,8 @@ services:
     environment:
       - MONIKER=Bitsong Node
     volumes:
+      - "./cosmos-entrypoint.sh:/cosmos-entrypoint.sh:ro" # Mount entrypoint script as read-only
       - "../../.cosmos/data:/.cosmos/data"
-      - "./cosmos-entrypoint.sh:/cosmos-entrypoint.sh"  
+      - "./bitsong-data:/bitsongd/.bitsongd" 
     entrypoint: ["sh", "-c", "/cosmos-entrypoint.sh"]
     # command: sh -c "chmod +x ./cosmos-entrypoint.sh && ./cosmos-entrypoint.sh"

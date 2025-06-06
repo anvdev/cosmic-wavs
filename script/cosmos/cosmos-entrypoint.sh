@@ -2,13 +2,12 @@
 set -o errexit -o nounset -o pipefail
 
 # Docker entrypoint script for a Cosmos node using bitsongd
-CURRENT_DIR=$(pwd)
-echo "CURRENT: $CURRENT_DIR"
-LIST_FILE=$(ls)
-echo "LIST_FILE: $LIST_FILE"
-# Define paths
+echo "Current directory: $(pwd)"
+echo "Directory contents: $(ls -l)"
 CONFIG_SRC="../../.cosmos/data"
 
+ 
+HOME="/bitsong"
 CONFIG_DIR="$HOME/.bitsongd/config"
 VAL1HOME="$HOME/.bitsongd"
 
@@ -23,12 +22,10 @@ defaultCoins="1000000000$STAKE"
 delegate="100000000$STAKE"
 
 # Define CLI alias
-BSD="docker run --rm -it -v $HOME/.bitsongd:/root/.bitsongd bitsong:v0.12323 bitsongd"
+BSD="bitsongd"
 
 # Ensure the configuration directory exists
 mkdir -p "$CONFIG_DIR"
-
-
 
 # Check if configuration files exist in CONFIG_SRC and copy them
 if [ -f "$CONFIG_SRC/genesis.json" ] && [ -f "$CONFIG_SRC/app.toml" ] && [ -f "$CONFIG_SRC/config.toml" ]; then
@@ -64,10 +61,15 @@ if ! $BSD keys show validator $KEYRING --home "$VAL1HOME" >/dev/null 2>&1; then
 
  CURRENT_DIR=$(pwd)
 echo "CURRENT: $CURRENT_DIR"
-LIST_FILE=$(ls)
+LIST_FILE=$(ls -a)
 echo "LIST_FILE_AFTER_DOC_UPDATE: $LIST_FILE"
-# Define paths
+
 CONFIG_SRC="../../.cosmos/data"
+
+
+# Define paths
+LIST_FILE=$(ls -a)
+echo "LIST_FILE_AFTER_DOC_UPDATE: $LIST_FILE"
 
   # Create validator key
   echo "Creating validator key..."

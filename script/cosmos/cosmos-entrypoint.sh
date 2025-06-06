@@ -3,109 +3,102 @@ set -o errexit -o nounset -o pipefail
 
 # Docker entrypoint script for a Cosmos node using bitsongd
 echo "Current directory: $(pwd)"
-echo "Directory contents: $(ls -l)"
-CONFIG_SRC="../../.cosmos/data"
+echo "Directory contents: $(ls -la)"
 
- 
+# Define directories
 HOME="/bitsong"
-CONFIG_DIR="$HOME/.bitsongd/config"
+CONFIG_SRC="$HOME/.defaults"
 VAL1HOME="$HOME/.bitsongd"
+CONFIG_DIR="$VAL1HOME/config"
 
 # Define default environment variables
 PASSWORD=${PASSWORD:-1234567890}
 STAKE=${STAKE_TOKEN:-ubtsg}
-FEE=${FEE_TOKEN:-ubtsg}
-CHAIN_ID=${CHAIN_ID:-sub-2}  
+FEE=${FEE_TOKEN:-uthiol}
+CHAIN_ID=${CHAIN_ID:-sub-2}
 MONIKER=${MONIKER:-node001}
 KEYRING="--keyring-backend test"
-defaultCoins="1000000000$STAKE"
+defaultCoins="1000000000$STAKE,1000000000$FEE,5000000000uusd"
 delegate="100000000$STAKE"
 
 # Define CLI alias
 BSD="bitsongd"
 
-# Ensure the configuration directory exists
-mkdir -p "$CONFIG_DIR"
+# Remove existing home directory to ensure clean initialization
+rm -rf "$VAL1HOME"
 
-# Check if configuration files exist in CONFIG_SRC and copy them
-if [ -f "$CONFIG_SRC/genesis.json" ] && [ -f "$CONFIG_SRC/app.toml" ] && [ -f "$CONFIG_SRC/config.toml" ]; then
-  echo "Copying configuration files from $CONFIG_SRC to $CONFIG_DIR..."
-  cp "$CONFIG_SRC/genesis.json" "$CONFIG_DIR/genesis.json"
-  cp "$CONFIG_SRC/app.toml" "$CONFIG_DIR/app.toml"
-  cp "$CONFIG_SRC/config.toml" "$CONFIG_DIR/config.toml"
-else
-  echo "Error: One or more configuration files (genesis.json, app.toml, config.toml) missing in $CONFIG_SRC"
+# Initialize the node with chain-id and moniker
+echo "Initializing node with chain-id $CHAIN_ID and moniker $MONIKER..."
+$BSD init "$MONIKER" --chain-id "$CHAIN_ID" --home "$VAL1HOME" -o
+if [ $? -ne 0 ]; then
+  echo "Error: Failed to initialize node"
   exit 1
 fi
 
-# Check if client.toml exists and copy it if present
-if [ -f "$CONFIG_SRC/client.toml" ]; then
-  echo "Copying client.toml from $CONFIG_SRC to $VAL1HOME..."
-  cp "$CONFIG_SRC/client.toml" "$VAL1HOME/client.toml"
-else
-  echo "Warning: client.toml not found in $CONFIG_SRC, skipping"
+# Ensure CONFIG_DIR exists
+mkdir -p "$CONFIG_DIR"
+
+# Move configuration files from CONFIG_SRC to CONFIG_DIR if they exist
+echo "Checking for configuration files in $CONFIG_SRC..."
+for file in genesis.json priv_validator_key.json node_key.json app.toml config.toml; do
+  if [ -f "$CONFIG_SRC/$file" ]; then
+    echo "Moving $file from $CONFIG_SRC to $CONFIG_DIR..."
+    mv "$CONFIG_SRC/$file" "$CONFIG_DIR/$file"
+  else
+    echo "Warning: $file not found in $CONFIG_SRC, using default initialized file."
+  fi
+done
+
+# Verify moved files
+echo "Current directory: $(pwd)"
+echo "Contents of $CONFIG_DIR:"
+ls -la "$CONFIG_DIR"
+
+# Set keyring backend
+echo "Configuring keyring backend..."
+$BSD config keyring-backend test --home "$VAL1HOME"
+
+# Create validator key
+echo "Creating validator key..."
+echo "$PASSWORD" | $BSD keys add validator --home "$VAL1HOME" --keyring-backend test
+if [ $? -ne 0 ]; then
+  echo "Error: Failed to create validator key"
+  exit 1
 fi
 
-# Check if node is already initialized (i.e., validator key exists)
-if ! $BSD keys show validator $KEYRING --home "$VAL1HOME" >/dev/null 2>&1; then
-  # Initialize the node if not already initialized
-  if [ ! -f "$CONFIG_DIR/config.toml" ] || [ ! -f "$CONFIG_DIR/genesis.json" ]; then
-    echo "Initializing node with chain-id $CHAIN_ID and moniker $MONIKER..."
-    $BSD init "$MONIKER" --chain-id "$CHAIN_ID" --home "$VAL1HOME"
-    if [ $? -ne 0 ]; then
-      echo "Error: Failed to initialize node"
-      exit 1
-    fi
-  fi
-
-
- CURRENT_DIR=$(pwd)
-echo "CURRENT: $CURRENT_DIR"
-LIST_FILE=$(ls -a)
-echo "LIST_FILE_AFTER_DOC_UPDATE: $LIST_FILE"
-
-CONFIG_SRC="../../.cosmos/data"
-
-
-# Define paths
-LIST_FILE=$(ls -a)
-echo "LIST_FILE_AFTER_DOC_UPDATE: $LIST_FILE"
-
-  # Create validator key
-  echo "Creating validator key..."
-  mkdir -p "$VAL1HOME/keys"
-    $BSD keys add validator $KEYRING --home "$VAL1HOME" --output json > "$VAL1HOME/keys/val.json" 
-  if [ $? -ne 0 ]; then
-    echo "Error: Failed to add validator key"
-    exit 1
-  fi
-
-  # Add genesis account
-  echo "Adding genesis account for validator..."
-  validator_address=$($BSD keys show validator "$KEYRING" --home "$VAL1HOME" -a)
-  $BSD genesis add-genesis-account "$validator_address" "$defaultCoins,1000000000$FEE,5000000000uusd" --home "$VAL1HOME"
-  if [ $? -ne 0 ]; then
-    echo "Error: Failed to add genesis account for validator"
-    exit 1
-  fi
-
-  # Generate and collect gentx
-  echo "Generating gentx for validator..."
-  (echo "$PASSWORD"; echo "$PASSWORD"; echo "$PASSWORD") | $BSD genesis gentx validator "$delegate" --chain-id "$CHAIN_ID" --amount="$delegate" $KEYRING --home "$VAL1HOME"
-  if [ $? -ne 0 ]; then
-    echo "Error: Failed to generate gentx for validator"
-    exit 1
-  fi
-
-  echo "Collecting gentxs..."
-  $BSD genesis collect-gentxs --home "$VAL1HOME"
-  if [ $? -ne 0 ]; then
-    echo "Error: Failed to collect gentxs"
-    exit 1
-  fi
-else
-  echo "Node already initialized, skipping key creation and genesis setup"
+# Generate and collect gentx
+echo "Adding genesis account and creating gentx for validator..."
+validator_address=$($BSD keys show validator -a --home "$VAL1HOME" --keyring-backend test)
+$BSD genesis add-genesis-account "$validator_address" "$defaultCoins" --home "$VAL1HOME"
+if [ $? -ne 0 ]; then
+  echo "Error: Failed to add genesis account"
+  exit 1
 fi
+
+echo "Generating gentx for validator..."
+$BSD genesis gentx validator "$delegate" \
+  --home="$VAL1HOME" \
+  --chain-id="$CHAIN_ID" \
+  --moniker="validator" \
+  --commission-max-change-rate=0.01 \
+  --commission-max-rate=1.0 \
+  --commission-rate=0.07 \
+  --keyring-backend test
+if [ $? -ne 0 ]; then
+  echo "Error: Failed to generate gentx for validator"
+  exit 1
+fi
+
+echo "Collecting gentxs..."
+$BSD genesis collect-gentxs --home "$VAL1HOME"
+if [ $? -ne 0 ]; then
+  echo "Error: Failed to collect gentxs"
+  exit 1
+fi
+
+# Verify final genesis file
+echo "Contents of final genesis.json:"
+cat "$CONFIG_DIR/genesis.json"
 
 # Start the Cosmos node
 echo "Starting Cosmos node..."

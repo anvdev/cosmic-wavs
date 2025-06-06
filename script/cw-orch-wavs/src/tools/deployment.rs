@@ -381,7 +381,7 @@ async fn setup_local_cosmos_node() -> Result<()> {
 
     // Deploy WAVS service with Cosmos configuration
     let component = env::var("COMPONENT_FILENAME")
-        .unwrap_or_else(|_| "cosmic-wavs-demo-infusion.wasm".to_string());
+        .unwrap_or_else(|_| "cosmic-wavs-infusion.wasm".to_string());
     let rpc_url =
         env::var("COSMOS_RPC_URL").unwrap_or_else(|_| "http://localhost:26657".to_string());
     let chain_id = env::var("COSMOS_CHAIN_ID").unwrap_or_else(|_| "sub-1".to_string());
@@ -468,7 +468,7 @@ fn set_default_cosmos_env_vars() {
 
     // Component and service settings
     if env::var("COMPONENT_FILENAME").is_err() {
-        env::set_var("COMPONENT_FILENAME", "cosmic-wavs-demo-infusion.wasm");
+        env::set_var("COMPONENT_FILENAME", "cosmic-wavs-infusion.wasm");
     }
     if env::var("TRIGGER_EVENT").is_err() {
         env::set_var("TRIGGER_EVENT", "cw-infusion");

@@ -1,13 +1,10 @@
-use anyhow::Error;
 use commonware_cryptography::{
     bls12381::{
         primitives::{
             group::{Element, Point, Scalar, G1, G2},
             ops::{
-                aggregate_public_keys, aggregate_signatures, aggregate_verify_multiple_public_keys,
-                keypair, sign_message,
+                aggregate_signatures, aggregate_verify_multiple_public_keys, keypair, sign_message,
             },
-            poly::{public, Poly},
             variant::{MinPk, MinSig, Variant},
         },
         Bls12381Batch, PublicKey, Signature,
@@ -17,7 +14,7 @@ use commonware_cryptography::{
 
 use cosmos_sdk_proto::cosmwasm::wasm::v1::MsgExecuteContract;
 use cosmrs::{bip32::secp256k1::elliptic_curve::rand_core::OsRng, Any};
-use cosmwasm_std::{testing::mock_dependencies, to_json_binary, Api, HashFunction, StdError};
+use cosmwasm_std::{testing::mock_dependencies, to_json_binary, Api, HashFunction};
 use hex;
 use sha2::{Digest, Sha256};
 
@@ -31,7 +28,7 @@ fn generate_keys(n_signers: usize) -> (Vec<Bls12381>, Vec<Vec<u8>>) {
     let mut private_keys = vec![];
 
     for i in 0..n_signers {
-        let mut signer = Bls12381::new(&mut OsRng);
+        let signer = Bls12381::new(&mut OsRng);
         let private_key = signer.private_key();
         let public_key = signer.public_key();
 
@@ -56,9 +53,9 @@ fn generate_keys(n_signers: usize) -> (Vec<Bls12381>, Vec<Vec<u8>>) {
 // Function to import a private key and create a signer
 fn import_private_key(encoded_key: &[u8]) -> Result<Bls12381, String> {
     println!("Importing private key...");
-        let private_key = <Bls12381 as Signer>::PrivateKey::decode(encoded_key)
-            .map_err(|e| format!("Failed to decode private key: {:?}", e))?;
-        let signer = <Bls12381 as Signer>::from(private_key).expect("broken private key");
+    let private_key = <Bls12381 as Signer>::PrivateKey::decode(encoded_key)
+        .map_err(|e| format!("Failed to decode private key: {:?}", e))?;
+    let signer = <Bls12381 as Signer>::from(private_key).expect("broken private key");
 
     println!(
         "Public key from imported private key: {}",
@@ -151,7 +148,7 @@ fn main() {
     // PART 2: Import existing private key
     println!("2. Importing existing private keys");
     println!("--------------------------------");
-    let imported_signer =
+    let _imported_signer =
         import_private_key(&private_keys[0]).expect("Failed to import private key");
 
     // PART 3: Sign and verify messages
@@ -251,7 +248,7 @@ fn verify_aggregated_signature(
 
     // Collect signatures (with optional tampering)
     let mut signatures = vec![];
-    for (i, (signer, public_key)) in signers.iter_mut().zip(pks.iter()).enumerate() {
+    for (i, (signer, _public_key)) in signers.iter_mut().zip(pks.iter()).enumerate() {
         let message_to_sign = if tamper_index == Some(i) {
             println!("Tampering msg {}: {}", i, hex::encode(b"TAMPERED: different message"));
             b"TAMPERED: different message".to_vec()
@@ -261,8 +258,8 @@ fn verify_aggregated_signature(
 
         let signature = sign_message::<MinPk>(
             &Scalar::decode(signer.private_key().as_ref())
-                .map_err(|e| {
-                    res = false; // Corrected: Set res to false on error
+                .map_err(|_| {
+                    res = false;
                 })
                 .unwrap(),
             namespace,
@@ -276,7 +273,7 @@ fn verify_aggregated_signature(
     // Public keys are already in the correct form (G1 points, since PublicKey = G1)
     let ag1s: Vec<G1> = pks.iter().map(|pk| G1::decode(pk.encode()).expect("agggg")).collect();
     let scalars: Vec<Scalar> = vec![Scalar::one(); ag1s.len()];
-    let agg1pk = G1::msm(ag1s.iter().as_ref(), &scalars);
+    let _agg1pk = G1::msm(ag1s.iter().as_ref(), &scalars);
 
     // Aggregate signatures on G2 (sum of signatures)
     let signature_scalars: Vec<Scalar> = vec![Scalar::one(); signatures.len()];
@@ -287,7 +284,7 @@ fn verify_aggregated_signature(
         message,
         &G2::msm(&signatures, &signature_scalars),
     ) {
-        Ok(_) => true,
+        Ok(_) => return res,
         Err(_) => false,
     }
 }

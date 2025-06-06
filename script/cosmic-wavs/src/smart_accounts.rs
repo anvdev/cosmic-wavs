@@ -1,3 +1,4 @@
+use cosmwasm_std::to_json_binary;
 
 #[cosmwasm_schema::cw_serde]
 pub struct CosmwasmAuthenticatorInitData {
@@ -12,14 +13,16 @@ pub struct MsgAddAuthenticator {
     pub data: Vec<u8>,
 }
 
-
 /// Register a given seckp256k1 key with a specific authenticator
-async fn setup_bitsong_smart_account(
+pub fn setup_wavs_smart_account(
+    chain: &str,
     authenticator: MsgAddAuthenticator,
 ) -> Result<prost_types::Any, anyhow::Error> {
+    let type_url = match chain {
+        "osmosis" => "/osmosis.smartaccount.v1beta1.MsgAddAuthenticator".to_string(),
+        "bitsong" => "/bitsong.smartaccount.v1beta1.MsgAddAuthenticator".to_string(),
+        _ => panic!("bad chain type"),
+    };
     // register custom authenticator to account
-    Ok(prost_types::Any {
-        type_url: "/bitsong.smartaccount.v1beta1.MsgAddAuthenticator".into(),
-        value: to_json_binary(&authenticator)?.to_vec(),
-    })
+    Ok(prost_types::Any { type_url, value: to_json_binary(&authenticator)?.to_vec() })
 }

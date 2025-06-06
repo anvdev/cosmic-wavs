@@ -82,7 +82,7 @@ cargo run -- deploy-cosmos [--component <component>] [--rpc-url <rpc-url>] [--ch
 
 | Flag | Description | Required | Default |
 | --- | --- | --- | --- |
-| `--component` | Component filename | No | cosmic-wavs-demo-infusion.wasm |
+| `--component` | Component filename | No | cosmic-wavs-infusion.wasm |
 | `--rpc-url` | Cosmos RPC URL | No | http://localhost:26657 |
 | `--chain-id` | Cosmos chain ID | No | sub-1 |
 | `--trigger-event` | Trigger event name | No | cw-infusion |
@@ -90,7 +90,7 @@ cargo run -- deploy-cosmos [--component <component>] [--rpc-url <rpc-url>] [--ch
 
 Example:
 ```bash
-cargo run -- deploy-cosmos --component cosmic-wavs-demo-infusion.wasm --rpc-url http://localhost:26657 --chain-id sub-1 --trigger-event cw-infusion --start
+cargo run -- deploy-cosmos --component cosmic-wavs-infusion.wasm --rpc-url http://localhost:26657 --chain-id sub-1 --trigger-event cw-infusion --start
 ```
 
 ### 6. Upload component to WAVS

@@ -2,6 +2,8 @@
 members = [
     "components/*",
     "script/cw-orch-wavs",
+    "script/cosmic-wavs",
+    # "script/cosmic-wavs-light-client",
     # "test_utils",
 ]
 resolver = "2"
@@ -38,7 +40,11 @@ commonware-cryptography = "0.0.52"
 commonware-utils = "0.0.52"
 commonware-codec = "0.0.52"
 
+prost-types = "0.13.5"
+reqwest = { version = "0.11.9" }
+
 # Cosmos
+cosmic-wavs = { path = "script/cosmic-wavs"}
 layer-climb = "0.4.3"
 cosmos-sdk-proto = { version = "0.27.0", features = ["cosmwasm"] }
 cosmwasm-std = { version = "2.2.2", features = [

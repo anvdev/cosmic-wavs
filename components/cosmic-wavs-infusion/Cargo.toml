@@ -1,5 +1,5 @@
 [package]
-name = "cosmic-wavs-demo-infusion"
+name = "cosmic-wavs-infusion"
 edition.workspace = true
 version.workspace = true
 authors.workspace = true
@@ -16,7 +16,7 @@ alloy-sol-macro = { workspace = true }
 wstd = { workspace = true }
 alloy-sol-types = { workspace = true }
 anyhow = { workspace = true }
-
+prost-types = { workspace = true }
 hex = "0.4.3"
 sha2 = "0.10.9"
  
@@ -46,5 +46,5 @@ strip = true
 lto = true
 
 [package.metadata.component]
-package = "component:cosmic-wavs-demo-infusion"
+package = "component:cosmic-wavs-infusion"
 target = "wavs:worker/layer-trigger-world@0.3.0"

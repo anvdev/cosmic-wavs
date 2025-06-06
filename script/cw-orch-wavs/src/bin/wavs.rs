@@ -1,7 +1,11 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
+use btsg_account_scripts::deploy::btsg_wavs::BtsgWavsAuth;
+use cosmic_wavs::smart_accounts::{
+    setup_wavs_smart_account, CosmwasmAuthenticatorInitData, MsgAddAuthenticator,
+};
 use cosmwasm_std::{to_json_binary, Decimal};
 use cw_orch::{
-    daemon::{senders::CosmosSender, DaemonAsyncBase, DaemonBase, DaemonBuilder, TxSender},
+    daemon::{senders::CosmosSender, DaemonBase, DaemonBuilder, TxSender},
     environment::ChainKind,
     prelude::*,
 };
@@ -11,6 +15,7 @@ use cw_orch_wavs::{
 };
 use secp256k1::All;
 use std::{env, path::Path};
+use tokio::runtime::{Handle, Runtime};
 
 // use dotenv::dotenv;
 // use tokio::runtime::{Handle, Runtime};
@@ -33,11 +38,10 @@ pub struct DeployInfusionDemo {
     // pub infuser: CwInfuser<DaemonBase<CosmosSender<All>>>,
 }
 
-pub const WAVS_COMPONENT: &str = "cosmic-wavs-demo-infusion.wasm";
+pub const WAVS_COMPONENT: &str = "cosmic-wavs-infusion.wasm";
 pub const INFUSION_TRIGGER_EVENT: &str = "cw-infusion";
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     dotenv::from_path(Path::new(".env")).ok();
     env::vars().into_iter().for_each(|a| println!("Mnemonic: {},{}", a.0, a.1));
     let wavs_mnemonic = env::var("WAVS_CONTROLLER_MNEMONIC")?;
@@ -51,27 +55,31 @@ async fn main() -> Result<()> {
     }
     .to_owned();
 
-    let cosmos: DaemonAsyncBase<CosmosSender<All>> =
-        DaemonAsync::builder(cosmos_chain).build().await?;
+    let rt = Runtime::new().expect("Failed to create tokio runtime");
 
-    // register a secp256k1 key to make use of authorizations
-    let register_smart_account = setup_bitsong_smart_account(MsgAddAuthenticator {
-        sender: cosmos.sender().pub_addr_str(),
-        authenticator_type: "CosmwasmAuthenticatorV1".into(),
-        data: to_json_binary(&CosmwasmAuthenticatorInitData {
-            contract: btsgwavs.address()?.into(),
-            params: vec![],
-        })?
-        .to_vec(),
-    })
-    .await?;
+    let cosmos =
+        DaemonBuilder::new(cosmos_chain).handle(rt.handle()).mnemonic(wavs_mnemonic).build()?;
+
+    let btsgwavs = BtsgWavsAuth::new("btsg-wavs-auth", cosmos.clone());
+    // btsgwavs.upload_if_needed()?;
 
     // broadcast tx
     let res = cosmos.commit_any(
-        vec![register_smart_account],
+        vec![setup_wavs_smart_account(
+            "bitsong",
+            MsgAddAuthenticator {
+                sender: cosmos.sender().pub_addr_str(),
+                authenticator_type: "CosmwasmAuthenticatorV1".into(),
+                data: to_json_binary(&CosmwasmAuthenticatorInitData {
+                    contract: btsgwavs.address()?.into(),
+                    params: vec![],
+                })?
+                .to_vec(),
+            },
+        )?],
         "Tuning account to the Cosmic Wavs Frequency...".into(),
     )?;
-    // handle response
+    // // handle response
     match res.code {
         0 => {}
         _ => {
@@ -192,56 +200,32 @@ async fn main() -> Result<()> {
 // Ok(DeployInfusionDemo { cosmos })
 // }
 
-/// Runs the logic that we expect the wavs service to be triggered by.
-async fn run_infusion_demo(suite: DeployInfusionDemo) -> Result<(), anyhow::Error> {
-    // // mint & burn nft, triggering wavs service
-    // suite
-    //     .bs_accounts
-    //     .bs721base
-    //     .execute(&bs721_base::msg::ExecuteMsg::<Empty>::Burn { token_id: "1".into() }, &[])?;
-    // // query that wavs record has been added to wavs service
-    // assert_eq!(
-    //     suite.infuser.wavs_record(
-    //         vec![suite.bs_accounts.bs721base.addr_str()?],
-    //         Some(suite.cosmos.sender_addr())
-    //     )?[0]
-    //         .count,
-    //     Some(1)
-    // );
+// /// Runs the logic that we expect the wavs service to be triggered by.
+// async fn run_infusion_demo(suite: DeployInfusionDemo) -> Result<(), anyhow::Error> {
+//     // mint & burn nft, triggering wavs service
+//     suite
+//         .bs_accounts
+//         .bs721base
+//         .execute(&bs721_base::msg::ExecuteMsg::<Empty>::Burn { token_id: "1".into() }, &[])?;
+//     // query that wavs record has been added to wavs service
+//     assert_eq!(
+//         suite.infuser.wavs_record(
+//             vec![suite.bs_accounts.bs721base.addr_str()?],
+//             Some(suite.cosmos.sender_addr())
+//         )?[0]
+//             .count,
+//         Some(1)
+//     );
 
-    // // burn via contract call to infuser
-    // suite.infuser.infuse(
-    //     vec![Bundle {
-    //         nfts: vec![cw_infusions::nfts::NFT {
-    //             addr: suite.bs_accounts.bs721base.address()?,
-    //             token_id: 2,
-    //         }],
-    //     }],
-    //     1,
-    // )?;
-    Ok(())
-}
-
-#[cosmwasm_schema::cw_serde]
-pub struct CosmwasmAuthenticatorInitData {
-    pub contract: String,
-    pub params: Vec<u8>,
-}
-
-#[cosmwasm_schema::cw_serde]
-pub struct MsgAddAuthenticator {
-    pub sender: String,
-    pub authenticator_type: String,
-    pub data: Vec<u8>,
-}
-
-/// Register a given seckp256k1 key with a specific authenticator
-async fn setup_bitsong_smart_account(
-    authenticator: MsgAddAuthenticator,
-) -> Result<prost_types::Any, anyhow::Error> {
-    // register custom authenticator to account
-    Ok(prost_types::Any {
-        type_url: "/bitsong.smartaccount.v1beta1.MsgAddAuthenticator".into(),
-        value: to_json_binary(&authenticator)?.to_vec(),
-    })
-}
+//     // burn via contract call to infuser
+//     suite.infuser.infuse(
+//         vec![Bundle {
+//             nfts: vec![cw_infusions::nfts::NFT {
+//                 addr: suite.bs_accounts.bs721base.address()?,
+//                 token_id: 2,
+//             }],
+//         }],
+//         1,
+//     )?;
+//     Ok(())
+// }

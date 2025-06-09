@@ -12,7 +12,7 @@ A WAVS service is a collection of one or more workflows that define the differen
 Each workflow consists of three parts:
 
 - [**Trigger**](./triggers): Defines what event initiates the workflow
-- [**Component**](./component): The WASM component that processes the event
+- [**Component**](./components/component): The WASM component that processes the event
 - [**Submit**](./submission): Specifies where to send the results
 
 ## Workflow Structure
@@ -101,7 +101,8 @@ Each workflow execution is completely isolated with components running in separa
 
 ## Sharing state
 
-WAVS services are designed to process data rather than store data. Data should be stored externally. To share data between workflows or components, the first workflow should submit data to an external system such as an onchain smart contract and the second workflow should read the data from the same system.
+WAVS services are designed to process data rather than store data. Data should be stored externally. 
+To share data between workflows or components, the first workflow should submit data to an external system such as an onchain smart contract and the second workflow should read the data from the same system.
 
 ```
 A: Trigger -> component -> onchain submission storage

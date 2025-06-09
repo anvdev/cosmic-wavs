@@ -1,0 +1,51 @@
+[package]
+name = "cosmic-wavs-infusion"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[dependencies]
+# Core dependencies (always needed)
+wit-bindgen-rt = {workspace = true}
+wavs-wasi-utils = {workspace = true}
+serde = { workspace = true }
+serde_json = { workspace = true }
+alloy-sol-macro = { workspace = true }
+wstd = { workspace = true }
+alloy-sol-types = { workspace = true }
+anyhow = { workspace = true }
+prost-types = { workspace = true }
+hex = "0.4.3"
+sha2 = "0.10.9"
+ 
+commonware-cryptography = { workspace = true }
+commonware-codec = { workspace = true }
+
+ 
+# cosmwasm crates
+cosmic-wavs = { workspace = true }
+cosmwasm-std = { workspace = true }
+
+# cosmos-sdk-proto = { workspace = true, default-features = "false" }
+cw-infuser =  {  branch= "feat/wavs", package= "cw-infuser", git  = "https://github.com/permissionlessweb/cw-infuser", features = ["library"]}
+cw-infusions =  { branch= "feat/wavs", package = "cw-infusions", git  = "https://github.com/permissionlessweb/cw-infuser"}
+layer-climb = { workspace = true }
+ 
+
+# Add for blockchain interactions
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+codegen-units = 1
+opt-level = "s"
+debug = false
+strip = true
+lto = true
+
+[package.metadata.component]
+package = "component:cosmic-wavs-infusion"
+target = "wavs:worker/layer-trigger-world@0.3.0"

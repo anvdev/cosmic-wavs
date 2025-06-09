@@ -1,0 +1,27 @@
+[package]
+name = "cosmic-wavs"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+log  = "0.4.22"
+
+# cosmos 
+cosmos-sdk-proto  = { workspace = true }
+cosmwasm-schema  = { workspace = true }
+cosmwasm-std   = { workspace = true }
+cosmwasm-crypto  = { version = "2.1.4",  default-features = false }
+ 
+serde = { workspace = true }
+prost-types  = { workspace = true }
+anchor-lang = "0.31.1"
+
+sha2 = "0.10.9"
+hex = { version = "0.4", features = ["serde"] }
+commonware-cryptography = { workspace = true }
+commonware-codec = { workspace = true }
+rand = "0.8.5"

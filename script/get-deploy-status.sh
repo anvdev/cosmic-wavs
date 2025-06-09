@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd `git rev-parse --show-toplevel` || exit
+cd "$(git rev-parse --show-toplevel)" || exit
 
 if [ ! -f .env ]; then
     cp .env.example .env

@@ -1,6 +1,9 @@
 [workspace]
 members = [
-    "components/evm-price-oracle",
+#    "components/evm-price-oracle",
+    "components/cosmic-wavs-infusion",
+#    "script/cw-orch-wavs",
+#    "script/cosmic-wavs",
 ]
 resolver = "2"
 
@@ -28,3 +31,22 @@ anyhow = "1.0.98"
 ## Alloy
 alloy-sol-macro = { version = "1.0.0", features = ["json"]}
 alloy-sol-types = "1.0.0"
+
+
+# Commonware
+commonware-cryptography = "0.0.52"
+commonware-utils = "0.0.52"
+commonware-codec = "0.0.52"
+prost-types = "0.13.5"
+reqwest = { version = "0.11.9" }
+cosmic-wavs = { path = "script/cosmic-wavs"}
+#  cw-orch-wavs = { path = "script/cw-orch-wavs"}
+layer-climb = "0.4.3"
+cosmos-sdk-proto = { version = "0.27.0",  default-features = false }
+cosmwasm-std = { version = "2.2.2", features = [
+  "cosmwasm_1_4",
+  # Enable this if you only deploy to chains that have CosmWasm 2.0 or higher
+  # "cosmwasm_2_0",
+] }
+
+cosmwasm-schema = { version = "2.2.2" }

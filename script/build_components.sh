@@ -12,7 +12,7 @@
 WASI_BUILD_DIR="$1"
 
 RECIPE="wasi-build"
-MAKEFILE_DIRS=`find components/* -maxdepth 1 -name "Makefile" -o -name "makefile"`
+MAKEFILE_DIRS=$(find components/* -maxdepth 1 -name "Makefile" -o -name "makefile")
 
 for makefile_path in $MAKEFILE_DIRS; do
     if grep -q "^${RECIPE}:" "$makefile_path" 2>/dev/null; then
@@ -22,6 +22,6 @@ for makefile_path in $MAKEFILE_DIRS; do
         parent_dir=$(dirname "$makefile_path")
         make -s -C "$parent_dir" $RECIPE
     else
-        echo "Recipe '$RECIPE' not found in $dir"
+        echo "Recipe '$RECIPE' not found in $makefile_path"
     fi;
 done

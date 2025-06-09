@@ -1,0 +1,19 @@
+services:
+  cosmos-node:
+    image: "ghcr.io/bitsongofficial/go-bitsong:v0.22.0"
+    container_name: "bitsong-node"
+    # network_mode: "host"
+    ports:
+      - "26656:26656" # P2P port  
+      - "26657:26657" # RPC port  
+      - "1317:1317"   # REST API 
+      # - "8016:8016"   # GRPC API 
+      # - "9091:9016"   # GRPC Web API 
+    environment:
+      - MONIKER=Bitsong Node
+    volumes:
+      - "./cosmos-entrypoint.sh:/cosmos-entrypoint.sh"
+      - "../../.cosmos/defaults:/bitsong/.defaults" 
+    command:
+  
+    entrypoint: ["sh", "-c", "./cosmos-entrypoint.sh"]

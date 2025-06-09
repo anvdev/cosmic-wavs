@@ -9,11 +9,11 @@ docsignore-->
 
 A service is a collection of smart contracts, operators, and offchain components that make up a WAVS AVS. The different parts of a service are defined in a service manifest or `service.json` file. This file can be stored on IPFS or an HTTP/HTTPS server, and its URL is set on the service manager contract during deployment, allowing the system to fetch the service definition when needed.
 
-The service manifest defines the configuration and different parts of a WAVS service, including information about the service, workflows, components, submission, service manager contract, and more.
+The service manifest defines the configuration and different parts of a WAVS service, including information about the service, [workflows](/handbook/workflows), [components](/handbook/components/component), [submission](/handbook/submission), [service manager contract](#service-manager), and more.
 
 ## Generate Manifest
 
-Easily create this JSON file using the `wavs-cli service` command. The template provides a script to generate a 1 component service with ease, [build_service.sh](https://github.com/Lay3rLabs/wavs-foundry-template/blob/main/script/build_service.sh).
+You can create the service.json file using the `wavs-cli service` command. The template provides a script to generate a single-component service with ease, [build_service.sh](https://github.com/Lay3rLabs/wavs-foundry-template/blob/main/script/build_service.sh).
 
 ## Example Manifest
 
@@ -126,10 +126,10 @@ SERVICE_FILE=${SERVICE_FILE} make upload-to-ipfs
 
 # smart grabs the IPFS gateway and fetches the content that was uploaded
 export IPFS_GATEWAY=$(sh script/get-ipfs-gateway.sh)
-curl "${IPFS_GATEWAY}/ipfs/${ipfs_cid}"
+curl "${IPFS_GATEWAY}${ipfs_cid}"
 
 # Then the admin of the contracts can set it
-cast send ${SERVICE_MANAGER_ADDRESS} 'setServiceURI(string)' "${SERVICE_URI}" -r ${RPC_URL} --private-key ${DEPLOYER_PK}
+cast send ${WAVS_SERVICE_MANAGER_ADDRESS} 'setServiceURI(string)' "${SERVICE_URI}" -r ${RPC_URL} --private-key ${DEPLOYER_PK}
 ```
 
 For more information on the different parts of a service manifest, see the following sections:

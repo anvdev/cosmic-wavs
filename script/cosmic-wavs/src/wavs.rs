@@ -47,7 +47,7 @@ pub async fn form_wavs_tx(
 }
 
 /// Register a given seckp256k1 key with a specific authenticator
-pub fn form_wavs_smart_account_msg(
+pub fn form_smart_account_msg(
     mut imported_signer: Bls12381,
     cosmic_wavs_actions: &Vec<Any>,
 ) -> Result<([u8; 32], Vec<u8>), anyhow::Error> {
@@ -62,7 +62,7 @@ pub fn form_wavs_smart_account_msg(
     Ok((msg_digest, signature))
 }
 
-pub fn get_wavs_smart_account(wavs_bls_sk: String) -> Result<Bls12381, anyhow::Error> {
+pub fn get_smart_account(wavs_bls_sk: String) -> Result<Bls12381, anyhow::Error> {
     // Import the bls12-381 private key
     let bls_key_pair = match <Bls12381 as commonware_cryptography::Signer>::PrivateKey::decode(
         hex::decode(wavs_bls_sk.as_bytes())?.as_ref(),
@@ -78,7 +78,7 @@ pub fn get_wavs_smart_account(wavs_bls_sk: String) -> Result<Bls12381, anyhow::E
 }
 
 /// Register a SignerInfo
-pub fn get_wavs_smart_acount_signer_info(pk: &PublicKey) -> SignerInfo {
+pub fn get_smart_acount_signer_info(pk: &PublicKey) -> SignerInfo {
     SignerInfo {
         public_key: Some(Any {
             type_url: "/cosmos.crypto.bls12_381.PubKey".into(),

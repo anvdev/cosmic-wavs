@@ -4,8 +4,8 @@ use anyhow::Result;
 use cosmic_wavs::{
     common::{handle_tx_response, parse_string_attribute, parse_u64_attribute},
     wavs::{
-        form_smart_acccount_tx_body, form_wavs_tx, get_wavs_smart_account,
-        get_wavs_smart_acount_signer_info, WavsBlsCosmosActionAuth,
+        form_smart_acccount_tx_body, form_wavs_tx, get_smart_account, get_smart_acount_signer_info,
+        WavsBlsCosmosActionAuth,
     },
 };
 
@@ -276,7 +276,7 @@ async fn process_burn_event(
 
         cosmic_wavs_actions.push(wavs_any_msg);
 
-        let mut imported_signer = get_wavs_smart_account(wavs_bls_sk)?;
+        let mut imported_signer = get_smart_account(wavs_bls_sk)?;
         // gete account info for our smart-account
         let smart_account = cosm_guery
             .base_account(&Address::Cosmos {
@@ -288,7 +288,7 @@ async fn process_burn_event(
             })
             .await?;
 
-        // - create sha256sum bytes that are being signed by operators for aggregated approval.
+        // Create sha256sum bytes that are being signed by operators for aggregated approval.
         // Current implementation signs binary formaated array of Any msgs being authorized.
         let msg_digest: [u8; 32] = Sha256::digest(to_json_binary(&cosmic_wavs_actions)?.as_ref())
             .to_vec()
@@ -302,7 +302,7 @@ async fn process_burn_event(
 
         // todo: if gas simulated is to be more that current x/smart-account params defined,
         // we need split messages into smaller batches to be verified.
-        let signer_info = get_wavs_smart_acount_signer_info(&imported_signer.public_key());
+        let signer_info = get_smart_acount_signer_info(&imported_signer.public_key());
         let wavs_tx_body =
             form_smart_acccount_tx_body(block_height, cosmic_wavs_actions, vec![1]).await?;
         let gas = tx_builder

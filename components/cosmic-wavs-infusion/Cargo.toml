@@ -28,7 +28,7 @@ commonware-codec = { workspace = true }
 cosmic-wavs = { workspace = true }
 cosmwasm-std = { workspace = true }
 
-# cosmos-sdk-proto = { workspace = true }
+# cosmos-sdk-proto = { workspace = true, default-features = "false" }
 cw-infuser =  {  branch= "feat/wavs", package= "cw-infuser", git  = "https://github.com/permissionlessweb/cw-infuser", features = ["library"]}
 cw-infusions =  { branch= "feat/wavs", package = "cw-infusions", git  = "https://github.com/permissionlessweb/cw-infuser"}
 layer-climb = { workspace = true }

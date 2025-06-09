@@ -24,6 +24,7 @@ MAX_GAS=${MAX_GAS:-5000000}
 FILE_LOCATION=${FILE_LOCATION:-".docker/service.json"}
 TRIGGER_EVENT=${TRIGGER_EVENT:-"NewTrigger(bytes)"}
 TRIGGER_CHAIN=${TRIGGER_CHAIN:-"local"}
+TRIGGER_ORIGIN=${TRIGGER_ORIGIN:-""}
 SUBMIT_CHAIN=${SUBMIT_CHAIN:-"local"}
 AGGREGATOR_URL=${AGGREGATOR_URL:-""}
 DEPLOY_ENV=${DEPLOY_ENV:-""}
@@ -59,8 +60,12 @@ echo "Service ID: ${SERVICE_ID}"
 WORKFLOW_ID=$($BASE_CMD workflow add | jq -r .workflow_id)
 echo "Workflow ID: ${WORKFLOW_ID}"
 
-$BASE_CMD workflow trigger --id "${WORKFLOW_ID}" set-evm --address "${TRIGGER_ADDRESS}" --chain-name "${TRIGGER_CHAIN}" --event-hash "${TRIGGER_EVENT_HASH}" > /dev/null
+if [ "$TRIGGER_ORIGIN" = "COSMOS" ]; then
 $BASE_CMD workflow trigger --id "${WORKFLOW_ID}" set-cosmos --address "${TRIGGER_ADDRESS}" --chain-name "${TRIGGER_CHAIN}" --event-hash "${TRIGGER_EVENT_HASH}" > /dev/null
+fi
+if [ "$TRIGGER_ORIGIN" = "EVM" ]; then
+$BASE_CMD workflow trigger --id "${WORKFLOW_ID}" set-evm --address "${TRIGGER_ADDRESS}" --chain-name "${TRIGGER_CHAIN}" --event-hash "${TRIGGER_EVENT_HASH}" > /dev/null
+fi
 
 # If no aggregator is set, use the default
 SUB_CMD="set-evm"

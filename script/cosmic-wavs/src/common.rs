@@ -15,7 +15,10 @@ pub fn parse_u64_attribute(attributes: &Vec<(String, String)>, key: &str) -> any
         .map_err(|_| anyhow::anyhow!(format!("Failed to parse {} attribute to u64", key)))
 }
 
-pub fn parse_string_attribute(attributes: &Vec<(String, String)>, key: &str) -> anyhow::Result<String> {
+pub fn parse_string_attribute(
+    attributes: &Vec<(String, String)>,
+    key: &str,
+) -> anyhow::Result<String> {
     attributes
         .iter()
         .find(|(k, _)| k == key)

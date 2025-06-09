@@ -1,5 +1,5 @@
-use anchor_lang::prelude::*;
 use crate::common::append_0x;
+use anchor_lang::prelude::*;
 
 #[derive(AnchorSerialize, AnchorDeserialize, PartialEq, Eq, Clone, Debug)]
 pub struct SignedClaim {

@@ -29,7 +29,7 @@ fi
 if [ "$DEPLOY_ENV" = "LOCAL" ]; then
 
 ## == setup cosmos environments ==
-if [ "$TRIGGER_ORIGIN" = "COSMOS" ]; then
+if [ "$WAVS_CLI_COSMOS_MNEMONIC" ]; then
 # configure genesis file, start cosmos node via docker image
 sh script/cosmos/setup-local-cosmos.sh
 fi
@@ -43,7 +43,7 @@ fi
   done
 
   FILES="-f docker-compose.yml -f telemetry/docker-compose.yml"
-  if [ "$TRIGGER_ORIGIN" = "COSMOS" ]; then
+  if [ "$WAVS_CLI_COSMOS_MNEMONIC" ]; then
     FILES+=" -f script/cosmos/docker-compose.yaml"
   fi
   docker compose ${FILES} pull

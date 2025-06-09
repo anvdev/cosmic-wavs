@@ -1,28 +1,15 @@
-# Cosmic-WAVS
+# [WAVS](https://docs.wavs.xyz) Monorepo Template
 
-<div align="center">
+**Template for getting started with developing WAVS applications**
 
-[![Bannger](/imgs/readme-banner.png)](https://youtu.be/jyl7kbie41w)
+A template for developing WebAssembly AVS applications using Rust and Solidity, configured for Windows *WSL*, Linux, and MacOS. The sample oracle service fetches the current price of a cryptocurrency from [CoinMarketCap](https://coinmarketcap.com) and saves it on chain via the operators.
 
-</div>
+**Languages**
+ * [Rust (this example)](./components/cosmic-wavs-infusion/)
+ * [Go](./components/golang-evm-price-oracle/README.md)
+ * [JS / TS](./components/js-evm-price-oracle/README.md)
 
-
-<div align="center">
-
-> [!WARNING]
-> **Experimental Use Only**: This template is designed for experimentation. Results may vary. This template is not intended for production use. Use at your own risk and for experimental purposes only.
-Repo template: https://github.com/Lay3rLabs/wavs-foundry-template
-
-</div>
-
-
-## Cw-Orch-Wavs
-All-in-one scripting library for deploying & testing
- 
-## Setup
-
-
-### System Requirements
+## System Requirements
 
 <details>
 <summary>Core (Docker, Compose, Make, JQ, Node v21+, Foundry)</summary>
@@ -32,12 +19,18 @@ All-in-one scripting library for deploying & testing
 
 ### Docker
 
-If prompted, remove containerd with `sudo apt remove containerd.io`.
+If prompted, remove container with `sudo apt remove containerd.io`.
 
 - **MacOS**: `brew install --cask docker`
 - **Linux**: `sudo apt -y install docker.io`
 - **Windows WSL**: [docker desktop wsl](https://docs.docker.com/desktop/wsl/#turn-on-docker-desktop-wsl-2) & `sudo chmod 666 /var/run/docker.sock`
 - [Docker Documentation](https://docs.docker.com/get-started/get-docker/)
+
+> **Note:** `sudo` is only used for Docker-related commands in this project. If you prefer not to use sudo with Docker, you can add your user to the Docker group with:
+> ```bash
+> sudo groupadd docker && sudo usermod -aG docker $USER
+> ```
+> After adding yourself to the group, log out and back in for changes to take effect.
 
 ### Docker Compose
 - **MacOS**: Already installed with Docker installer
@@ -125,6 +118,9 @@ cargo binstall cargo-component wasm-tools warg-cli wkg --locked --no-confirm --f
 # Configure default registry
 # Found at: $HOME/.config/wasm-pkg/config.toml
 wkg config --default-registry wa.dev
+
+# Allow publishing to a registry
+warg key new
 ```
 
 </details>
@@ -171,7 +167,6 @@ Now build the WASI components into the `compiled` output directory.
 
 ```bash
 # Remove `WASI_BUILD_DIR` to build all components.
-warg reset
 WASI_BUILD_DIR=components/evm-price-oracle make wasi-build
 ```
 
@@ -182,7 +177,6 @@ How to test the component locally for business logic validation before on-chain 
 ```bash
 COIN_MARKET_CAP_ID=1 make wasi-exec
 ```
- 
 
 Expected output:
 
@@ -200,25 +194,11 @@ Result (hex encoded):
 
 Result (utf8):
 {"symbol":"BTC","timestamp":"2025-04-01T00:00:00.000Z","price":82717.27035239758}
- 
-
-### Testing 
-
- After successfully building your component, it's time to test it. The following command can be used to test your component logic without deploying WAVS. Make sure to replace the placeholders with the correct inputs.
-
-```sh
-# This is the input data passed to your component
-export TRIGGER_DATA_INPUT=`cast abi-encode "f(string)" "your parameter here"`
-# The name of your compiled component
-export COMPONENT_FILENAME=your_component_name.wasm
-# If you are using an API key, make sure it is properly set in your .env file
-export SERVICE_CONFIG="'{\"fuel_limit\":100000000,\"max_gas\":5000000,\"host_envs\":[],\"kv\":[],\"workflow_id\":\"default\",\"component_id\":\"default\"}'"
-# IMPORTANT: Claude can't run this command without system permission. It is always best for the user to run this command.
-make wasi-exec
 ```
 
-## Running WAVS locally
+## WAVS
 
+> \[!NOTE]
 > If you are running on a Mac with an ARM chip, you will need to do the following:
 > - Set up Rosetta: `softwareupdate --install-rosetta`
 > - Enable Rosetta (Docker Desktop: Settings -> General -> enable "Use Rosetta for x86_64/amd64 emulation on Apple Silicon")
@@ -230,20 +210,8 @@ make wasi-exec
 ## Start Environment
  
 
-Start an Ethereum node (anvil), cosmos node (cosmos-omnibus) the WAVS service, and deploy [eigenlayer](https://www.eigenlayer.xyz/) contracts to the local network.
+Start an Ethereum node (anvil), cosmos node (docker image) the WAVS service, and deploy [eigenlayer](https://www.eigenlayer.xyz/) contracts to the local network.
 
-### Enable Telemetry (optional)
-
-Set Log Level:
-  - Open the `.env` file.
-  - Set the `log_level` variable for wavs to debug to ensure detailed logs are captured.
-
-> \[!NOTE]
-To see details on how to access both traces and metrics, please check out [Telemetry Documentation](telemetry/telemetry.md).
-
-### Start the backend
-
-```bash docci-background docci-delay-after=5
 ### Enable Telemetry (optional)
 
 Set Log Level:
@@ -262,48 +230,34 @@ cp .env.example .env
 
 # update the .env for either LOCAL or TESTNET
 
-# Starts anvil + IPFS, WARG, Jaeger, cosmos-node, and prometheus.
+# Starts anvil + IPFS, WARG, Jaeger, and prometheus.
 make start-all-local
 ```
 
 ## Create Deployer, upload Eigenlayer
 
+These sections can be run on the **same** machine, or separate for testnet environments. Run the following steps on the deployer/aggregator machine.
+
 ```bash
 # local: create deployer & auto fund. testnet: create & iterate check balance
-sh ./script/create-deployer.sh
+bash ./script/create-deployer.sh
 
 ## Deploy Eigenlayer from Deployer
-docker run --rm --network host --env-file .env -v ./.nodes:/root/.nodes ghcr.io/lay3rlabs/wavs-middleware:0.4.0-beta.6 deploy
+COMMAND=deploy make wavs-middleware
 ```
 
 ## Deploy Service Contracts
 
 **Key Concepts:**
 
-*   **WavsServiceManager** - `SERVICE_MANAGER_ADDR` is the address of the Eigenlayer service manager contract. It was deployed in the previous step.
 *   **Trigger Contract:** Any contract that emits events, then WAVS monitors. When a relevant event occurs, WAVS triggers the execution of your WebAssembly component.
 *   **Submission Contract:** This contract is used by the AVS service operator to submit the results generated by the WAVS component on-chain.
 
- After WavsServiceManager has been deployed, you deploy the trigger and submission contracts which depends on the service manager. The service manager will verify that a submission is valid (from an authorized operator) before saving it to the blockchain. The trigger contract is any arbitrary contract that emits some event that WAVS will watch for.
-
-# ## Multichain Deployment
-Wavs supports having the trigger contract deployed on a different chain than the service submission contract on the L1 *(Ethereum for now because that is where Eigenlayer is deployed)*. 
-If your looking to design your multichain wavs, ensure you replace the default deployment logic for the trigger contract with your trigger specific implementation. 
-
+`WAVS_SERVICE_MANAGER_ADDRESS` is the address of the Eigenlayer service manager contract. It was deployed in the previous step. Then you deploy the trigger and submission contracts which depends on the service manager. The service manager will verify that a submission is valid (from an authorized operator) before saving it to the blockchain. The trigger contract is any arbitrary contract that emits some event that WAVS will watch for. Yes, this can be on another chain (e.g. an L2) and then the submission contract on the L1 *(Ethereum for now because that is where Eigenlayer is deployed)*.
 
 ```bash docci-delay-per-cmd=2
-export RPC_URL=`sh ./script/get-rpc.sh`
-export DEPLOYER_PK=$(cat .nodes/deployer)
-export SERVICE_MANAGER_ADDRESS=$(jq -r '.addresses.WavsServiceManager' .nodes/avs_deploy.json)
-
-forge create SimpleSubmit --json --broadcast -r ${RPC_URL} --private-key "${DEPLOYER_PK}" --constructor-args "${SERVICE_MANAGER_ADDRESS}" > .docker/submit.json
-export SERVICE_SUBMISSION_ADDR=`jq -r '.deployedTo' .docker/submit.json`
-
-forge create SimpleTrigger --json --broadcast -r ${RPC_URL} --private-key "${DEPLOYER_PK}" > .docker/trigger.json
-export SERVICE_TRIGGER_ADDR=`jq -r '.deployedTo' .docker/trigger.json`
-
-# for cosmos chains, make use of cw-orch, connects to docker image 
-# cargo bin deploy-trigger --network local 
+# Forge deploy SimpleSubmit & SimpleTrigger
+source script/deploy-contracts.sh
 ```
 
 ## Deploy Service
@@ -311,20 +265,12 @@ export SERVICE_TRIGGER_ADDR=`jq -r '.deployedTo' .docker/trigger.json`
 Deploy the compiled component with the contract information from the previous steps. Review the [makefile](./Makefile) for more details and configuration options.`TRIGGER_EVENT` is the event that the trigger contract emits and WAVS watches for. By altering `SERVICE_TRIGGER_ADDR` you can watch events for contracts others have deployed.
 
 ```bash docci-delay-per-cmd=3
-# ** Testnet Setup: https://wa.dev/account/credentials
-#
-# If you get errors:
-# warg reset --registry http://127.0.0.1:8090
 
 export COMPONENT_FILENAME=evm_price_oracle.wasm
-export REGISTRY=`sh ./script/get-registry.sh`
 export PKG_NAME="evmrustoracle"
 export PKG_VERSION="0.1.0"
-export PKG_NAMESPACE=`sh ./script/get-wasi-namespace.sh`
-
-# Upload the component to the registry
-# local or wa.dev depending on DEPLOY_ENV in .env
-sh script/upload-to-wasi-registry.sh
+# ** Testnet Setup: https://wa.dev/account/credentials/new -> warg login
+source script/upload-to-wasi-registry.sh || true
 
 # Testnet: set values (default: local if not set)
 # export TRIGGER_CHAIN=holesky
@@ -332,45 +278,36 @@ sh script/upload-to-wasi-registry.sh
 
 # Package not found with wa.dev? -- make sure it is public
 export AGGREGATOR_URL=http://127.0.0.1:8001
-REGISTRY=${REGISTRY} sh ./script/build_service.sh
+REGISTRY=${REGISTRY} source ./script/build-service.sh
 ```
 
 ## Upload to IPFS
 
 ```bash
 # Upload service.json to IPFS
-export SERVICE_FILE=.docker/service.json
-
-# local: 127.0.0.1:5001
-# testnet: https://app.pinata.cloud/. set PINATA_API_KEY to JWT token in .env
-export ipfs_cid=`SERVICE_FILE=${SERVICE_FILE} make upload-to-ipfs`
-
-# LOCAL: http://127.0.0.1:8080
-# TESTNET: https://gateway.pinata.cloud/
-export IPFS_GATEWAY="$(sh script/get-ipfs-gateway.sh)/ipfs/"
-
-export IPFS_URI="ipfs://${ipfs_cid}"
-curl "${IPFS_GATEWAY}${ipfs_cid}"
-
-cast send ${SERVICE_MANAGER_ADDRESS} 'setServiceURI(string)' "${IPFS_URI}" -r ${RPC_URL} --private-key ${DEPLOYER_PK}
+SERVICE_FILE=.docker/service.json source ./script/ipfs-upload.sh
 ```
 
 ## Start Aggregator
 
-```bash
-sh ./script/create-aggregator.sh 1
+**TESTNET** You can move the aggregator it to its own machine for testnet deployments, it's easiest to run this on the deployer machine first. If moved, ensure you set the env variables correctly (copied and pasted from the previous steps on the other machine).
 
-IPFS_GATEWAY=${IPFS_GATEWAY} sh ./infra/aggregator-1/start.sh
+```bash
+bash ./script/create-aggregator.sh 1
+
+IPFS_GATEWAY=${IPFS_GATEWAY} bash ./infra/aggregator-1/start.sh
 
 wget -q --header="Content-Type: application/json" --post-data="{\"uri\": \"${IPFS_URI}\"}" ${AGGREGATOR_URL}/register-service -O -
 ```
 
 ## Start WAVS
 
-```bash
-sh ./script/create-operator.sh 1
+**TESTNET** The WAVS service should be run in its own machine (creation, start, and opt-in). If moved, make sure you set the env variables correctly (copy pasted from the previous steps on the other machine).
 
-IPFS_GATEWAY=${IPFS_GATEWAY} sh ./infra/wavs-1/start.sh
+```bash
+bash ./script/create-operator.sh 1
+
+IPFS_GATEWAY=${IPFS_GATEWAY} bash ./infra/wavs-1/start.sh
 
 # Deploy the service JSON to WAVS so it now watches and submits.
 # 'opt in' for WAVS to watch (this is before we register to Eigenlayer)
@@ -379,25 +316,22 @@ WAVS_ENDPOINT=http://127.0.0.1:8000 SERVICE_URL=${IPFS_URI} IPFS_GATEWAY=${IPFS_
 
 ## Register service specific operator
 
+Making test mnemonic: `cast wallet new-mnemonic --json | jq -r .mnemonic`
+
 Each service gets their own key path (hd_path). The first service starts at 1 and increments from there. Get the service ID
 
 ```bash
-export SERVICE_ID=`curl -s http://localhost:8000/app | jq -r '.services[0].id'`
-export HD_INDEX=`curl -s http://localhost:8000/service-key/${SERVICE_ID} | jq -rc '.secp256k1.hd_index'`
+SERVICE_INDEX=0 source ./script/avs-signing-key.sh
 
-source infra/wavs-1/.env
-export AVS_PRIVATE_KEY=`cast wallet private-key --mnemonic-path "$WAVS_SUBMISSION_MNEMONIC" --mnemonic-index ${HD_INDEX}`
-
-# Register the operator with the WAVS service manager
-export SERVICE_MANAGER_ADDRESS=`jq -r '.addresses.WavsServiceManager' .nodes/avs_deploy.json`
-DELEGATION=0.001ether AVS_PRIVATE_KEY=${AVS_PRIVATE_KEY} make V=1 operator-register
+# TESTNET: set WAVS_SERVICE_MANAGER_ADDRESS
+export WAVS_SERVICE_MANAGER_ADDRESS=$(jq -r .addresses.WavsServiceManager ./.nodes/avs_deploy.json)
+COMMAND="register ${OPERATOR_PRIVATE_KEY} ${AVS_SIGNING_ADDRESS} 0.001ether" make wavs-middleware
 
 # Verify registration
-SERVICE_MANAGER_ADDRESS=${SERVICE_MANAGER_ADDRESS} make operator-list
+COMMAND="list_operator" PAST_BLOCKS=500 make wavs-middleware
 ```
 
 ## Trigger the Service
-todo: implmeent description for triggering service via nft mint
 
 Anyone can now call the [trigger contract](./src/contracts/WavsTrigger.sol) which emits the trigger event WAVS is watching for from the previous step. WAVS then calls the service and saves the result on-chain.
 
@@ -425,50 +359,6 @@ RPC_URL=${RPC_URL} make get-trigger
 
 ```bash docci-delay-per-cmd=2 docci-output-contains="BTC"
 TRIGGER_ID=1 RPC_URL=${RPC_URL} make show-result
-```
-
-## Update Threshold
-
-```bash docci-ignore
-export ECDSA_CONTRACT=`cat .nodes/avs_deploy.json | jq -r '.addresses.stakeRegistry'`
-
-TOTAL_WEIGHT=`cast call ${ECDSA_CONTRACT} "getLastCheckpointTotalWeight()(uint256)" --rpc-url ${RPC_URL} --json | jq -r '.[0]'`
-TWO_THIRDS=`echo $((TOTAL_WEIGHT * 2 / 3))`
-
-cast send ${ECDSA_CONTRACT} "updateStakeThreshold(uint256)" ${TWO_THIRDS} --rpc-url ${RPC_URL} --private-key ${FUNDED_KEY}
-
-make operator-list
-```
-
-# Claude Code
-
-To spin up a sandboxed instance of [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) in a Docker container that only has access to this project's files, run the following command:
-
-```bash docci-ignore
-npm run claude-code
-# or with no restrictions (--dangerously-skip-permissions)
-npm run claude-code:unrestricted
-```
-
-```bash docci-delay-per-cmd=2 docci-output-contains="1"
-RPC_URL=${RPC_URL} make get-trigger
-```
-
-```bash docci-delay-per-cmd=2 docci-output-contains="BTC"
-TRIGGER_ID=1 RPC_URL=${RPC_URL} make show-result
-```
-
-## Update Threshold
-
-```bash docci-ignore
-export ECDSA_CONTRACT=`cat .nodes/avs_deploy.json | jq -r '.addresses.stakeRegistry'`
-
-TOTAL_WEIGHT=`cast call ${ECDSA_CONTRACT} "getLastCheckpointTotalWeight()(uint256)" --rpc-url ${RPC_URL} --json | jq -r '.[0]'`
-TWO_THIRDS=`echo $((TOTAL_WEIGHT * 2 / 3))`
-
-cast send ${ECDSA_CONTRACT} "updateStakeThreshold(uint256)" ${TWO_THIRDS} --rpc-url ${RPC_URL} --private-key ${FUNDED_KEY}
-
-make operator-list
 ```
 
 # Claude Code

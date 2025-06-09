@@ -1,32 +1,38 @@
 // Required imports
 use alloy_sol_types::{sol, SolValue};
 use anyhow::Result;
-use layer_climb::proto::tx::{SignerInfo, Tx};
+use cosmic_wavs::{
+    common::{handle_tx_response, parse_string_attribute, parse_u64_attribute},
+    wavs::{
+        form_smart_acccount_tx_body, form_wavs_tx, get_wavs_smart_account,
+        get_wavs_smart_acount_signer_info, WavsBlsCosmosActionAuth,
+    },
+};
+
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{to_base64, to_json_binary};
 use cw_infusions::wavs::WavsBundle;
 
 use layer_climb::prelude::*;
-use layer_climb::proto::{
-    tx::{AuthInfo, BroadcastMode, Fee, TxBody},
-    wasm::MsgExecuteContract,
-    Any, MessageExt,
-};
+use layer_climb::proto::{tx::BroadcastMode, wasm::MsgExecuteContract, Any, MessageExt};
 
-use commonware_codec::extensions::DecodeExt;
-use commonware_cryptography::{Bls12381, Signer};
+use commonware_cryptography::Signer;
 use sha2::{Digest, Sha256};
 
 use wavs_wasi_utils::decode_event_log_data;
 use wstd::runtime::block_on;
 
 pub mod bindings; // Never edit bindings.rs!
-use crate::bindings::host::get_cosmos_chain_config;
-use crate::bindings::wavs::worker::layer_types::{
-    TriggerData, TriggerDataCosmosContractEvent, TriggerDataEthContractEvent,
+
+use crate::bindings::{
+    export,
+    host::get_cosmos_chain_config,
+    wavs::worker::layer_types::{
+        TriggerData, TriggerDataCosmosContractEvent, TriggerDataEthContractEvent,
+    },
+    Guest, TriggerAction,
 };
-use crate::bindings::{export, Guest, TriggerAction};
 
 // Define destination for output
 pub enum Destination {
@@ -51,55 +57,6 @@ mod solidity {
 
     sol!("../../src/interfaces/ITypes.sol");
 }
-pub const CURRENT_CHAIN_COSMOS: &str = "layer-local";
-pub const CURRENT_CHAIN_ETH: &str = "local";
-pub const WAVS_CW_INFUSER: &str = "stars1...";
-pub const WAVS_BLS_PRIVATE_KEY: &str = "";
-pub const WAVS_SECP256k1_MNEMONIC: &str = "";
-pub const WAVS_INFUSER_OPERATOR_ADDR: &str = "";
-
-// Data structures for tracking infusion services and burn events
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct BurnRequirement {
-    collection_address: String,
-    count: u64,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct InfusionService {
-    id: String,
-    minter_contract_address: String,
-    collection_name: String,
-    burn_requirements: Vec<BurnRequirement>,
-    created_at: u64,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct BurnRecord {
-    user_address: String,
-    collection_address: String,
-    token_id: String,
-    timestamp: u64,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct WavsBlsCosmosActionAuth {
-    /// b2 point for operator public key
-    pubkey_g2: String,
-    /// base64 encoded sha256sum hash of msg being signed
-    base64_msg_hash: String,
-    /// msg that bls12 private key is signing
-    msg: Vec<u8>,
-    ///
-    signature: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct UserBurnSummary {
-    user_address: String,
-    burns_by_collection: std::collections::HashMap<String, u64>,
-    last_updated: u64,
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ServiceResponse {
@@ -108,14 +65,6 @@ pub struct ServiceResponse {
     data: Option<WavsBlsCosmosActionAuth>,
 }
 
-/// TxExtension allows for additional authenticator-specific data in
-/// transactions.
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, Serialize, Deserialize, PartialEq)]
-pub struct TxExtension {
-    pub selected_authenticators: Vec<u64>,
-}
-pub const TX_EXTENSION_TYPE: &str = "/bitsong.smartaccount.v1beta1.TxExtension";
 // Component struct declaration
 struct Component;
 export!(Component with_types_in bindings);
@@ -137,11 +86,13 @@ impl Guest for Component {
                     .map_err(|e| format!("Failed to deserialize token-id burnt: {}", e))?;
                 let burner = String::from_utf8(vec![req[2]])
                     .map_err(|e| format!("Failed to deserialize bundle burner: {}", e))?;
+                let chain = String::from_utf8(vec![req[3]])
+                    .map_err(|e| format!("Failed to deserialize bundle burner: {}", e))?;
 
                 // a. retrieve registered cw-infuser contract stored in solidity contract
                 // let cw_infuser = CW_INFUSER_ADDR;
 
-                let cosm = get_cosmos_chain_config(CURRENT_CHAIN_COSMOS)
+                let cosm = get_cosmos_chain_config(&chain)
                     .ok_or_else(|| {
                         anyhow::anyhow!("Failed to get Cosmos chain config for layer-local")
                     })
@@ -202,25 +153,15 @@ pub fn decode_trigger_event(
                     if let Some(action_attr) = event.attributes.iter().find(|(k, _)| k == "action")
                     {
                         if action_attr.1 == "burn" {
-                            let sender = event
-                                .attributes
-                                .iter()
-                                .find(|(k, _)| k == "sender")
-                                .map(|(_, v)| v.clone())
-                                .ok_or(anyhow::anyhow!("Missing sender attribute"))?;
-                            let token_id = event
-                                .attributes
-                                .iter()
-                                .find(|(k, _)| k == "token_id")
-                                .map(|(_, v)| v.clone())
-                                .ok_or(anyhow::anyhow!("Missing token_id attribute"))?
-                                .parse::<u64>()?;
+                            let sender = parse_string_attribute(&event.attributes, "sender")?;
+                            let token_id = parse_u64_attribute(&event.attributes, "token_id")?;
 
                             // Return the burn event data
                             let data = vec![
                                 contract_address.bech32_addr.as_bytes().to_vec(),
                                 token_id.to_be_bytes().to_vec(),
                                 sender.as_bytes().to_vec(),
+                                chain_name.as_bytes().to_vec(),
                             ]
                             .into_iter()
                             .flatten()
@@ -277,24 +218,30 @@ async fn process_burn_event(
         gas_price,
         gas_denom,
     };
-
+    //
     // // get operator signing key
-    let mnemonic = std::env::var(WAVS_SECP256k1_MNEMONIC)
-        .expect("Missing 'WAVS_SECP256k1_MNEMONIC' in environment.");
+    let mnemonic =
+        std::env::var("WAVS_SECP256k1_MNEMONIC").expect("Missing 'WAVS_SECP256k1_MNEMONIC'");
+    let wavs_bls_sk = std::env::var("WAVS_BLS_PK").expect("Missing 'WAVS_BLS_PK'");
+
     let op_secp256k1_signing_key = KeySigner::new_mnemonic_str(&mnemonic, None).unwrap();
     let secp256k1pubkey = op_secp256k1_signing_key.public_key().await?;
 
-    // // create signing client: TODO: make use of bls12 pubkeys for signing implementation
+    let wavs_smart_acc_env =
+        std::env::var("WAVS_SMART_ACC_PK").expect("Missing 'WAVS_SMART_ACC_PK'");
+    let wavs_smart_acc_pk =
+        PublicKey::from_raw_secp256k1(wavs_smart_acc_env.as_ref()).expect("should always exists");
+    let wavs_smart_acccount_addr = chain_config.address_from_pub_key(&wavs_smart_acc_pk)?;
+
+    // create signing client: TODO: make use of bls12 pubkeys for signing implementation
     let cosm_signing_client: SigningClient =
         SigningClient::new(chain_config.clone(), op_secp256k1_signing_key, None).await?;
     let cosm_guery = cosm_signing_client.querier.clone();
+    let tx_builder = cosm_signing_client.tx_builder();
 
-    // // TODO: get cw-infuser contracts & params registered when creating the service
-    // // let eth =    (&CURRENT_CHAIN_ETH)
-    // //     .ok_or_else(|| anyhow::anyhow!("Failed to get Eth chain config for local"))?;
-    let cw_infuser_addr = WAVS_CW_INFUSER;
+    let cw_infuser_addr = std::env::var("WAVS_CW_INFUSER").expect("Missing 'WAVS_CW_INFUSER'");
 
-    // // 2.query contract the check if operators need to update assigned cw-infuser state
+    //  query contract the check if operators need to update assigned cw-infuser state
     let on_chain_conditional: Vec<cw_infusions::wavs::WavsRecordResponse> = cosm_guery
         .contract_smart(
             &Address::new_cosmos_string(&cw_infuser_addr, None)?,
@@ -305,10 +252,10 @@ async fn process_burn_event(
         )
         .await?;
 
-    // 3. form msgs for operators to sign
+    // form msgs for operators to sign
     let mut infusions = vec![];
     for record in on_chain_conditional {
-        if let Some(count) = record.count {
+        if let Some(_c) = record.count {
             infusions.push(WavsBundle {
                 infuser: burner.to_string(),
                 nft_addr: record.addr,
@@ -320,7 +267,7 @@ async fn process_burn_event(
     // 4. perform workflow to sign msg the operator set is authorizing to perform
     if infusions.len() > 0 {
         let wavs_any_msg = Any::from_msg(&MsgExecuteContract {
-            sender: WAVS_INFUSER_OPERATOR_ADDR.into(), // wavs secp256k1 key address registered to x/accounts with bls12 authenticator
+            sender: wavs_smart_acccount_addr.to_string(), // wavs secp256k1 key address registered to x/accounts with bls12 authenticator
             contract: cw_infuser_addr.to_string(),
             msg: to_json_binary(&cw_infuser::msg::ExecuteMsg::WavsEntryPoint { infusions })?
                 .to_vec(),
@@ -328,39 +275,18 @@ async fn process_burn_event(
         })?;
 
         cosmic_wavs_actions.push(wavs_any_msg);
-        // Import the bls12-381 private key
-        let bls_key_pair = match <Bls12381 as commonware_cryptography::Signer>::PrivateKey::decode(
-            hex::decode(WAVS_BLS_PRIVATE_KEY.as_bytes())?.as_ref(),
-        ) {
-            Ok(key) => key,
-            Err(e) => {
-                return Err(e.into());
-            }
-        };
-        // Create a signer from the imported key
-        let mut imported_signer = <Bls12381 as commonware_cryptography::Signer>::from(bls_key_pair)
-            .expect("broken private key");
 
+        let mut imported_signer = get_wavs_smart_account(wavs_bls_sk)?;
         // gete account info for our smart-account
         let smart_account = cosm_guery
             .base_account(&Address::Cosmos {
                 bech32_addr: chain_config
                     .address_kind
-                    .address_from_pub_key(&secp256k1pubkey)?
+                    .address_from_pub_key(&wavs_smart_acc_pk)?
                     .to_string(),
                 prefix_len: 7usize,
             })
             .await?;
-
-        // signer info. This demo implements the signing info for single wav operator bls12 keys
-        let signer_info = SignerInfo {
-            public_key: Some(Any {
-                type_url: "/cosmos.crypto.bls12_381.PubKey".into(),
-                value: imported_signer.public_key().to_vec(),
-            }),
-            mode_info: None,
-            sequence: 0,
-        };
 
         // - create sha256sum bytes that are being signed by operators for aggregated approval.
         // Current implementation signs binary formaated array of Any msgs being authorized.
@@ -370,62 +296,31 @@ async fn process_burn_event(
             .unwrap();
 
         // let namespace = Some(&b"additional_namespace. Commonware library already generates hash with standard dst"[..]);
-        let signature = imported_signer.sign(None, &msg_digest).to_vec();
         // push signature to array of operator bls signatures
+        let signature = imported_signer.sign(None, &msg_digest).to_vec();
         signatures.push(signature.clone());
 
-        // generate message to broadcast with use of the x/smart-account function
-        let wavs_broadcast_msg: TxBody = TxBody {
-            messages: cosmic_wavs_actions,
-            memo: "Cosmic Wavs Account Action".into(),
-            timeout_height: 100u64,
-            extension_options: vec![],
-            non_critical_extension_options: vec![Any {
-                type_url: TX_EXTENSION_TYPE.into(),
-                value: to_json_binary(&TxExtension { selected_authenticators: vec![1] })?.to_vec(),
-            }]
-            .to_vec(),
-        };
-        // simulate the gas consumed.
         // todo: if gas simulated is to be more that current x/smart-account params defined,
-        //       we need split messages into smaller batches to be verified.
-        let gas = cosm_signing_client
-            .clone()
-            .tx_builder()
-            .simulate_gas(signer_info.clone(), smart_account.account_number, &wavs_broadcast_msg)
+        // we need split messages into smaller batches to be verified.
+        let signer_info = get_wavs_smart_acount_signer_info(&imported_signer.public_key());
+        let wavs_tx_body =
+            form_smart_acccount_tx_body(block_height, cosmic_wavs_actions, vec![1]).await?;
+        let gas = tx_builder
+            .simulate_gas(signer_info.clone(), smart_account.account_number, &wavs_tx_body)
             .await?;
-
-        let fee = Fee {
-            amount: vec![Coin { denom: "ubtsg".into(), amount: 100u64.to_string() }],
-            gas_limit: gas.gas_used * 2,
-            payer: "".to_string(), // wavs operated account
-            granter: "".to_string(),
-        };
-
         signer_infos.push(signer_info);
 
-        //  SIGN_MODE_DIRECT
-        let wavs_request = Tx {
-            body: Some(wavs_broadcast_msg),
-            auth_info: Some(AuthInfo { signer_infos, fee: Some(fee), tip: None }),
-            signatures, // added array of bls signatures
-        };
-
         // 5.handle transaction response (out of gas,edge case error)
-        let cosm_res = cosm_signing_client
-            .tx_builder()
+        let cosm_res = tx_builder
             .querier
-            .broadcast_tx_bytes(wavs_request.to_bytes()?, BroadcastMode::Sync)
+            .broadcast_tx_bytes(
+                form_wavs_tx(wavs_tx_body, gas.gas_used, signer_infos, signatures)
+                    .await?
+                    .to_bytes()?,
+                BroadcastMode::Sync,
+            )
             .await?;
-
-        match cosm_res.code() {
-            0 => {
-                // successful response
-            }
-            _ => {
-                // errors
-            }
-        }
+        handle_tx_response(cosm_res.code(), cosm_res.raw_log())?;
 
         // form object to use with  other operators
         let service_res = WavsBlsCosmosActionAuth {

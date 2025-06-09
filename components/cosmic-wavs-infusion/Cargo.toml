@@ -25,6 +25,7 @@ commonware-codec = { workspace = true }
 
  
 # cosmwasm crates
+cosmic-wavs = { workspace = true }
 cosmwasm-std = { workspace = true }
 
 # cosmos-sdk-proto = { workspace = true }

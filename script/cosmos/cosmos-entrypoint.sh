@@ -43,7 +43,7 @@ echo "Checking for configuration files in $CONFIG_SRC..."
 for file in genesis.json priv_validator_key.json node_key.json app.toml config.toml; do
   if [ -f "$CONFIG_SRC/$file" ]; then
     echo "Moving $file from $CONFIG_SRC to $CONFIG_DIR..."
-    mv "$CONFIG_SRC/$file" "$CONFIG_DIR/$file"
+    cp "$CONFIG_SRC/$file" "$CONFIG_DIR/$file"
   else
     echo "Warning: $file not found in $CONFIG_SRC, using default initialized file."
   fi

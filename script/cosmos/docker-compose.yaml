@@ -7,6 +7,7 @@ services:
       - "26656:26656" # P2P port  
       - "26657:26657" # RPC port  
       - "1317:1317"   # REST API 
+      - "8090:8016"   # GRPC API 
     environment:
       - MONIKER=Bitsong Node
     volumes:

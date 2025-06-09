@@ -6,11 +6,16 @@
 
 </div>
 
+## TODO:
+- **Registeer + Updating Keys For Operator Sets**
+- **Allowing New Operator Seervices To Join: Permissionless Servicec**
+- **Wire In Fee Distribution/Claiming/Slashing Mecchanisms for operators & consumers**
+-**Round Robin + Bls Verification:** Prior to submitting the ipfs result, we can perform the workflow to determine who the msg broadcaster is for a given set of bls operator keys, as well as broadcast the msg, and at minimum include the tx hash that has been deployed,share back to the rest of the operator services.
 
 ## Goals
-- Track cosmwasm nft burn events emitted from Cosmos Chain
-- Authentication action to perform via Wavs operator keys
-- Broadcast authorized action to Cosmos Chain
+<!-- - Track cosmwasm nft burn events emitted from Cosmos Chain -->
+- Authentication action to be performed by a single on-chain acccount, via Aggregated avs operator key consensus
+- Broadcast authorized action to a cosmos chain via programmable methods
 
 ## Design 
 
@@ -41,7 +46,7 @@ TriggerData::CosmosContractEvent(TriggerDataCosmosContractEvent {event,..}) => {
 
 We can also implement custom logic, such as deterministic queries to determine any msgs that the AVS should perform:
 ```rs
- // 2.query contract the check if operators need to update assigned cw-infuser state
+ // 2. query a  smart contract with a query clieent to check if operators need to update assigned cw-infuser state
     let res: Vec<cw_infusions::wavs::WavsRecordResponse> = cosm_guery
         .contract_smart(
             &Address::new_cosmos_string(&cw_infuser_addr, None)?,
@@ -83,16 +88,11 @@ let signature = imported_signer
 We still need to handle error responses, in order to resubmit transactions via governance override.
 We still need to implement aggregated consensus if there are more than one operator.
 
+## Aggregated Consensus 
+Currently, results of triggers are submittedby all operators to ipfs, and then aggregated & verified by an aggregator. Since operator & aggregator logic livves in the same codebase, any of the operators could  be cchosen to perform the aggregation and authentication workflow for bls key signature. A few examples of determining a services round aggregator could be:
+- Round robin
+- Supreme leader
+- Voting Power
+- Random
+- Early Bird Incentives
 
-## Workflow (using cw-orch)
-We need to configure our operator to listen for events coming from a cosmos node endpoints, we need to define the endpoints to listen to, or deploy a local node. 
-
-First, we make use of an env variable to specify what the trigger origin is
-```
-TRIGGER_ORIGIN=cosmos
-```
-
-Then we deploy a local cosmos node if testing locally. Otherwise, we connect our client to an endpoint on the netowrk configured.
-This step is managed during the `start_all_local` command. 
-
-### St

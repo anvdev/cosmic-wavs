@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
 use btsg_account_scripts::deploy::btsg_wavs::BtsgWavsAuth;
 use cosmic_wavs::smart_accounts::{
-    setup_wavs_smart_account, CosmwasmAuthenticatorInitData, MsgAddAuthenticator,
+    default_msg_add_authenticator_wasm, setup_wavs_smart_account, CosmwasmAuthenticatorInitData,
+    MsgAddAuthenticator,
 };
 use cosmwasm_std::{to_json_binary, Decimal};
 use cw_orch::{
@@ -45,6 +46,7 @@ fn main() -> Result<()> {
     dotenv::from_path(Path::new(".env")).ok();
     env::vars().into_iter().for_each(|a| println!("Mnemonic: {},{}", a.0, a.1));
     let wavs_mnemonic = env::var("WAVS_CONTROLLER_MNEMONIC")?;
+
     let network = env::var("WAVS_NETWORK")?;
 
     let cosmos_chain = match network.as_str() {
@@ -56,7 +58,6 @@ fn main() -> Result<()> {
     .to_owned();
 
     let rt = Runtime::new().expect("Failed to create tokio runtime");
-
     let cosmos =
         DaemonBuilder::new(cosmos_chain).handle(rt.handle()).mnemonic(wavs_mnemonic).build()?;
 
@@ -67,15 +68,11 @@ fn main() -> Result<()> {
     let res = cosmos.commit_any(
         vec![setup_wavs_smart_account(
             "bitsong",
-            MsgAddAuthenticator {
-                sender: cosmos.sender().pub_addr_str(),
-                authenticator_type: "CosmwasmAuthenticatorV1".into(),
-                data: to_json_binary(&CosmwasmAuthenticatorInitData {
-                    contract: btsgwavs.address()?.into(),
-                    params: vec![],
-                })?
-                .to_vec(),
-            },
+            default_msg_add_authenticator_wasm(
+                cosmos.sender().pub_addr_str(),
+                btsgwavs.addr_str()?,
+                vec![],
+            )?,
         )?],
         "Tuning account to the Cosmic Wavs Frequency...".into(),
     )?;

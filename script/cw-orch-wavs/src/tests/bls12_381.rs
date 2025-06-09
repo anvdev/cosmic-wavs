@@ -310,7 +310,7 @@ fn aggregate_verify_wrong_public_keys<V: Variant>() {
     let result = aggregate_verify_multiple_public_keys::<V, _>(
         &wrong_pks,
         Some(namespace),
-        message,
+        message,    
         &aggregate_sig,
     );
     assert!(matches!(

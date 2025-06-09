@@ -22,6 +22,6 @@ for makefile_path in $MAKEFILE_DIRS; do
         parent_dir=$(dirname "$makefile_path")
         make -s -C "$parent_dir" $RECIPE
     else
-        echo "Recipe '$RECIPE' not found in $dir"
+        echo "Recipe '$RECIPE' not found in $makefile_path"
     fi;
 done

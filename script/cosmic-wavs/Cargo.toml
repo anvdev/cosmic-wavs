@@ -11,21 +11,17 @@ anyhow = { workspace = true }
 log  = "0.4.22"
 
 # cosmos 
-cosmrs  = { workspace = true }
-serde = { workspace = true }
+cosmos-sdk-proto  = { workspace = true }
 cosmwasm-schema  = { workspace = true }
-prost-types  = { workspace = true }
 cosmwasm-std   = { workspace = true }
 cosmwasm-crypto  = { version = "2.1.4",  default-features = false }
-anchor-lang = "0.31.1"
  
+serde = { workspace = true }
+prost-types  = { workspace = true }
+anchor-lang = "0.31.1"
 
+sha2 = "0.10.9"
 hex = { version = "0.4", features = ["serde"] }
 commonware-cryptography = { workspace = true }
 commonware-codec = { workspace = true }
 rand = "0.8.5"
-
-# use for local-development
- 
-# eth 
-# wavs
